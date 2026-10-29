@@ -25,6 +25,7 @@ final class ScreenshotService: ObservableObject {
 
     private var overlay: ScreenshotOverlayController?
     private var scrolling: ScreenshotScrollingSession?
+    private var preview: ScreenshotPreviewController?
 
     private init() {}
 
@@ -38,6 +39,7 @@ final class ScreenshotService: ObservableObject {
             hotkeys.actions[.captureOverlay] = nil
             hotkeys.actions[.captureFullScreen] = nil
             cancelOverlay()
+            preview?.close()
         }
         hotkeys.sync()
     }
@@ -153,6 +155,10 @@ final class ScreenshotService: ObservableObject {
             fail(L10n.shared.s.screenshotCaptureFailed)
             return
         }
+        if defaults.bool(forKey: DefaultsKey.screenshotShowPreview) {
+            showPreview(image, png: png, copy: copy)
+            return
+        }
         var outcome: Outcome = .copied
         if save {
             switch Self.write(png, to: Self.saveFolder) {
@@ -169,6 +175,44 @@ final class ScreenshotService: ObservableObject {
         if save || copy {
             lastOutcome = outcome
         }
+    }
+
+    /// With the preview on, only the copy is automatic. The file is written
+    /// when Save is pressed there; closing the preview keeps nothing on disk.
+    /// A new capture replaces a preview still on screen.
+    private func showPreview(_ image: CGImage, png: Data, copy: Bool) {
+        preview?.close()
+        if copy {
+            copyToClipboard(image, png: png)
+            lastOutcome = .copied
+        }
+        let controller = ScreenshotPreviewController(
+            image: image, copied: copy,
+            perform: { [weak self] action in
+                guard let self else { return false }
+                switch action {
+                case .save:
+                    switch Self.write(png, to: Self.saveFolder) {
+                    case .success(let url):
+                        self.lastOutcome = .saved(url)
+                        return true
+                    case .failure:
+                        self.fail(L10n.shared.s.screenshotFolderUnavailable)
+                        return false
+                    }
+                case .copy:
+                    self.copyToClipboard(image, png: png)
+                    self.lastOutcome = .copied
+                    return true
+                case .discard:
+                    // Nothing was written: Save closes the preview, so a
+                    // discard never has a file to remove.
+                    return true
+                }
+            },
+            onClose: { [weak self] in self?.preview = nil })
+        preview = controller
+        controller.show()
     }
 
     private func fail(_ message: String) {

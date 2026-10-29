@@ -51,6 +51,7 @@ private struct ScreenshotSettingsTab: View {
     @AppStorage(DefaultsKey.screenshotSaveToFile) private var saveToFile = true
     @AppStorage(DefaultsKey.screenshotCopyToClipboard) private var copyToClipboard = true
     @AppStorage(DefaultsKey.screenshotSaveFolder) private var saveFolder = ""
+    @AppStorage(DefaultsKey.screenshotShowPreview) private var showPreview = true
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -71,7 +72,14 @@ private struct ScreenshotSettingsTab: View {
             }
 
             Section(s.screenshotAfterTitle) {
-                Toggle(s.screenshotSaveToFile, isOn: $saveToFile)
+                Toggle(s.screenshotShowPreview, isOn: $showPreview)
+                if showPreview {
+                    Text(s.screenshotPreviewSavesOnly)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Toggle(s.screenshotSaveToFile, isOn: $saveToFile)
+                }
                 HStack {
                     Text(s.screenshotFolder)
                     Spacer(minLength: 8)
@@ -84,14 +92,14 @@ private struct ScreenshotSettingsTab: View {
                         Button(s.screenshotUseDesktop) { saveFolder = "" }
                     }
                 }
-                .disabled(!saveToFile)
-                if saveToFile, !ScreenshotService.saveFolderIsUsable() {
+                .disabled(!saveToFile && !showPreview)
+                if saveToFile || showPreview, !ScreenshotService.saveFolderIsUsable() {
                     Label(s.screenshotFolderUnavailable, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
                 Toggle(s.screenshotCopyToClipboard, isOn: $copyToClipboard)
-                if !saveToFile, !copyToClipboard {
+                if !showPreview, !saveToFile, !copyToClipboard {
                     Label(s.screenshotNothingHappens, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
