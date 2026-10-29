@@ -323,9 +323,12 @@ struct ScreenshotEditorView: View {
     private func drawCropChrome(_ cg: CGContext, canvasSize: CGSize, zoom: CGFloat) {
         guard model.tool == .crop, let draft = model.cropDraft else { return }
         let scale = model.scale
+        // Image space starts inside the backdrop margin; the dim covers the
+        // whole canvas, and on a backdrop the image clip keeps it on the card.
+        let pad = model.backdropPaddingPixels
         cg.setFillColor(CGColor(gray: 0, alpha: 0.45))
         cg.beginPath()
-        cg.addRect(CGRect(x: 0, y: 0, width: canvasSize.width / zoom, height: canvasSize.height / zoom))
+        cg.addRect(CGRect(x: -pad, y: -pad, width: canvasSize.width / zoom, height: canvasSize.height / zoom))
         cg.addRect(draft)
         cg.fillPath(using: .evenOdd)
         cg.setStrokeColor(CGColor(gray: 1, alpha: 0.95))
@@ -396,7 +399,8 @@ struct ScreenshotEditorView: View {
         let size = Self.cropLoupeSize
         let half = size / 2
         let gap: CGFloat = 14
-        let anchor = CGPoint(x: point.x * zoom, y: point.y * zoom)
+        let pad = model.backdropPaddingPixels
+        let anchor = CGPoint(x: (point.x + pad) * zoom, y: (point.y + pad) * zoom)
         var x = anchor.x + half + gap
         var y = anchor.y - half - gap
         if x + half > canvasSize.width { x = anchor.x - half - gap }
