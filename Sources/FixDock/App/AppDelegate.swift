@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         done
         kill -0 "$1" 2>/dev/null || /usr/bin/open "$2"
         """
-        try? DetachedProcess.spawn("/bin/sh", ["-c", script, "fixdock-relaunch", pid, path])
+        _ = try? DetachedProcess.spawn("/bin/sh", ["-c", script, "fixdock-relaunch", pid, path])
         NSApp.terminate(nil)
     }
 

@@ -55,7 +55,7 @@ struct PanelURLCleanerView: View {
             Toggle(s.urlCleanerEnable, isOn: $autoClean)
                 .toggleStyle(.checkbox)
                 .font(.system(size: 11.5, weight: .medium))
-                .onChange(of: autoClean) { _ in
+                .onChange(of: autoClean) { _, _ in
                     URLCleanerService.shared.syncWithPreferences()
                 }
             Text(s.urlCleanerEnableCaption)
