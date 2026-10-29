@@ -83,7 +83,11 @@ struct FeatureRow: View {
             Spacer(minLength: 8)
             if showsInstallButton {
                 Button(feature.isAvailable ? strings.featuresRemove : strings.featuresInstall) {
-                    runtime.setAvailable([feature], !feature.isAvailable)
+                    let turningOn = !feature.isAvailable
+                    runtime.setAvailable([feature], turningOn)
+                    if turningOn, feature == .urlCleaner {
+                        SettingsNavigation.shared.page = .urlCleaner
+                    }
                 }
                 .controlSize(.small)
             }

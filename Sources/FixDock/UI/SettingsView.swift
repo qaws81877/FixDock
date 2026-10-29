@@ -6,7 +6,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, features, shortcut, permissions, about
+    case general, features, urlCleaner, shortcut, permissions, about
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return strings.tabGeneral
         case .features: return strings.tabFeatures
+        case .urlCleaner: return strings.featureURLCleanerName
         case .shortcut: return strings.tabShortcut
         case .permissions: return strings.tabPermissions
         case .about: return strings.tabAbout
@@ -30,12 +31,19 @@ final class SettingsNavigation: ObservableObject {
 struct SettingsView: View {
     @ObservedObject private var navigation = SettingsNavigation.shared
     @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var runtime = FeatureRuntime.shared
+
+    private var pages: [SettingsPage] {
+        SettingsPage.allCases.filter { page in
+            page != .urlCleaner || AppFeature.urlCleaner.isAvailable
+        }
+    }
 
     var body: some View {
         let strings = l10n.s
         HStack(spacing: 0) {
             List(selection: $navigation.page) {
-                ForEach(SettingsPage.allCases) { page in
+                ForEach(pages) { page in
                     Text(page.title(strings)).tag(page)
                 }
             }
@@ -49,6 +57,11 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 480)
+        .onChange(of: runtime.revision) { _ in
+            if navigation.page == .urlCleaner, !AppFeature.urlCleaner.isAvailable {
+                navigation.page = .features
+            }
+        }
     }
 
     @ViewBuilder
@@ -56,6 +69,7 @@ struct SettingsView: View {
         switch navigation.page {
         case .general: GeneralSettingsPage()
         case .features: FeatureHubList(showsInstallButtons: true)
+        case .urlCleaner: URLCleanerSettings()
         case .shortcut: ShortcutRecorder().settingsCard()
         case .permissions: PermissionsSettingsPage()
         case .about: AboutSettingsPage()

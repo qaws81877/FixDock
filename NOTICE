@@ -37,11 +37,13 @@ Modifications in this tree, relative to that upstream commit:
   mixer, the system monitor, fan control, the notch, window, Dock, and
   switcher tools, mouse and scroll tools, Homebrew, app updates, the
   uninstaller, ports, wallpaper, and agent usage.
-- The eight tools planned for later steps are listed in the catalog and
-  can be marked installed, but their modules are not in this build and
-  do not run. Order: URL cleaner, quit/close protection, cleaning mode,
-  text snippets, AirDrop auto-zip (new; not in upstream), cleaner,
-  screenshot, screen recorder.
+- URL cleaner is included, adapted from upstream. It rewrites copied
+  links on this Mac and does not send them anywhere.
+- The other planned tools are listed in the catalog and can be marked
+  installed, but their modules are not in this build and do not run.
+  Order after URL cleaner: quit/close protection, cleaning mode, text
+  snippets, AirDrop auto-zip (new; not in upstream), cleaner, screenshot,
+  screen recorder.
 - Menu-bar positioning is the system popover. The upstream drift
   correction and extra status items were not carried over.
 - Kept English and Korean only.

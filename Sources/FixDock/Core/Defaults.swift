@@ -11,6 +11,10 @@ enum DefaultsKey {
     static let onboardingComplete = "onboardingComplete"
     static let launchAtLoginWanted = "launchAtLoginWanted"
     static let panelShortcut = "panelShortcut"
+    static let urlCleanerEnabled = "urlCleanerEnabled"
+    static let urlCleanerCustomParameters = "urlCleanerCustomParameters"
+    static let urlCleanerSiteParameters = "urlCleanerSiteParameters"
+    static let urlCleanerDisabledParameters = "urlCleanerDisabledParameters"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }

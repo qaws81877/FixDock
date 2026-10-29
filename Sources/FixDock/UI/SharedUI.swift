@@ -24,6 +24,46 @@ struct KeyCap: View {
     }
 }
 
+/// A disclosure header where the whole row toggles the group and the chevron
+/// sits on the trailing side. Adapted from the upstream settings rows.
+struct DisclosureHeaderRow<Label: View>: View {
+    @ObservedObject private var l10n = L10n.shared
+    private let isExpanded: Binding<Bool>
+    private let label: () -> Label
+
+    init(isExpanded: Binding<Bool>, @ViewBuilder label: @escaping () -> Label) {
+        self.isExpanded = isExpanded
+        self.label = label
+    }
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                isExpanded.wrappedValue.toggle()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                label()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isExpanded.wrappedValue
+            ? l10n.s.disclosureExpanded : l10n.s.disclosureCollapsed)
+    }
+}
+
+extension View {
+    /// Child rows sit inset under their group's header row.
+    func disclosureIndent() -> some View {
+        padding(.leading, 25)
+    }
+}
+
 struct ShortcutCaps: View {
     let keys: [String]
 

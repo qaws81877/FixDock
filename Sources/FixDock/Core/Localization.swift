@@ -107,6 +107,36 @@ struct Strings {
     let featureScreenshotSummary: String
     let featureRecorderName: String
     let featureRecorderSummary: String
+    let urlCleanerEnable: String
+    let urlCleanerEnableCaption: String
+    let urlCleanerLocalNote: String
+    let urlCleanerActiveNow: String
+    let urlCleanerRulesTitle: String
+    let urlCleanerRulesAddSite: String
+    let urlCleanerRulesAddButton: String
+    let urlCleanerRulesCaption: String
+    let urlCleanerRulesCoverageCaption: String
+    let urlCleanerRulesParameterPlaceholder: String
+    let urlCleanerRulesMatchCaption: String
+    let urlCleanerRulesRestoreSiteButton: String
+    let urlCleanerRulesRemoveSiteButton: String
+    let urlCleanerRulesRemoveButton: String
+    let urlCleanerRulesCountSingular: String
+    let urlCleanerRulesCountPluralFormat: String
+    let urlCleanerRulesAllSites: String
+    let urlCleanerManualTitle: String
+    let urlCleanerInputPlaceholder: String
+    let urlCleanerClearButton: String
+    let urlCleanerPasteButton: String
+    let urlCleanerCopyButton: String
+    let urlCleanerOutputPlaceholder: String
+    let urlCleanerCopied: String
+    let urlCleanerNoURL: String
+    let urlCleanerNoChange: String
+    let urlCleanerCleaned: String
+    let urlCleanerRemovedFormat: String
+    let disclosureExpanded: String
+    let disclosureCollapsed: String
     let shortcutTitle: String
     let shortcutCaption: String
     let shortcutRecord: String
@@ -172,7 +202,7 @@ struct Strings {
         menuPaste: "Paste",
         menuSelectAll: "Select All",
         panelEmptyTitle: "Nothing installed yet",
-        panelEmptyBody: "Open Settings to choose tools. This build only remembers the choice. The tools themselves are not included yet.",
+        panelEmptyBody: "Open Settings to choose tools. URL cleaner runs in this build. The others are saved for a later build.",
         panelInstalledHeading: "Chosen for later",
         panelNotInBuild: "Not in this build",
         settingsTitle: "FixDock Settings",
@@ -188,7 +218,7 @@ struct Strings {
         launchAtLoginNeedsApplications: "Move FixDock to /Applications, then turn this on again.",
         launchAtLoginNeedsApproval: "macOS is waiting for approval. Turn FixDock on in System Settings → General → Login Items.",
         relaunch: "Relaunch FixDock",
-        featuresIntro: "Installing remembers a tool for a later build. Nothing runs in this one, and no permission is requested.",
+        featuresIntro: "URL cleaner runs in this build. Installing another tool only remembers it for a later build. Nothing here asks for a permission.",
         featuresInstall: "Install",
         featuresRemove: "Remove",
         featuresInstallAll: "Install all",
@@ -214,6 +244,36 @@ struct Strings {
         featureScreenshotSummary: "Capture the screen and mark it up.",
         featureRecorderName: "Screen recorder",
         featureRecorderSummary: "Record the screen.",
+        urlCleanerEnable: "Clean links you copy",
+        urlCleanerEnableCaption: "When a copied link has tracking parameters, FixDock rewrites the clipboard with the clean link.",
+        urlCleanerLocalNote: "Cleaning happens on this Mac. The link is not sent anywhere.",
+        urlCleanerActiveNow: "Watching the clipboard",
+        urlCleanerRulesTitle: "Cleaning rules",
+        urlCleanerRulesAddSite: "Add a site",
+        urlCleanerRulesAddButton: "Add",
+        urlCleanerRulesCaption: "A site attaches these parameters to its share links to track where the link came from. On, a name is removed. Off, it stays. Names you add can be deleted.",
+        urlCleanerRulesCoverageCaption: "The list covers a site’s different share paths, which is why it is long. A real link usually carries only a few of them.",
+        urlCleanerRulesParameterPlaceholder: "Parameter name",
+        urlCleanerRulesMatchCaption: "Write the name to the left of the =, like utm_source.",
+        urlCleanerRulesRestoreSiteButton: "Turn on every rule for this site",
+        urlCleanerRulesRemoveSiteButton: "Turn off every rule for this site",
+        urlCleanerRulesRemoveButton: "Delete name",
+        urlCleanerRulesCountSingular: "1 parameter",
+        urlCleanerRulesCountPluralFormat: "%d parameters",
+        urlCleanerRulesAllSites: "All sites",
+        urlCleanerManualTitle: "Clean a link",
+        urlCleanerInputPlaceholder: "Paste a link",
+        urlCleanerClearButton: "Clear",
+        urlCleanerPasteButton: "Paste",
+        urlCleanerCopyButton: "Copy",
+        urlCleanerOutputPlaceholder: "The cleaned link appears here",
+        urlCleanerCopied: "Copied",
+        urlCleanerNoURL: "That is not a web link",
+        urlCleanerNoChange: "Nothing to remove",
+        urlCleanerCleaned: "Cleaned",
+        urlCleanerRemovedFormat: "Removed %@",
+        disclosureExpanded: "Expanded",
+        disclosureCollapsed: "Collapsed",
         shortcutTitle: "Open the panel",
         shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
@@ -243,7 +303,7 @@ struct Strings {
         onboardingWelcomeBody: "A menu bar app for a repair bench. This build is the shell: the icon, settings, the feature list, this introduction, the permission guide, and one global shortcut. The tools are added in later versions. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and does not phone home.",
         onboardingLanguageTitle: "Language",
         onboardingFeaturesTitle: "Tools, later",
-        onboardingFeaturesBody: "These eight are the planned tools, in the order they will be added. Choosing one here only saves the choice.",
+        onboardingFeaturesBody: "These eight are the planned tools, in the order they are added. URL cleaner works now. Choosing another one only saves the choice.",
         onboardingPermissionsTitle: "Permissions",
         onboardingPermissionsBody: "Nothing in this build reads the screen, the keyboard, or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
         onboardingFinishTitle: "The icon is in the menu bar",

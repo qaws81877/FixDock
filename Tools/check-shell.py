@@ -128,6 +128,20 @@ def brace_balance(text):
             line += text[i:end].count("\n")
             i = end + 3
             continue
+        if ch == "#":
+            hashes = 0
+            j = i
+            while j < len(text) and text[j] == "#":
+                hashes += 1
+                j += 1
+            if j < len(text) and text[j] == '"':
+                closer = '"' + ("#" * hashes)
+                end = text.find(closer, j + 1)
+                if end < 0:
+                    return "unterminated raw string"
+                line += text[i:end].count("\n")
+                i = end + len(closer)
+                continue
         if ch == '"':
             in_string = True
             i += 1
@@ -225,8 +239,8 @@ def main():
         count = catalog.count(f"case .{name}:")
         if count < 3:
             errors += fail(f"{name} is missing a symbol, title, or summary switch ({count})")
-    if "var hasService: Bool { false }" not in catalog:
-        errors += fail("feature services should stay unwired in step 1")
+    if "var hasService: Bool { self == .urlCleaner }" not in catalog:
+        errors += fail("only the URL cleaner should have a service in this step")
 
     lproj = sorted(p.name for p in (ROOT / "Resources").glob("*.lproj"))
     if lproj != ["en.lproj", "ko.lproj"]:

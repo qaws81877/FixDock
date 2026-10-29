@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- URL cleaner. Copied links lose tracking parameters on this Mac. The rules and the manual cleaner are in Settings and in the menu bar panel.
+
 ## 0.1.0
 
 First FixDock shell.

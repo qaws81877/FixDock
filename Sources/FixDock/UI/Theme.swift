@@ -30,6 +30,11 @@ extension View {
     func settingsCard() -> some View {
         modifier(SettingsCardModifier())
     }
+
+    /// The menu panel uses the same card as settings.
+    func panelCard() -> some View {
+        settingsCard()
+    }
 }
 
 private struct SettingsCardModifier: ViewModifier {

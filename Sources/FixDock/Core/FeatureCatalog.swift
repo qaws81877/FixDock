@@ -13,8 +13,8 @@ import Foundation
 /// saved availability key still means the same thing when the module returns.
 /// `airdropAutoZip` is new and has no upstream module.
 ///
-/// Step 1 ships no feature module. `hasService` stays false: installing only
-/// remembers the choice. Nothing loads, and nothing asks for a permission.
+/// `urlCleaner` is the first module in the tree. The others still only
+/// remember a choice: installing them does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection
@@ -27,8 +27,18 @@ enum AppFeature: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// True once a later step has added the service and its binding.
-    var hasService: Bool { false }
+    /// True once this build contains the service and its binding.
+    var hasService: Bool { self == .urlCleaner }
+
+    /// The first time a tool is installed, turn on its main switch if the
+    /// person has never chosen. A later install keeps the saved choice.
+    func enableOnFirstInstall() {
+        guard self == .urlCleaner else { return }
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: DefaultsKey.urlCleanerEnabled) == nil {
+            defaults.set(true, forKey: DefaultsKey.urlCleanerEnabled)
+        }
+    }
 
     var availabilityKey: String { DefaultsKey.featureAvailable(rawValue) }
 

@@ -2,7 +2,7 @@
 
 Menu bar shell for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
 
-This build is the shell only. It has the menu bar icon, settings, the feature catalog, onboarding, the permission guide, shared controls, and one global shortcut. The tools themselves are not included yet.
+This build is the shell plus the first tool, the URL cleaner. It also has the menu bar icon, settings, the feature catalog, onboarding, the permission guide, shared controls, and one global shortcut. The other planned tools are names in the catalog only.
 
 ## English
 
@@ -19,7 +19,7 @@ The planned tools, in the order they will be added:
 7. Screenshot
 8. Screen recorder
 
-In this build those names appear in Settings. Installing one only saves the choice. Nothing runs, and the app does not ask for a permission on its own. You can open the permission guide from Settings to see how a later tool will ask.
+URL cleaner is included. Installing it turns on clipboard cleaning the first time, and it can be switched off. Cleaning stays on this Mac. The other names in Settings only save a choice. The app does not ask for a permission for the URL cleaner. You can open the permission guide from Settings to see how a later tool will ask.
 
 ### License
 
@@ -81,7 +81,7 @@ A future personal Homebrew tap is described in [docs/HOMEBREW.md](docs/HOMEBREW.
 
 FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정, 분석, 업데이트 확인이 없습니다.
 
-이 빌드는 껍데기만 있습니다. 메뉴 막대 아이콘, 설정, 기능 목록, 처음 실행 안내, 권한 안내, 공통 화면, 전역 단축키입니다. 도구 코드는 아직 없습니다.
+이 빌드는 껍데기에 첫 도구인 링크 정리가 들어 있습니다. 메뉴 막대 아이콘, 설정, 기능 목록, 처음 실행 안내, 권한 안내, 공통 화면, 전역 단축키도 있습니다. 나머지 예정 도구는 목록의 이름만 있습니다.
 
 나중에 이 순서로 넣을 도구:
 
@@ -94,7 +94,7 @@ FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱�
 7. 스크린샷
 8. 화면 녹화
 
-설정에 이름이 보입니다. 설치는 선택만 저장합니다. 이 빌드에서는 실행되지 않고, 앱이 스스로 권한을 요구하지 않습니다. 설정에서 권한 안내를 미리 열어볼 수 있습니다.
+링크 정리는 들어 있습니다. 처음 설치하면 클립보드 정리가 켜지고, 끌 수 있습니다. 정리는 이 Mac 안에서만 합니다. 나머지 이름은 선택만 저장합니다. 링크 정리는 권한을 요구하지 않습니다. 설정에서 권한 안내를 미리 열어볼 수 있습니다.
 
 ### 라이선스
 

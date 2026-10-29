@@ -43,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         false
     }
 
+    func closePopover() {
+        popover?.performClose(nil)
+    }
+
     func togglePopover() {
         guard let button = statusItem?.button else { return }
         let popover = self.popover ?? makePopover()
@@ -160,7 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 300, height: 420)
+        popover.contentSize = NSSize(width: 320, height: 560)
         popover.contentViewController = NSHostingController(rootView: MenuPanelView())
         return popover
     }

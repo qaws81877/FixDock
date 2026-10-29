@@ -8,11 +8,8 @@ import Combine
 /// Bridges the feature catalog to live services.
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
-/// anything that is not installed. Step 1 has no services, so the bindings
-/// map is empty and installing only writes the availability key. Later steps
-/// add a closure per module, in catalog order:
-/// URL cleaner, quit/close protection, cleaning mode, text snippets,
-/// AirDrop auto-zip, cleaner, screenshot, screen recorder.
+/// anything that is not installed. URL cleaner is wired. The other catalog
+/// entries still only store the availability key.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
 
@@ -48,8 +45,9 @@ final class FeatureRuntime: ObservableObject {
         var changed = false
         for feature in features where feature.isAvailable != available {
             UserDefaults.standard.set(available, forKey: feature.availabilityKey)
-            if available, feature.hasService {
-                loadedThisSession.insert(feature)
+            if available {
+                feature.enableOnFirstInstall()
+                if feature.hasService { loadedThisSession.insert(feature) }
             }
             Self.bindings[feature]?()
             changed = true
@@ -57,6 +55,8 @@ final class FeatureRuntime: ObservableObject {
         if changed { revision += 1 }
     }
 
-    /// Where later steps attach a module. An empty map is the step 1 shell.
-    private static let bindings: [AppFeature: () -> Void] = [:]
+    /// Later steps add a closure per module, in catalog order.
+    private static let bindings: [AppFeature: () -> Void] = [
+        .urlCleaner: { URLCleanerService.shared.syncWithPreferences() },
+    ]
 }

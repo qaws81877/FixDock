@@ -5,15 +5,16 @@
 import AppKit
 import SwiftUI
 
-/// The menu bar panel. Installed tools are listed as saved choices. None of
-/// them run in this build.
+/// The menu bar panel. URL cleaner runs here once it is installed. The
+/// other catalog entries are saved choices and do not run yet.
 struct MenuPanelView: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var runtime = FeatureRuntime.shared
 
     var body: some View {
         let strings = l10n.s
-        let installed = runtime.installedFeatures
+        let waiting = runtime.installedFeatures.filter { !$0.hasService }
+        let cleanerInstalled = AppFeature.urlCleaner.isAvailable
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -23,7 +24,10 @@ struct MenuPanelView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if installed.isEmpty {
+                if cleanerInstalled {
+                    PanelURLCleanerView(onClose: { appDelegate()?.closePopover() })
+                }
+                if waiting.isEmpty, !cleanerInstalled {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(strings.panelEmptyTitle)
                             .font(.system(size: 13, weight: .semibold))
@@ -33,9 +37,9 @@ struct MenuPanelView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .settingsCard()
-                } else {
+                } else if !waiting.isEmpty {
                     sectionTitle(strings.panelInstalledHeading)
-                    ForEach(installed) { feature in
+                    ForEach(waiting) { feature in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: feature.symbolName)
                                 .frame(width: 16)
@@ -59,6 +63,6 @@ struct MenuPanelView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 300, height: 420)
+        .frame(width: 320, height: cleanerInstalled ? 560 : 420)
     }
 }
