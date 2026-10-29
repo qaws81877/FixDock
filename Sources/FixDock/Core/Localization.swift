@@ -546,6 +546,11 @@ struct Strings {
     let screenshotToolMoveUp: String
     let screenshotToolMoveDown: String
     let screenshotToolOrderReset: String
+    let screenshotToolKeyPress: String
+    let screenshotToolKeyRecordingHint: String
+    let screenshotToolKeyReserved: String
+    let screenshotToolKeyTaken: String
+    let screenshotToolKeyRemove: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1042,12 +1047,17 @@ struct Strings {
         screenshotEditorAnchorBottomTrailing: "Bottom right",
         screenshotEditorToolOrder: "Tool order and keys",
         screenshotToolKeysTitle: "Editor tools",
-        screenshotToolKeysToggle: "Keys 1 to 9 pick tools",
-        screenshotToolKeysCaption: "The first nine tools in the editor's rail get keys 1 to 9. Give a tool a number to move it into that place.",
+        screenshotToolKeysToggle: "Keys pick tools",
+        screenshotToolKeysCaption: "The first nine tools in the editor's rail get keys 1 to 9. Click a tool's key to give it another number, which moves it into that place, or a single key of its own.",
         screenshotToolKeyNone: "No key",
         screenshotToolMoveUp: "Move up",
         screenshotToolMoveDown: "Move down",
         screenshotToolOrderReset: "Reset order",
+        screenshotToolKeyPress: "Press a key",
+        screenshotToolKeyRecordingHint: "A digit moves the tool into that place; any other key becomes its own. Delete clears, Escape cancels.",
+        screenshotToolKeyReserved: "The editor uses this key itself.",
+        screenshotToolKeyTaken: "%@ already uses this key.",
+        screenshotToolKeyRemove: "Remove its own key",
         versionFormat: "Version %@"
     )
 }

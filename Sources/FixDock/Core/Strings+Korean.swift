@@ -492,12 +492,17 @@ extension Strings {
         screenshotEditorAnchorBottomTrailing: "오른쪽 아래",
         screenshotEditorToolOrder: "도구 순서와 키",
         screenshotToolKeysTitle: "편집기 도구",
-        screenshotToolKeysToggle: "1~9 키로 도구 선택",
-        screenshotToolKeysCaption: "편집기 도구 막대의 처음 아홉 도구가 1~9 키를 받습니다. 도구에 번호를 주면 그 자리로 옮겨집니다.",
+        screenshotToolKeysToggle: "키로 도구 선택",
+        screenshotToolKeysCaption: "편집기 도구 막대의 처음 아홉 도구가 1~9 키를 받습니다. 도구의 키를 눌러 다른 번호를 주면 그 자리로 옮겨지고, 한 개의 전용 키를 줄 수도 있습니다.",
         screenshotToolKeyNone: "키 없음",
         screenshotToolMoveUp: "위로 이동",
         screenshotToolMoveDown: "아래로 이동",
         screenshotToolOrderReset: "순서 초기화",
+        screenshotToolKeyPress: "키를 누르세요",
+        screenshotToolKeyRecordingHint: "숫자를 누르면 도구가 그 자리로 옮겨지고, 다른 키는 그 도구 전용 키가 됩니다. Delete는 지우기, Esc는 취소입니다.",
+        screenshotToolKeyReserved: "편집기가 이 키를 직접 씁니다.",
+        screenshotToolKeyTaken: "%@ 도구가 이미 이 키를 씁니다.",
+        screenshotToolKeyRemove: "전용 키 지우기",
         versionFormat: "버전 %@"
     )
 }

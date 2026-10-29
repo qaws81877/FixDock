@@ -24,11 +24,12 @@ struct ScreenshotEditorView: View {
     @State private var appeared = false
     @State private var hoveredTool: ScreenshotSupport.Tool?
     @State private var magnifyBase: CGFloat?
-    // Stage C: rail order and keys, the tool order popover, and the zoom an
+    // Rail order and keys, the tool order popover, and the zoom an
     // Expand canvas drag holds so the canvas does not refit under it.
     @AppStorage(DefaultsKey.screenshotToolOrder) private var toolOrderRaw =
         ScreenshotSupport.Tool.defaultOrderStorage
     @AppStorage(DefaultsKey.screenshotToolShortcutsEnabled) private var toolShortcutsEnabled = true
+    @AppStorage(DefaultsKey.screenshotToolShortcuts) private var toolBindingsRaw = ""
     @State private var toolOrderShown = false
     @State private var expansionDragZoom: CGFloat?
     @State private var railColumnHeight = CGFloat.infinity
@@ -546,9 +547,10 @@ struct ScreenshotEditorView: View {
     private func railButton(_ tool: ScreenshotSupport.Tool, height: CGFloat) -> some View {
         let isActive = model.tool == tool
         let isHovered = hoveredTool == tool
-        let number = ScreenshotSupport.Tool.shortcutNumber(for: tool, orderRaw: toolOrderRaw,
-                                                           enabled: toolShortcutsEnabled)
-        let title = toolTitle(tool) + (number.map { "  (\($0))" } ?? "")
+        let keyLabel = ScreenshotSupport.Tool.shortcutLabel(for: tool, orderRaw: toolOrderRaw,
+                                                          bindingsRaw: toolBindingsRaw,
+                                                          enabled: toolShortcutsEnabled)
+        let title = toolTitle(tool) + (keyLabel.map { "  (\($0))" } ?? "")
         return Button {
             selectTool(tool)
         } label: {
@@ -556,8 +558,8 @@ struct ScreenshotEditorView: View {
                 Image(systemName: toolSymbol(tool))
                     .font(.system(size: 13.5, weight: .medium))
                     .frame(width: 33, height: height)
-                if let number {
-                    Text("\(number)")
+                if let keyLabel {
+                    Text(keyLabel)
                         .font(.system(size: 8, weight: .bold, design: .rounded))
                         .fixedSize()
                         .foregroundStyle(isActive ? Color.accentColor : Color.secondary)

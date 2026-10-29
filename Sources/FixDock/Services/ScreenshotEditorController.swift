@@ -1147,13 +1147,14 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             keyCode: key, command: flags.contains(.command), isRepeat: event.isARepeat) {
             return true
         }
-        // The typed digit picks the rail slot, whatever the keyboard layout.
-        if flags.isDisjoint(with: [.command, .control, .option]),
-           let number = event.characters.flatMap({ Int($0) }),
-           let tool = ScreenshotSupport.Tool.shortcutTool(
-            number: number,
-            orderRaw: UserDefaults.standard.string(forKey: DefaultsKey.screenshotToolOrder),
-            enabled: UserDefaults.standard.bool(forKey: DefaultsKey.screenshotToolShortcutsEnabled)) {
+        // A typed digit picks its rail slot whatever the keyboard layout; a
+        // tool's own key picks that tool.
+        let defaults = UserDefaults.standard
+        if let tool = ScreenshotSupport.Tool.shortcutTool(
+            keyCode: Int64(key), modifiers: GlobalShortcutModifiers(eventFlags: flags), typed: event.characters,
+            orderRaw: defaults.string(forKey: DefaultsKey.screenshotToolOrder),
+            bindingsRaw: defaults.string(forKey: DefaultsKey.screenshotToolShortcuts),
+            enabled: defaults.bool(forKey: DefaultsKey.screenshotToolShortcutsEnabled)) {
             model.tool = tool
             return true
         }
