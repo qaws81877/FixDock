@@ -35,7 +35,7 @@ final class ScreenshotService: ObservableObject {
     func syncWithPreferences() {
         let hotkeys = HotkeyManager.shared
         if AppFeature.screenshot.isAvailable {
-            hotkeys.actions[.captureOverlay] = { [weak self] in self?.openOverlay() }
+            hotkeys.actions[.captureOverlay] = { [weak self] in self?.overlayShortcutPressed() }
             hotkeys.actions[.captureFullScreen] = { [weak self] in self?.captureFullScreen() }
         } else {
             hotkeys.actions[.captureOverlay] = nil
@@ -50,6 +50,23 @@ final class ScreenshotService: ObservableObject {
     }
 
     // MARK: - Starting a capture
+
+    /// Control-Option-Command-4. While the recorder is busy it stops the
+    /// recording or cancels its countdown instead of opening the overlay.
+    private func overlayShortcutPressed() {
+        if ScreenRecorderService.shared.handleOverlayShortcut() { return }
+        openOverlay()
+    }
+
+    /// Screenshots are blocked from a recording's countdown until its file
+    /// is closed: Control-Option-Command-3 and the panel buttons beep.
+    private func recorderAllowsCapture() -> Bool {
+        guard ScreenRecorderSupport.allowsScreenshot(in: ScreenRecorderService.shared.captureState) else {
+            NSSound.beep()
+            return false
+        }
+        return true
+    }
 
     /// The overlay: region, window or whole display, with the bottom bar.
     func openOverlay() {
@@ -101,7 +118,8 @@ final class ScreenshotService: ObservableObject {
     /// False when a session is already running or the grant is missing; the
     /// guide takes over in the second case.
     private func prepareToCapture() -> Bool {
-        guard AppFeature.screenshot.isAvailable, overlay == nil, scrolling == nil, !isCapturing
+        guard AppFeature.screenshot.isAvailable, overlay == nil, scrolling == nil, !isCapturing,
+              recorderAllowsCapture()
         else { return false }
         Permissions.shared.refresh()
         guard Permissions.shared.screenRecording else {
@@ -122,6 +140,10 @@ final class ScreenshotService: ObservableObject {
             deliver(image, anchor: anchor)
         case .scrolling(let displayID, let localRect):
             startScrolling(displayID: displayID, localRect: localRect)
+        case .recording(let region):
+            // The overlay panels are already ordered out; the recorder waits
+            // a moment more before its stream starts.
+            ScreenRecorderService.shared.record(region)
         case .failed:
             fail(L10n.shared.s.screenshotCaptureFailed)
         }

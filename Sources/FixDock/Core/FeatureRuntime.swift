@@ -9,8 +9,8 @@ import Combine
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
 /// anything that is not installed. URL cleaner, quit protection, cleaning
-/// mode, text snippets, media, AirDrop auto-zip, the cleaner and screenshot
-/// are wired. The recorder still only stores the availability key.
+/// mode, text snippets, media, AirDrop auto-zip, the cleaner, screenshot and
+/// the screen recorder are wired.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
 
@@ -76,5 +76,6 @@ final class FeatureRuntime: ObservableObject {
         .airdropAutoZip: { AirDropAutoZipService.shared.syncWithPreferences() },
         .cleaner: { CleanerService.shared.syncWithPreferences() },
         .screenshot: { ScreenshotService.shared.syncWithPreferences() },
+        .screenRecorder: { ScreenRecorderService.shared.syncWithPreferences() },
     ]
 }

@@ -552,6 +552,52 @@ struct Strings {
     let screenshotToolKeyTaken: String
     let screenshotToolKeyRemove: String
     // Screen recorder (7.7 A+B): add strings below this line.
+    let recorderPermissionMicrophone: String
+    let recorderPermissionMicrophoneDetail: String
+    let recorderPermissionAudioCapture: String
+    let recorderPermissionAudioCaptureDetail: String
+    let recorderFilePrefix: String
+    let recorderRecordFailed: String
+    let recorderMicrophoneUnavailable: String
+    let recorderStoppedNoSpace: String
+    let recorderNoSpaceTitle: String
+    let recorderNoSpaceMessage: String
+    let recorderIndicatorTooltip: String
+    let recorderPause: String
+    let recorderResume: String
+    let recorderStop: String
+    let recorderSavedFormat: String
+    let recorderFolderUnavailable: String
+    let recorderCountdownLabel: String
+    let recorderCountdownOff: String
+    let recorderCountdownSecondsFormat: String
+    let recorderQualityLabel: String
+    let recorderQualitySmall: String
+    let recorderQualityBalanced: String
+    let recorderQualityHigh: String
+    let recorderQualityCaption: String
+    let recorderFrameRateLabel: String
+    let recorderFrameRateFormat: String
+    let recorderSystemAudioToggle: String
+    let recorderSystemAudioCaption: String
+    let recorderMicrophoneToggle: String
+    let recorderMicrophoneCaption: String
+    let recorderPointerToggle: String
+    let recorderPointerCaption: String
+    let recorderTypingToggle: String
+    let recorderTypingCaption: String
+    let recorderStartHint: String
+    let recorderStopHint: String
+    let recorderNeedsScreenshot: String
+    let recorderFolderFormat: String
+    let recorderRecordingFormat: String
+    let recorderSectionStart: String
+    let recorderSectionCapture: String
+    let recorderPreviewShowInFinder: String
+    let recorderPreviewShare: String
+    let recorderPreviewEdit: String
+    let recorderPreviewClose: String
+    let recorderPreviewDragHint: String
     // These two lines keep the blocks apart so the A+B and C
     // branches merge without touching each other.
     // Screen recorder editor (7.7 C): add strings below this line.
@@ -927,7 +973,7 @@ struct Strings {
         screenshotNothingHappens: "With both off, a capture goes nowhere.",
         screenshotKeysTitle: "In the overlay",
         screenshotKeyHelpScreenshot: "Screenshot",
-        screenshotKeyHelpRecording: "Screen recording (later update)",
+        screenshotKeyHelpRecording: "Screen recording",
         screenshotKeyHelpRepeat: "Capture the last area on this display again",
         screenshotKeyHelpLoupe: "Loupe; arrow keys move one pixel, Shift ten",
         screenshotKeyHelpColor: "Copy the colour under the loupe as hex",
@@ -1063,6 +1109,52 @@ struct Strings {
         screenshotToolKeyTaken: "%@ already uses this key.",
         screenshotToolKeyRemove: "Remove its own key",
         // Screen recorder (7.7 A+B): add strings below this line.
+        recorderPermissionMicrophone: "Microphone",
+        recorderPermissionMicrophoneDetail: "Lets a screen recording include your voice when you turn the microphone on for it.",
+        recorderPermissionAudioCapture: "System audio recording",
+        recorderPermissionAudioCaptureDetail: "Lets a screen recording include the Mac's sound on macOS 14.4 and later. macOS asks the first time a recording with sound starts; FixDock can only tell it was granted after a recording heard sound.",
+        recorderFilePrefix: "Screen Recording",
+        recorderRecordFailed: "The screen could not be recorded",
+        recorderMicrophoneUnavailable: "Microphone unavailable, recording without it",
+        recorderStoppedNoSpace: "Recording stopped, the disk is almost full",
+        recorderNoSpaceTitle: "Not enough space to record",
+        recorderNoSpaceMessage: "Free up some space on the disk and try again.",
+        recorderIndicatorTooltip: "Recording controls",
+        recorderPause: "Pause recording",
+        recorderResume: "Resume recording",
+        recorderStop: "Stop recording",
+        recorderSavedFormat: "Saved as %@",
+        recorderFolderUnavailable: "The recording was not saved: the save folder is missing or not writable.",
+        recorderCountdownLabel: "Countdown",
+        recorderCountdownOff: "Off",
+        recorderCountdownSecondsFormat: "%d s",
+        recorderQualityLabel: "Export quality",
+        recorderQualitySmall: "Small file",
+        recorderQualityBalanced: "Balanced",
+        recorderQualityHigh: "High",
+        recorderQualityCaption: "Used when the editor exports. The recording itself is always kept at high quality.",
+        recorderFrameRateLabel: "Frames per second",
+        recorderFrameRateFormat: "%d fps",
+        recorderSystemAudioToggle: "Record the sound of the Mac",
+        recorderSystemAudioCaption: "Goes into its own track. On macOS 14.4 and later macOS asks for system audio recording the first time.",
+        recorderMicrophoneToggle: "Record the microphone",
+        recorderMicrophoneCaption: "Your voice goes into its own track.",
+        recorderPointerToggle: "Record the pointer and clicks",
+        recorderPointerCaption: "Kept beside the recording for the editor to draw. Off: the system pointer is recorded into the movie instead.",
+        recorderTypingToggle: "Record when you type",
+        recorderTypingCaption: "Only the moments keys were pressed, never which keys. Needs Accessibility.",
+        recorderStartHint: "Press Control-Option-Command-4, then 2. Drag an area, click a window or press Return for the whole screen.",
+        recorderStopHint: "Stop with the indicator at the top of the screen or Control-Option-Command-4.",
+        recorderNeedsScreenshot: "Recording starts from the capture overlay, which comes with the Screenshot tool. Install Screenshot in Features to record.",
+        recorderFolderFormat: "Saved in the screenshot folder: %@",
+        recorderRecordingFormat: "Recording %@",
+        recorderSectionStart: "Start",
+        recorderSectionCapture: "What is recorded",
+        recorderPreviewShowInFinder: "Show in Finder",
+        recorderPreviewShare: "Share",
+        recorderPreviewEdit: "Edit",
+        recorderPreviewClose: "Close",
+        recorderPreviewDragHint: "Drag the movie into Finder or another app",
         // These two lines keep the blocks apart so the A+B and C
         // branches merge without touching each other.
         // Screen recorder editor (7.7 C): add strings below this line.

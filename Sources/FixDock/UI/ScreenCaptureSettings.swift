@@ -7,7 +7,9 @@ import SwiftUI
 
 /// The "Screen capture" page: a Screenshot tab and, once the recorder is
 /// installed, a Screen recording tab. One page for both tools, as the owner
-/// chose; the hub still installs them separately. New in FixDock.
+/// chose; the hub still installs them separately. With only the recorder
+/// installed, the page belongs to the recorder and shows its tab alone.
+/// New in FixDock.
 struct ScreenCaptureSettingsPage: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var runtime = FeatureRuntime.shared
@@ -29,17 +31,12 @@ struct ScreenCaptureSettingsPage: View {
                 .fixedSize()
                 .padding(.top, 12)
             }
-            switch tools.contains(tab) ? tab : .screenshot {
+            // With only the recorder installed the page shows its tab alone.
+            switch tools.contains(tab) ? tab : (tools.first ?? .screenshot) {
             case .screenshot:
                 ScreenshotSettingsTab()
             case .recording:
-                Form {
-                    Section {
-                        Label(s.screenshotRecordingLater, systemImage: "clock")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .formStyle(.grouped)
+                ScreenRecorderSettings()
             }
         }
     }

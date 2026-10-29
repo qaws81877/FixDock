@@ -83,6 +83,8 @@ final class PermissionGuideOverlay {
         case .accessibility: publisher = Permissions.shared.$accessibility
         case .screenRecording: publisher = Permissions.shared.$screenRecording
         case .fullDiskAccess: publisher = Permissions.shared.$fullDiskAccess
+        case .microphone: publisher = Permissions.shared.$microphone
+        case .audioCapture: publisher = Permissions.shared.$audioCapture
         }
         grantWatcher = publisher
             .removeDuplicates()

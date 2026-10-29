@@ -29,6 +29,8 @@ final class ScreenshotOverlayController {
         case image(CGImage, anchor: CGRect)
         /// A region for scrolling capture, in the display's own points.
         case scrolling(displayID: CGDirectDisplayID, localRect: CGRect)
+        /// The recording tool (key 2): the area to record, nothing captured.
+        case recording(RecorderSupport.Region)
         case failed
     }
 
@@ -84,8 +86,14 @@ final class ScreenshotOverlayController {
         options.hasLastRegion = lastRegion(for: panel.displayID) != nil
     }
 
-    fileprivate func pickWindow(_ window: ScreenshotSupport.PickableWindow) {
+    fileprivate func pickWindow(_ window: ScreenshotSupport.PickableWindow, on panel: ScreenshotOverlayPanel) {
         guard !finished else { return }
+        if options.tool == .recording {
+            // `window.frame` is already in this display's local points.
+            let local = ScreenshotSupport.clamp(window.frame, to: CGRect(origin: .zero, size: panel.screenFrame.size))
+            finish(.recording(panel.recordingRegion(for: local, windowID: window.id)))
+            return
+        }
         let mainHeight = NSScreen.screens.first?.frame.height ?? 0
         let anchor = ScreenshotSupport.flipped(window.frame, mainScreenHeight: mainHeight)
         closePanels()
@@ -98,6 +106,10 @@ final class ScreenshotOverlayController {
     fileprivate func pickRegion(_ localRect: CGRect, on panel: ScreenshotOverlayPanel) {
         guard !finished, localRect.width >= 1, localRect.height >= 1 else { return }
         rememberRegion(localRect, for: panel.displayID)
+        if options.tool == .recording {
+            finish(.recording(panel.recordingRegion(for: localRect, windowID: nil)))
+            return
+        }
         if options.scrolling {
             finish(.scrolling(displayID: panel.displayID, localRect: localRect))
             return
@@ -111,6 +123,11 @@ final class ScreenshotOverlayController {
 
     fileprivate func pickWholeDisplay(_ panel: ScreenshotOverlayPanel) {
         guard !finished else { return }
+        if options.tool == .recording {
+            let whole = CGRect(origin: .zero, size: panel.screenFrame.size)
+            finish(.recording(panel.recordingRegion(for: whole, windowID: nil)))
+            return
+        }
         finish(.image(panel.frozenImage, anchor: panel.screenFrame))
     }
 
@@ -378,6 +395,13 @@ final class ScreenshotOverlayPanel: OverlayPanel {
         return CGPoint(x: location.x - screenFrame.minX, y: screenFrame.maxY - location.y)
     }
 
+    /// A region for the recorder: even pixels of this display, as upstream.
+    func recordingRegion(for localRect: CGRect, windowID: CGWindowID?) -> RecorderSupport.Region {
+        ScreenRecorderSupport.region(localRect: localRect, pixelScale: pixelScale,
+                                     imageSize: CGSize(width: frozenImage.width, height: frozenImage.height),
+                                     screenFrame: screenFrame, displayID: displayID, windowID: windowID)
+    }
+
     func crop(_ localRect: CGRect) -> CGImage? {
         let pixels = ScreenshotSupport.pixelRect(localRect, scale: pixelScale,
                                                  imageSize: CGSize(width: frozenImage.width,
@@ -404,6 +428,10 @@ final class ScreenshotOverlayView: NSView {
     private var optionsWatch: AnyCancellable?
 
     var isDragging: Bool { dragStart != nil }
+
+    /// Scrolling capture is a screenshot mode; with the recording tool a
+    /// click still picks a window.
+    private var scrollingCapture: Bool { options.scrolling && options.tool == .screenshot }
 
     init(frame: CGRect, frozenImage: CGImage, pixelScale: CGFloat,
          windows: [ScreenshotSupport.PickableWindow], controller: ScreenshotOverlayController) {
@@ -441,7 +469,7 @@ final class ScreenshotOverlayView: NSView {
         }
         pointer = point
         if !isDragging {
-            hoverWindow = options.scrolling ? nil : ScreenshotSupport.window(at: point, in: windows)
+            hoverWindow = scrollingCapture ? nil : ScreenshotSupport.window(at: point, in: windows)
         }
         needsDisplay = true
     }
@@ -497,8 +525,8 @@ final class ScreenshotOverlayView: NSView {
         lastDragPoint = nil
         if ScreenshotSupport.isClick(from: start, to: end) {
             let point = convert(event.locationInWindow, from: nil)
-            if !options.scrolling, let window = ScreenshotSupport.window(at: point, in: windows) {
-                controller.pickWindow(window)
+            if !scrollingCapture, let window = ScreenshotSupport.window(at: point, in: windows) {
+                controller.pickWindow(window, on: panel)
             } else {
                 pointerMoved(to: point)
             }

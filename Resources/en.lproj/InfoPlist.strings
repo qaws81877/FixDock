@@ -1,3 +1,5 @@
 "CFBundleDisplayName" = "FixDock";
 "CFBundleName" = "FixDock";
 "NSHumanReadableCopyright" = "© 2026 Vorssaint. FixDock is a modified unofficial fork.";
+"NSAudioCaptureUsageDescription" = "FixDock records the Mac's sound into a screen recording only when you start one with system audio switched on. Nothing leaves your Mac.";
+"NSMicrophoneUsageDescription" = "FixDock records your microphone only when you turn it on for a screen recording. Nothing leaves your Mac.";

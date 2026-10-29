@@ -1,3 +1,5 @@
 "CFBundleDisplayName" = "FixDock";
 "CFBundleName" = "FixDock";
 "NSHumanReadableCopyright" = "© 2026 Vorssaint. FixDock은 비공식 수정 포크입니다.";
+"NSAudioCaptureUsageDescription" = "FixDock은 시스템 오디오를 켠 화면 기록을 시작할 때만 Mac의 소리를 기록합니다. 아무것도 Mac 밖으로 나가지 않습니다.";
+"NSMicrophoneUsageDescription" = "FixDock은 화면 기록에서 마이크를 켰을 때만 마이크를 녹음합니다. 아무것도 Mac 밖으로 나가지 않습니다.";
