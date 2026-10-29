@@ -232,6 +232,25 @@ struct Strings {
     let mediaErrorZip: String
     let mediaLocalNote: String
     let mediaMoreOptions: String
+    let mediaToolImage: String
+    let mediaToolVideo: String
+    let mediaVideoSection: String
+    let mediaSizingLabel: String
+    let mediaSizingResolution: String
+    let mediaSizingFileSize: String
+    let mediaVideoLowCaption: String
+    let mediaVideoMediumCaption: String
+    let mediaVideoHighCaption: String
+    let mediaTargetSizeLabel: String
+    let mediaMegabytesFormat: String
+    let mediaTargetSizeCaption: String
+    let mediaVideoDropHint: String
+    let mediaVideoPrivacyNote: String
+    let mediaFileProgressFormat: String
+    let mediaErrorNoVideo: String
+    let mediaErrorTargetTooSmall: String
+    let mediaErrorVideoUnsupported: String
+    let mediaErrorVideoFailed: String
     let mediaPresetCaption: String
     let mediaFormatLabel: String
     let mediaFormatOriginal: String
@@ -474,7 +493,7 @@ struct Strings {
         snippetsCountFormat: "%d snippets",
         featureMediaName: "Media",
         featureMediaSummary: "Compress images and videos by hand.",
-        mediaIntro: "Compress images when you choose to. Everything happens on this Mac, and the originals are never changed.",
+        mediaIntro: "Compress images and videos when you choose to. Everything happens on this Mac, and the originals are never changed.",
         mediaImageSection: "Image",
         mediaPresetLabel: "Compression",
         mediaPresetLow: "Low",
@@ -486,11 +505,30 @@ struct Strings {
         mediaOutputLabel: "Output",
         mediaOutputZip: "One zip",
         mediaOutputFiles: "Separate files",
-        mediaOutputZipCaption: "A compressed_images_YYYY-MM-DD zip is saved in the first image's folder.",
-        mediaZipResultFormat: "%d images in %@ (%@)",
+        mediaOutputZipCaption: "A compressed_images_YYYY-MM-DD zip is saved in the first file's folder.",
+        mediaZipResultFormat: "%d files in %@ (%@)",
         mediaErrorZip: "The zip could not be made, so nothing was saved.",
         mediaLocalNote: "Local. No network.",
         mediaMoreOptions: "More options in Settings",
+        mediaToolImage: "Image",
+        mediaToolVideo: "Video",
+        mediaVideoSection: "Video",
+        mediaSizingLabel: "Shrink by",
+        mediaSizingResolution: "Resolution",
+        mediaSizingFileSize: "File size",
+        mediaVideoLowCaption: "Up to 1080p. High quality, larger file.",
+        mediaVideoMediumCaption: "Up to 720p. Balanced quality and file size.",
+        mediaVideoHighCaption: "Up to 540p. Smaller file, lower quality.",
+        mediaTargetSizeLabel: "Target size",
+        mediaMegabytesFormat: "%d MB",
+        mediaTargetSizeCaption: "The video is encoded to fit under this size, lowering the resolution if it has to. MP4, H.264.",
+        mediaVideoDropHint: "Drop videos here, or click to choose.",
+        mediaVideoPrivacyNote: "Location and other private metadata are left out of the result.",
+        mediaFileProgressFormat: "%d%%",
+        mediaErrorNoVideo: "This file has no video.",
+        mediaErrorTargetTooSmall: "The target size is too small for this video's length.",
+        mediaErrorVideoUnsupported: "macOS cannot convert this video.",
+        mediaErrorVideoFailed: "The video could not be compressed.",
         mediaPresetCaption: "PNG is lossless and ignores the level.",
         mediaFormatLabel: "Format",
         mediaFormatOriginal: "Keep original",
@@ -511,7 +549,7 @@ struct Strings {
         mediaResultSizeFormat: "%@ → %@ (%@ smaller)",
         mediaResultGrewFormat: "%@ → %@ (larger in the new format)",
         mediaResultKeptOriginal: "Could not get smaller, so the original image was saved as is.",
-        mediaSkippedFormat: "%d files skipped because they are not images.",
+        mediaSkippedFormat: "%d files skipped because they are not the chosen kind.",
         mediaErrorUnreadable: "Could not read this image.",
         mediaErrorUnsupported: "macOS cannot save this format.",
         mediaErrorTooLarge: "Too large to process.",

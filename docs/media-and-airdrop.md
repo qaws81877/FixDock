@@ -44,8 +44,13 @@ Status: agreed with the owner 2026-10-29. Built in three pull requests:
 - The menu panel card has the drop zone, level and output; the Settings page
   adds format, size and metadata. Leaving the page or closing the panel
   clears the results.
-- Video (pull request 2): resolution mode through `/usr/bin/avconvert`, and a
-  target-size mode through AVAssetWriter, as upstream.
+- Video: an Image | Video bar picks the tool. Resolution mode runs
+  `/usr/bin/avconvert` with the level picking the size (Low up to 1080p,
+  Medium 720p, High 540p, never upscaled); file-size mode (1–512 MB, default
+  25) encodes with AVAssetWriter in up to three passes and fails rather than
+  leave a file over the target. Both write MP4 H.264 with no location or other
+  private metadata. The zip/files choice is shared with images. Not ported:
+  trimming, HEVC, GIF.
 - Not ported: OCR, GIF maker, watermark, profiles, PDF output, rename
   patterns, Notch and Quick Launcher entry points.
 

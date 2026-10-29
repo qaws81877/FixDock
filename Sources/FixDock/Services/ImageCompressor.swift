@@ -251,7 +251,13 @@ enum ImageOutputWriter {
         defer { try? fileManager.removeItem(at: staging) }
         let staged = staging.appendingPathComponent("output")
         try data.write(to: staged)
+        return try move(staged, into: directory, baseName: baseName, fileExtension: fileExtension)
+    }
 
+    /// Moves a finished file already on `directory`'s volume to the first
+    /// free name there. A video is moved, never read into memory.
+    static func move(_ staged: URL, into directory: URL, baseName: String, fileExtension: String) throws -> URL {
+        let fileManager = FileManager.default
         for _ in 0..<1_000 {
             let name = ImageCompressionSupport.uniqueName(base: baseName, extension: fileExtension) {
                 fileManager.fileExists(atPath: directory.appendingPathComponent($0).path)
