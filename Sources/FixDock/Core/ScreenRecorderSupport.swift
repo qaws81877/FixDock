@@ -63,10 +63,12 @@ enum ScreenRecorderSupport {
 
     /// `Prefix yyyy-MM-dd at HH.mm.ss.mov` in `folder`, or ` (2)`, ` (3)`…
     /// when that name is taken. `nil` when every name is taken, so the
-    /// caller refuses rather than overwriting.
+    /// caller refuses rather than overwriting. The editor passes its own
+    /// extension (`mp4`, `gif`) for the files it exports.
     static func recordingDestination(in folder: URL, prefix: String, date: Date,
+                                     fileExtension: String = movieExtension,
                                      exists: (String) -> Bool) -> URL? {
-        let name = ScreenshotSupport.fileName(prefix: prefix, date: date, fileExtension: movieExtension)
+        let name = ScreenshotSupport.fileName(prefix: prefix, date: date, fileExtension: fileExtension)
         guard let unique = ScreenshotSupport.uniqueFileName(name, exists: exists) else { return nil }
         return folder.appendingPathComponent(unique)
     }

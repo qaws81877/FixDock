@@ -4,7 +4,6 @@
 
 import AVFoundation
 import CoreGraphics
-import VideoToolbox
 
 /// Writes the finished file: reads the master, applies the edit and encodes.
 ///
@@ -202,7 +201,7 @@ final class RecorderExporter {
                                            quality: document.resolvedQuality,
                                            codec: .hevc)
         let resolved = writer.canApply(outputSettings: preferred, forMediaType: .video)
-            && Self.hevcEncodes(width: Int(outputSize.width), height: Int(outputSize.height))
+            && RecorderWriter.hevcEncodes(width: Int(outputSize.width), height: Int(outputSize.height))
             ? preferred
             : Self.videoSettings(size: outputSize,
                                  frameRate: outputFrameRate,
@@ -353,41 +352,6 @@ final class RecorderExporter {
             AVVideoHeightKey: height,
             AVVideoCompressionPropertiesKey: compression,
         ]
-    }
-
-    /// `canApply` accepts HEVC for sizes the machine's encoder then rejects on
-    /// the first frame, which fails the whole file. Encoding one blank frame
-    /// is the only reliable test. Upstream keeps this on `RecorderWriter`,
-    /// which the recorder branch owns; a copy here keeps the editor separate.
-    static func hevcEncodes(width: Int, height: Int) -> Bool {
-        var session: VTCompressionSession?
-        guard VTCompressionSessionCreate(allocator: nil, width: Int32(width), height: Int32(height),
-                                         codecType: kCMVideoCodecType_HEVC, encoderSpecification: nil,
-                                         imageBufferAttributes: nil, compressedDataAllocator: nil,
-                                         outputCallback: nil, refcon: nil,
-                                         compressionSessionOut: &session) == noErr,
-              let session else { return false }
-        defer { VTCompressionSessionInvalidate(session) }
-        var frame: CVPixelBuffer?
-        guard CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &frame) == noErr,
-              let frame else { return false }
-        let produced = EncodeFlag()
-        var flags = VTEncodeInfoFlags()
-        guard VTCompressionSessionEncodeFrame(session, imageBuffer: frame, presentationTimeStamp: .zero,
-                                              duration: .invalid, frameProperties: nil,
-                                              infoFlagsOut: &flags, outputHandler: { status, _, sample in
-            produced.set(status == noErr && sample != nil)
-        }) == noErr else { return false }
-        guard VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid) == noErr
-        else { return false }
-        return produced.value
-    }
-
-    private final class EncodeFlag: @unchecked Sendable {
-        private let lock = NSLock()
-        private var stored = false
-        var value: Bool { lock.lock(); defer { lock.unlock() }; return stored }
-        func set(_ value: Bool) { lock.lock(); stored = value; lock.unlock() }
     }
 
     // MARK: - GIF

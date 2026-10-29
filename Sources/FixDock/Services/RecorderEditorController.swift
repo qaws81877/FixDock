@@ -82,20 +82,19 @@ final class RecorderEditorModel: ObservableObject, BackdropEditing {
         // A recording opened for the first time starts from the person's own
         // preferences; after that the edit next to the master wins, so
         // reopening finds exactly what was left behind.
-        RecorderEditorDefaults.register()
         if let saved = try? Data(contentsOf: take.editURL) {
             document = RecorderEditDocument.decoded(saved)
         } else {
             let defaults = UserDefaults.standard
             document = RecorderEditDocument(
                 quality: RecorderSupport.sanitizedQuality(
-                    defaults.string(forKey: RecorderEditorDefaults.recorderQuality)).rawValue,
-                keepsSystemAudio: defaults.bool(forKey: RecorderEditorDefaults.recorderSystemAudio),
+                    defaults.string(forKey: DefaultsKey.recorderQuality)).rawValue,
+                keepsSystemAudio: defaults.bool(forKey: DefaultsKey.recorderSystemAudio),
                 gifSize: RecorderSupport.sanitizedGIFSize(
-                    defaults.string(forKey: RecorderEditorDefaults.recorderGIFSize)).rawValue,
+                    defaults.string(forKey: DefaultsKey.recorderGIFSize)).rawValue,
                 gifFrameRate: RecorderSupport.sanitizedGIFFrameRate(
-                    defaults.integer(forKey: RecorderEditorDefaults.recorderGIFFrameRate)),
-                zoomEnabled: defaults.bool(forKey: RecorderEditorDefaults.recorderAutomaticZoom))
+                    defaults.integer(forKey: DefaultsKey.recorderGIFFrameRate)),
+                zoomEnabled: defaults.bool(forKey: DefaultsKey.recorderAutomaticZoom))
         }
         player.isMuted = false
         pointerTrack = RecorderPointerTrack.decoded(try? Data(contentsOf: take.pointerURL))
@@ -535,7 +534,7 @@ final class RecorderEditorModel: ObservableObject, BackdropEditing {
     }
 
     private func loadEditPresets() {
-        guard let data = UserDefaults.standard.data(forKey: RecorderEditorDefaults.recorderEditorPresets),
+        guard let data = UserDefaults.standard.data(forKey: DefaultsKey.recorderEditorPresets),
               let presets = try? JSONDecoder().decode([RecorderEditPreset].self, from: data)
         else { return }
         editPresets = Array(presets.suffix(12))
@@ -543,7 +542,7 @@ final class RecorderEditorModel: ObservableObject, BackdropEditing {
 
     private func persistEditPresets(_ presets: [RecorderEditPreset]) -> Bool {
         guard let data = try? JSONEncoder().encode(presets) else { return false }
-        UserDefaults.standard.set(data, forKey: RecorderEditorDefaults.recorderEditorPresets)
+        UserDefaults.standard.set(data, forKey: DefaultsKey.recorderEditorPresets)
         let retainedPaths = Set(presets.flatMap { $0.images ?? [] }.map(\.path))
         let retiredImages = editPresets.flatMap { $0.images ?? [] }
             .filter { !retainedPaths.contains($0.path) }
@@ -1437,7 +1436,9 @@ final class RecorderEditorController: NSObject, NSWindowDelegate {
         panel.allowedContentTypes = [.mpeg4Movie]
         panel.canCreateDirectories = true
         panel.directoryURL = folder
-        panel.nameFieldStringValue = Self.fileName(date: Date(), fileExtension: "mp4")
+        panel.nameFieldStringValue = ScreenshotSupport.fileName(prefix: strings.recorderFilePrefix,
+                                                                date: Date(),
+                                                                fileExtension: "mp4")
         panel.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             self?.run(.video, to: url, replacesExisting: true)
@@ -1464,20 +1465,18 @@ final class RecorderEditorController: NSObject, NSWindowDelegate {
     private func saveDestination(fileExtension: String) -> URL? {
         let folder = ScreenshotService.saveFolder
         guard ScreenshotService.saveFolderIsUsable(folder) else { return nil }
-        let manager = FileManager.default
-        guard let name = ScreenshotSupport.uniqueFileName(
-            Self.fileName(date: Date(), fileExtension: fileExtension), exists: {
-                manager.fileExists(atPath: folder.appendingPathComponent($0).path)
-            }) else { return nil }
-        return folder.appendingPathComponent(name)
+        return Self.recordingDestination(in: folder, fileExtension: fileExtension)
     }
 
-    /// `Screen Recording yyyy-MM-dd at HH.mm.ss.<ext>`, the recorder's naming.
-    static func fileName(date: Date, fileExtension: String) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        return "\(L10n.shared.s.recorderEditorFileNamePrefix) \(formatter.string(from: date)).\(fileExtension)"
+    /// The recorder's naming, `Screen Recording yyyy-MM-dd at HH.mm.ss.<ext>`,
+    /// with ` (2)` and on when taken.
+    private static func recordingDestination(in folder: URL, fileExtension: String) -> URL? {
+        let manager = FileManager.default
+        return ScreenRecorderSupport.recordingDestination(
+            in: folder, prefix: L10n.shared.s.recorderFilePrefix, date: Date(),
+            fileExtension: fileExtension, exists: {
+                manager.fileExists(atPath: folder.appendingPathComponent($0).path)
+            })
     }
 
     private func exportFailed() {
@@ -1566,12 +1565,7 @@ final class RecorderEditorController: NSObject, NSWindowDelegate {
               RecorderCopiedRecordings.prepare(folder)
         else { return nil }
         RecorderCopiedRecordings.sweep(folder)
-        let manager = FileManager.default
-        guard let unique = ScreenshotSupport.uniqueFileName(
-            Self.fileName(date: Date(), fileExtension: fileExtension), exists: {
-                manager.fileExists(atPath: folder.appendingPathComponent($0).path)
-            }) else { return nil }
-        return folder.appendingPathComponent(unique)
+        return Self.recordingDestination(in: folder, fileExtension: fileExtension)
     }
 
     private func run(_ output: RecorderExporter.Output,

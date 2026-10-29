@@ -5,9 +5,9 @@
 import SwiftUI
 
 /// The Screen recording tab of the "Screen capture" page: how a recording
-/// starts and what it captures. Adapted from upstream's recorder settings,
-/// keeping only the recorder options: no sharing, no editor options, no own
-/// shortcut, and the save folder is the screenshot tool's.
+/// starts, what it captures and how the editor starts a new recording.
+/// Adapted from upstream's recorder settings: no sharing, no own shortcut,
+/// and the save folder is the screenshot tool's.
 struct ScreenRecorderSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
@@ -20,6 +20,9 @@ struct ScreenRecorderSettings: View {
     @AppStorage(DefaultsKey.recorderMicrophone) private var microphone = false
     @AppStorage(DefaultsKey.recorderPointerTrack) private var pointerTrack = true
     @AppStorage(DefaultsKey.recorderTypingTrack) private var typingTrack = false
+    @AppStorage(DefaultsKey.recorderAutomaticZoom) private var automaticZoom = true
+    @AppStorage(DefaultsKey.recorderGIFSize) private var gifSizeRaw = RecorderSupport.GIFSize.medium.rawValue
+    @AppStorage(DefaultsKey.recorderGIFFrameRate) private var gifFrameRate = 12
     @AppStorage(DefaultsKey.screenshotSaveFolder) private var saveFolder = ""
     private var s: Strings { l10n.s }
 
@@ -140,6 +143,27 @@ struct ScreenRecorderSettings: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Section(s.recorderEditorSettingsSection) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(s.recorderEditorSettingsAutomaticZoomToggle, isOn: $automaticZoom)
+                    Text(s.recorderEditorSettingsAutomaticZoomCaption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Picker(s.recorderEditorSettingsGIFSizeLabel, selection: $gifSizeRaw) {
+                    Text(s.recorderEditorSettingsGIFSizeSmall).tag(RecorderSupport.GIFSize.small.rawValue)
+                    Text(s.recorderEditorSettingsGIFSizeMedium).tag(RecorderSupport.GIFSize.medium.rawValue)
+                    Text(s.recorderEditorSettingsGIFSizeLarge).tag(RecorderSupport.GIFSize.large.rawValue)
+                }
+                .pickerStyle(.segmented)
+                Picker(s.recorderEditorSettingsGIFFrameRateLabel, selection: $gifFrameRate) {
+                    ForEach(RecorderSupport.gifFrameRates, id: \.self) { rate in
+                        Text(String(format: s.recorderFrameRateFormat, rate)).tag(rate)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
         }
         .formStyle(.grouped)

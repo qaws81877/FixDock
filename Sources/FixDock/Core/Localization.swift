@@ -568,6 +568,7 @@ struct Strings {
     let recorderStop: String
     let recorderSavedFormat: String
     let recorderFolderUnavailable: String
+    let recorderSaveElsewhereMessage: String
     let recorderCountdownLabel: String
     let recorderCountdownOff: String
     let recorderCountdownSecondsFormat: String
@@ -632,7 +633,6 @@ struct Strings {
     let recorderEditorExportingLabel: String
     let recorderEditorExportPreviewNote: String
     let recorderEditorExportSpeed: String
-    let recorderEditorFileNamePrefix: String
     let recorderEditorFolderLabel: String
     let recorderEditorImageImportFailed: String
     let recorderEditorImageLaneEmptyHint: String
@@ -700,6 +700,14 @@ struct Strings {
     let recorderEditorZoomSectionLabel: String
     let recorderEditorZoomToggle: String
     let recorderEditorZoomWhereLabel: String
+    let recorderEditorSettingsSection: String
+    let recorderEditorSettingsAutomaticZoomToggle: String
+    let recorderEditorSettingsAutomaticZoomCaption: String
+    let recorderEditorSettingsGIFSizeLabel: String
+    let recorderEditorSettingsGIFSizeSmall: String
+    let recorderEditorSettingsGIFSizeMedium: String
+    let recorderEditorSettingsGIFSizeLarge: String
+    let recorderEditorSettingsGIFFrameRateLabel: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1224,6 +1232,7 @@ struct Strings {
         recorderStop: "Stop recording",
         recorderSavedFormat: "Saved as %@",
         recorderFolderUnavailable: "The recording was not saved: the save folder is missing or not writable.",
+        recorderSaveElsewhereMessage: "The save folder is missing or not writable. Choose where to save the recording.",
         recorderCountdownLabel: "Countdown",
         recorderCountdownOff: "Off",
         recorderCountdownSecondsFormat: "%d s",
@@ -1288,7 +1297,6 @@ struct Strings {
         recorderEditorExportingLabel: "Saving…",
         recorderEditorExportPreviewNote: "Applies to video and GIF. The editing preview stays at 1×; the original recording is unchanged.",
         recorderEditorExportSpeed: "Export speed",
-        recorderEditorFileNamePrefix: "Recording",
         recorderEditorFolderLabel: "Save to",
         recorderEditorImageImportFailed: "Couldn’t add this image.",
         recorderEditorImageLaneEmptyHint: "Click here to add an image",
@@ -1356,6 +1364,14 @@ struct Strings {
         recorderEditorZoomSectionLabel: "Zoom",
         recorderEditorZoomToggle: "Zoom in on every click",
         recorderEditorZoomWhereLabel: "Where it looks",
+        recorderEditorSettingsSection: "Editor",
+        recorderEditorSettingsAutomaticZoomToggle: "Add zooms automatically",
+        recorderEditorSettingsAutomaticZoomCaption: "Turn this off to start new recordings without zooms. You can still add them in the editor.",
+        recorderEditorSettingsGIFSizeLabel: "GIF size",
+        recorderEditorSettingsGIFSizeSmall: "Small",
+        recorderEditorSettingsGIFSizeMedium: "Medium",
+        recorderEditorSettingsGIFSizeLarge: "Large",
+        recorderEditorSettingsGIFFrameRateLabel: "GIF smoothness",
         versionFormat: "Version %@"
     )
 }

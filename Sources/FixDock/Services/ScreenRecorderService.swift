@@ -6,6 +6,7 @@ import AVFoundation
 import AppKit
 import CoreMedia
 import ScreenCaptureKit
+import UniformTypeIdentifiers
 
 /// One recording, from the first frame to the closed file. Everything that
 /// only exists while recording lives here and dies with it, so the service
@@ -670,26 +671,72 @@ final class ScreenRecorderService: ObservableObject {
     // MARK: - Output
 
     /// Copies the master to the screenshot folder under a new unique name and
-    /// shows the preview holding the take. A missing or unwritable folder
-    /// saves nothing anywhere else: a beep and a message, and the take stays
-    /// for the sweep.
+    /// shows the preview holding the take. When the folder is missing or
+    /// unwritable, or the copy fails, the person picks another place instead
+    /// (owner decision); see `saveElsewhere`.
     private func deliver(_ take: RecorderTakeStore.Take, region: RecorderSupport.Region, reason: String?) {
         let folder = ScreenshotService.saveFolder
         guard ScreenshotService.saveFolderIsUsable(folder),
               let destination = ScreenRecorderSupport.recordingDestination(
                 in: folder, prefix: strings.recorderFilePrefix, date: Date(),
-                exists: { FileManager.default.fileExists(atPath: folder.appendingPathComponent($0).path) })
+                exists: { FileManager.default.fileExists(atPath: folder.appendingPathComponent($0).path) }),
+              // `copyItem` refuses an existing destination: nothing is replaced.
+              (try? RecorderTakeStore.shared.saveCopy(take, to: destination)) != nil
         else {
-            fail(strings.recorderFolderUnavailable)
+            saveElsewhere(take, region: region, reason: reason)
             return
         }
-        do {
-            // `copyItem` refuses an existing destination: nothing is replaced.
-            try RecorderTakeStore.shared.saveCopy(take, to: destination)
-        } catch {
-            fail(strings.recorderFolderUnavailable)
-            return
+        delivered(take, to: destination, region: region, reason: reason)
+    }
+
+    /// The save folder failed: a beep and a save panel. A chosen place gets
+    /// the copy and the usual preview. Cancel opens the editor on the take so
+    /// the recording is not lost; when no editor opens, the take stays for
+    /// the sweep and the failure message shows. Nothing is deleted here.
+    private func saveElsewhere(_ take: RecorderTakeStore.Take, region: RecorderSupport.Region, reason: String?) {
+        NSSound.beep()
+        savingTakeIDs.insert(take.id)
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.quickTimeMovie]
+        panel.canCreateDirectories = true
+        panel.message = strings.recorderSaveElsewhereMessage
+        panel.nameFieldStringValue = ScreenshotSupport.fileName(prefix: strings.recorderFilePrefix,
+                                                                date: Date(),
+                                                                fileExtension: ScreenRecorderSupport.movieExtension)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.begin { [weak self] response in
+            guard let self else { return }
+            self.savingTakeIDs.remove(take.id)
+            if response == .OK, let url = panel.url,
+               let destination = Self.saveCopy(take, choosing: url) {
+                self.delivered(take, to: destination, region: region, reason: reason)
+                return
+            }
+            if AppFeature.screenRecorder.isAvailable, RecorderEditorEntry.open(take) { return }
+            self.fail(self.strings.recorderFolderUnavailable)
         }
+    }
+
+    /// Copies the take to the place the save panel returned. The panel
+    /// already asked before replacing, but `copyItem` never replaces: when a
+    /// file is still there, the copy goes to a free sibling name (` (2)`…)
+    /// instead of removing anything. Nil when nothing could be written.
+    private static func saveCopy(_ take: RecorderTakeStore.Take, choosing url: URL) -> URL? {
+        let manager = FileManager.default
+        if !manager.fileExists(atPath: url.path) {
+            return (try? RecorderTakeStore.shared.saveCopy(take, to: url)) != nil ? url : nil
+        }
+        let folder = url.deletingLastPathComponent()
+        guard let name = ScreenshotSupport.uniqueFileName(url.lastPathComponent, exists: {
+            manager.fileExists(atPath: folder.appendingPathComponent($0).path)
+        }) else { return nil }
+        let sibling = folder.appendingPathComponent(name)
+        return (try? RecorderTakeStore.shared.saveCopy(take, to: sibling)) != nil ? sibling : nil
+    }
+
+    /// The recording is saved at `destination`: the message, then the preview.
+    private func delivered(_ take: RecorderTakeStore.Take, to destination: URL,
+                           region: RecorderSupport.Region, reason: String?) {
         let saved = String(format: strings.recorderSavedFormat, destination.lastPathComponent)
         lastMessage = reason ?? saved
         if let reason { showMessage(symbol: "record.circle", reason) }
@@ -721,6 +768,9 @@ final class ScreenRecorderService: ObservableObject {
 
     /// The take the open preview holds, so a sweep leaves it alone.
     private var previewTakeID: UUID?
+
+    /// Takes waiting on the save panel, so a sweep leaves them alone.
+    private var savingTakeIDs: Set<UUID> = []
 
     // MARK: - Failures
 
@@ -768,6 +818,7 @@ final class ScreenRecorderService: ObservableObject {
         let kept = ScreenRecorderSupport.takesToKeep(session: session?.take.id,
                                                      preview: previewTakeID,
                                                      editors: RecorderEditorEntry.ownedTakeIDs)
+            .union(savingTakeIDs)
         DispatchQueue.global(qos: .utility).async {
             RecorderTakeStore.shared.sweep(keeping: kept)
         }

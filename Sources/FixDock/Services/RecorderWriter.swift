@@ -7,8 +7,10 @@ import CoreMedia
 import os.log
 import VideoToolbox
 
-/// Ported from upstream with FixDock queue names and the audio track roles
-/// defined here rather than in the editor's composition file.
+/// Ported from upstream with FixDock queue names. Each audio track is stamped
+/// with its `RecorderAudioSource`, and the system track is always added before
+/// the microphone's, which is what the editor falls back on for a track
+/// without one.
 ///
 /// Writes the master file a recording produces: the pixels exactly as they
 /// were on screen, plus one track per sound source. Nothing is composited
@@ -105,7 +107,7 @@ final class RecorderWriter {
             let input = AVAssetWriterInput(mediaType: .audio,
                                            outputSettings: Self.audioSettings)
             input.expectsMediaDataInRealTime = true
-            input.metadata = Self.trackMetadata(.system)
+            input.metadata = RecorderAudioSource.system.trackMetadata
             if writer.canAdd(input) {
                 writer.add(input)
                 systemAudioInput = input
@@ -117,7 +119,7 @@ final class RecorderWriter {
             let input = AVAssetWriterInput(mediaType: .audio,
                                            outputSettings: Self.audioSettings)
             input.expectsMediaDataInRealTime = true
-            input.metadata = Self.trackMetadata(.microphone)
+            input.metadata = RecorderAudioSource.microphone.trackMetadata
             if writer.canAdd(input) {
                 writer.add(input)
                 microphoneInput = input
@@ -129,30 +131,6 @@ final class RecorderWriter {
         self.systemAudioInput = systemAudioInput
         self.microphoneInput = microphoneInput
         self.pauseClock = pauseClock
-    }
-
-    // MARK: - Track roles
-
-    /// Which sound each audio track holds, written into the track so the
-    /// editor can tell them apart. The type the editor reads this with lives
-    /// on the editor's side; the identifiers here are the contract, and the
-    /// system track is always added before the microphone's, which is what
-    /// the editor falls back on for a track without one.
-    enum AudioTrackRole: String {
-        case system
-        case microphone
-
-        static let identifierPrefix = "io.github.qaws81877.fixdock.recorder.audio."
-
-        var contentIdentifier: String { Self.identifierPrefix + rawValue }
-    }
-
-    static func trackMetadata(_ role: AudioTrackRole) -> [AVMetadataItem] {
-        let item = AVMutableMetadataItem()
-        item.identifier = .quickTimeMetadataContentIdentifier
-        item.value = role.contentIdentifier as NSString
-        item.dataType = kCMMetadataBaseDataType_UTF8 as String
-        return [item]
     }
 
     // MARK: - Settings

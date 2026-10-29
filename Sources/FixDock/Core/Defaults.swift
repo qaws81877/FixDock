@@ -107,6 +107,12 @@ enum DefaultsKey {
     static let recorderPointerTrack = "recorderPointerTrack"
     static let recorderTypingTrack = "recorderTypingTrack"
 
+    // Screen recorder editor (7.7 C). Names as upstream.
+    static let recorderAutomaticZoom = "recorderAutomaticZoom"
+    static let recorderGIFSize = "recorderGIFSize"
+    static let recorderGIFFrameRate = "recorderGIFFrameRate"
+    static let recorderEditorPresets = "recorderEditorPresets"
+
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
 
@@ -150,6 +156,11 @@ enum Defaults {
             DefaultsKey.recorderMicrophone: false,
             DefaultsKey.recorderPointerTrack: true,
             DefaultsKey.recorderTypingTrack: false,
+            // Screen recorder editor (7.7 C).
+            DefaultsKey.recorderAutomaticZoom: true,
+            DefaultsKey.recorderGIFSize: RecorderSupport.GIFSize.medium.rawValue,
+            DefaultsKey.recorderGIFFrameRate: 12,
+            DefaultsKey.recorderEditorPresets: Data(),
         ])
     }
 }

@@ -520,6 +520,7 @@ extension Strings {
         recorderStop: "기록 중단",
         recorderSavedFormat: "%@(으)로 저장했습니다",
         recorderFolderUnavailable: "저장 폴더가 없거나 쓸 수 없어 기록을 저장하지 못했습니다.",
+        recorderSaveElsewhereMessage: "저장 폴더가 없거나 쓸 수 없습니다. 기록을 저장할 위치를 선택하세요.",
         recorderCountdownLabel: "카운트다운",
         recorderCountdownOff: "끔",
         recorderCountdownSecondsFormat: "%d초",
@@ -584,7 +585,6 @@ extension Strings {
         recorderEditorExportingLabel: "저장 중…",
         recorderEditorExportPreviewNote: "동영상과 GIF에 적용됩니다. 편집 미리보기는 1×로 유지되며 원본 녹화는 변경되지 않습니다.",
         recorderEditorExportSpeed: "내보내기 속도",
-        recorderEditorFileNamePrefix: "화면 기록",
         recorderEditorFolderLabel: "저장 위치",
         recorderEditorImageImportFailed: "이 이미지를 추가할 수 없습니다.",
         recorderEditorImageLaneEmptyHint: "여기를 클릭해 이미지를 추가하세요",
@@ -652,6 +652,14 @@ extension Strings {
         recorderEditorZoomSectionLabel: "확대/축소",
         recorderEditorZoomToggle: "클릭할 때마다 확대",
         recorderEditorZoomWhereLabel: "확대 위치",
+        recorderEditorSettingsSection: "편집기",
+        recorderEditorSettingsAutomaticZoomToggle: "확대 효과 자동 추가",
+        recorderEditorSettingsAutomaticZoomCaption: "끄면 새 화면 기록이 확대 효과 없이 시작됩니다. 편집기에서 나중에 추가할 수 있습니다.",
+        recorderEditorSettingsGIFSizeLabel: "GIF 크기",
+        recorderEditorSettingsGIFSizeSmall: "작게",
+        recorderEditorSettingsGIFSizeMedium: "중간",
+        recorderEditorSettingsGIFSizeLarge: "크게",
+        recorderEditorSettingsGIFFrameRateLabel: "GIF 부드러운 정도",
         versionFormat: "버전 %@"
     )
 }
