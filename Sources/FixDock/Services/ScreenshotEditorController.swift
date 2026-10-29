@@ -9,8 +9,8 @@ import SwiftUI
 /// Everything the annotation editor can do to one capture: the mutable
 /// document (image, annotations, undo history) and the gestures that change
 /// it. The SwiftUI editor view observes this model; geometry is in image
-/// pixels. Adapted from the upstream editor model, without canvas
-/// expansion, pasted images, backdrop and watermark (stage C).
+/// pixels. Adapted from the upstream editor model; the backdrop and
+/// watermark live in `ScreenshotEditorDecor`.
 final class ScreenshotEditorModel: ObservableObject {
     /// One undo step. The image is part of it so a crop can be undone.
     struct State {
@@ -135,7 +135,7 @@ final class ScreenshotEditorModel: ObservableObject {
     /// A short line over the canvas (text copied, save failed).
     @Published var notice: String?
 
-    // MARK: Backdrop, watermark and canvas expansion state (stage C)
+    // MARK: Backdrop, watermark and canvas expansion state
 
     /// Backdrop and watermark, remembered between captures.
     let decor = ScreenshotEditorDecor()
@@ -905,7 +905,7 @@ final class ScreenshotEditorModel: ObservableObject {
     }
 }
 
-// MARK: - Stage C: backdrop, canvas expansion, pasted images
+// MARK: - Backdrop, canvas expansion, pasted images
 
 /// Same file as the model, so these reach its undo history and base image.
 /// Adapted from the upstream editor model.
@@ -1344,7 +1344,7 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
     }
 }
 
-// MARK: - Stage C: pasting an image
+// MARK: - Pasting an image
 
 extension ScreenshotEditorController {
     /// Reads the clipboard image on the shared pasteboard lane, since a read

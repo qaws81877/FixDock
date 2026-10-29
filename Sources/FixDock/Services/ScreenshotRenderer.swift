@@ -12,10 +12,11 @@ import UniformTypeIdentifiers
 /// All geometry is in image pixels with a top-left origin; `scale` is the
 /// capture's pixels per point, keeping stroke weights and text sizes visually
 /// constant across 1x and Retina captures. Adapted from the upstream
-/// renderer, without the pasted image layers, backdrop and watermark passes
-/// of stage C.
+/// renderer; the watermark, corners and backdrop are finished in
+/// `ScreenshotExportRendering.swift` and pasted layers drawn by
+/// `ScreenshotImageLayerRendering`.
 enum ScreenshotRenderer {
-    private static let blurContext = CIContext(options: [.cacheIntermediates: false])
+    static let blurContext = CIContext(options: [.cacheIntermediates: false])
 
     static func color(_ id: ScreenshotSupport.ColorID, alpha: CGFloat = 1) -> CGColor {
         let c = id.components

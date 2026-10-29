@@ -8,9 +8,8 @@ import SwiftUI
 /// The annotation editor: tool rail on the left, actions top right, style
 /// controls and zoom along the bottom, and the canvas drawn by the shared
 /// renderer so the screen matches the export. Adapted from the upstream
-/// editor view, without its brand mark, the cuts in
-/// `docs/screenshot-editor.md` and the stage C controls (backdrop,
-/// watermark, tool order, canvas expansion).
+/// editor view, without its brand mark and the cuts in
+/// `docs/screenshot-editor.md`.
 struct ScreenshotEditorView: View {
     @ObservedObject var model: ScreenshotEditorModel
     let controller: ScreenshotEditorController
@@ -1240,7 +1239,7 @@ struct ScreenshotEditorView: View {
     }
 }
 
-// MARK: - Stage C: backdrop, watermark, canvas expansion, tool order
+// MARK: - Backdrop, watermark, canvas expansion, tool order
 
 /// Same file as the view, so these reach its private state. Adapted from
 /// the upstream editor view.

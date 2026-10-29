@@ -196,8 +196,6 @@ extension ScreenshotRenderer {
         return context.makeImage()
     }
 
-    private static let blurContext = CIContext(options: [.cacheIntermediates: false])
-
     /// Blurs a finished background plate while extending its edge pixels, so
     /// the effect never creates a transparent seam around the canvas.
     static func blurredBackdrop(_ image: CGImage, factor: CGFloat) -> CGImage {

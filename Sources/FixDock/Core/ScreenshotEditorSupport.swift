@@ -10,8 +10,8 @@ import Foundation
 /// annotation model, selection handles, shape geometry and hit testing, zoom,
 /// the undo history, crop geometry, redaction runs and recognized words. No
 /// AppKit, so a harness compiles it on its own. Adapted from the upstream
-/// editor support, without canvas expansion and pasted images (stage C);
-/// the shapes stay upstream's so those slot in.
+/// editor support; canvas expansion, image layers, the backdrop and the tool
+/// order have files of their own.
 extension ScreenshotSupport {
 
     // MARK: - Editor layout
@@ -176,17 +176,6 @@ extension ScreenshotSupport {
             return [.select, .crop, .expandCanvas, .image].contains(tool) ? .arrow : tool
         }
 
-        /// The tool in rail slot `number` (1 based), or nil past the rail.
-        static func shortcutTool(number: Int) -> Tool? {
-            guard (1...shortcutLimit).contains(number) else { return nil }
-            let index = number - 1
-            return editorTools.indices.contains(index) ? editorTools[index] : nil
-        }
-
-        static func shortcutNumber(for tool: Tool) -> Int? {
-            guard let index = editorTools.firstIndex(of: tool), index < shortcutLimit else { return nil }
-            return index + 1
-        }
     }
 
     enum ColorID: String, CaseIterable {

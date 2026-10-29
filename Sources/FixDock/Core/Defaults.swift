@@ -65,10 +65,8 @@ enum DefaultsKey {
     static let screenshotPreviewPosition = "screenshotPreviewPosition"
     /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
     static let screenshotLastRegions = "screenshotLastRegions"
-    /// The editor's rail order (comma-separated tool ids) and whether keys 1
-    /// to 9 pick tools. `screenshotToolShortcuts` is upstream's key for
-    /// custom non-digit tool keys; FixDock keeps it registered but does not
-    /// offer those keys yet.
+    /// The editor's rail order (comma-separated tool ids), each tool's own
+    /// key (`tool=<shortcut>` pairs) and whether keys pick tools at all.
     static let screenshotToolOrder = "screenshotToolOrder"
     static let screenshotToolShortcuts = "screenshotToolShortcuts"
     static let screenshotToolShortcutsEnabled = "screenshotToolShortcutsEnabled"
