@@ -79,11 +79,22 @@ enum DefaultsKey {
     static let screenshotWatermarkStyle = "screenshotWatermarkStyle"
     static let screenshotWatermarkPresets = "screenshotWatermarkPresets"
     /// The editor's last tool, colour, line width and text size, so the next
-    /// capture opens with them. Read through the sanitizers, never registered.
+    /// capture opens with them. Read through the sanitizers.
     static let screenshotEditorTool = "screenshotEditorTool"
     static let screenshotEditorColor = "screenshotEditorColor"
     static let screenshotEditorStroke = "screenshotEditorStroke"
     static let screenshotEditorTextSize = "screenshotEditorTextSize"
+    /// The blur area's last level, style and text only choice, the
+    /// spotlight dim, arrow style, sticker and annotation shadows. Level and
+    /// dim are registered below, because 0 from double(forKey:) is a valid
+    /// dim and would hide the 0.5 default.
+    static let screenshotEditorBlurLevel = "screenshotEditorBlurLevel"
+    static let screenshotEditorBlurStyle = "screenshotEditorBlurStyle"
+    static let screenshotEditorBlurTextOnly = "screenshotEditorBlurTextOnly"
+    static let screenshotEditorSpotlightDim = "screenshotEditorSpotlightDim"
+    static let screenshotEditorArrowStyle = "screenshotEditorArrowStyle"
+    static let screenshotEditorSticker = "screenshotEditorSticker"
+    static let screenshotEditorAnnotationShadows = "screenshotEditorAnnotationShadows"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
@@ -110,6 +121,8 @@ enum Defaults {
             DefaultsKey.screenshotShowPreview: true,
             DefaultsKey.screenshotPreviewCloseSeconds: 0,
             DefaultsKey.screenshotPreviewPosition: ScreenshotSupport.PreviewPosition.bottomRight.rawValue,
+            DefaultsKey.screenshotEditorBlurLevel: ScreenshotSupport.BlurStrength.defaultLevel,
+            DefaultsKey.screenshotEditorSpotlightDim: Double(ScreenshotSupport.defaultSpotlightDim),
             // The editor reads these through UserDefaults as well as @AppStorage.
             DefaultsKey.screenshotToolOrder: ScreenshotSupport.Tool.defaultOrderStorage,
             DefaultsKey.screenshotToolShortcutsEnabled: true,

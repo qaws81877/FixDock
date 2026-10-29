@@ -46,10 +46,13 @@ enum ScreenshotRecognition {
     }
 
     /// Every word with its box in image pixels (top-left origin), for text
-    /// selection on the editor canvas. Read band by band so a tall scrolling
-    /// capture is never shrunk below legibility; a band Vision fails on adds
-    /// nothing. Adapted from the upstream editor's recognition.
-    static func readWords(_ image: CGImage, languages: [String]) -> [ScreenshotSupport.RecognizedWord] {
+    /// selection on the editor canvas, and the runs a text only blur covers.
+    /// Read band by band so a tall scrolling capture is never shrunk below
+    /// legibility; a band Vision fails on adds no words and leaves the runs
+    /// nil, so text only areas keep covering all of themselves. Adapted from
+    /// the upstream editor's recognition.
+    static func readWords(_ image: CGImage, languages: [String])
+        -> (words: [ScreenshotSupport.RecognizedWord], runs: [CGRect]?) {
         let width = CGFloat(image.width)
         let tiles = ScreenshotSupport.recognitionTiles(width: image.width, height: image.height)
         var reads: [[ScreenshotSupport.BandWord]?] = []
@@ -81,8 +84,13 @@ enum ScreenshotRecognition {
             let observations = request.results ?? []
             var read: [ScreenshotSupport.BandWord] = []
             for (line, observation) in observations.enumerated() {
-                guard let candidate = observation.topCandidates(1).first else { continue }
                 let lineBox = imageRect(observation.boundingBox)
+                // A line read without any text is still text to cover.
+                guard let candidate = observation.topCandidates(1).first else {
+                    read.append(ScreenshotSupport.BandWord(text: "", rect: nil, lineBox: lineBox,
+                                                           line: lineOffset + line))
+                    continue
+                }
                 let text = candidate.string
                 var searchStart = text.startIndex
                 for raw in text.split(separator: " ") {
@@ -97,7 +105,7 @@ enum ScreenshotRecognition {
             reads.append(read)
             lineOffset += observations.count
         }
-        return ScreenshotSupport.mergedRecognition(reads, tiles: tiles).words
+        return ScreenshotSupport.mergedRecognition(reads, tiles: tiles)
     }
 
     /// The app's language first, so Korean text reads as Korean.

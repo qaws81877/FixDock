@@ -135,6 +135,13 @@ extension ScreenshotSupport.Tool {
         case .freehand: return "scribble.variable"
         case .line: return "line.diagonal"
         case .ellipse: return "circle"
+        case .highlight: return "highlighter"
+        case .sticker: return "face.smiling"
+        case .counter: return "1.circle"
+        case .pixelate: return "aqi.medium"
+        case .redact: return "rectangle.fill"
+        case .crop: return "crop"
+        case .spotlight: return "viewfinder"
         case .expandCanvas: return "arrow.up.left.and.arrow.down.right"
         case .image: return "photo"
         }
@@ -149,6 +156,13 @@ extension ScreenshotSupport.Tool {
         case .freehand: return s.screenshotEditorToolFreehand
         case .line: return s.screenshotEditorToolLine
         case .ellipse: return s.screenshotEditorToolEllipse
+        case .highlight: return s.screenshotEditorToolHighlight
+        case .sticker: return s.screenshotEditorToolSticker
+        case .counter: return s.screenshotEditorToolCounter
+        case .pixelate: return s.screenshotEditorToolBlur
+        case .redact: return s.screenshotEditorToolRedact
+        case .crop: return s.screenshotEditorToolCrop
+        case .spotlight: return s.screenshotEditorToolSpotlight
         case .expandCanvas: return s.screenshotEditorToolExpandCanvas
         case .image: return s.screenshotEditorPastedImage
         }

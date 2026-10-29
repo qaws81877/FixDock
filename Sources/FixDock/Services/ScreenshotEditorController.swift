@@ -9,10 +9,10 @@ import SwiftUI
 /// Everything the annotation editor can do to one capture: the mutable
 /// document (image, annotations, undo history) and the gestures that change
 /// it. The SwiftUI editor view observes this model; geometry is in image
-/// pixels. Adapted from the upstream editor model, trimmed to the stage A
-/// tools; crop, blur, backdrop and the rest come in later stages.
+/// pixels. Adapted from the upstream editor model, without canvas
+/// expansion, pasted images, backdrop and watermark (stage C).
 final class ScreenshotEditorModel: ObservableObject {
-    /// One undo step. The image is part of it so a later crop can be undone.
+    /// One undo step. The image is part of it so a crop can be undone.
     struct State {
         let image: CGImage
         let annotations: [ScreenshotSupport.Annotation]
@@ -20,6 +20,15 @@ final class ScreenshotEditorModel: ObservableObject {
 
     @Published private(set) var baseImage: CGImage
     @Published var annotations: [ScreenshotSupport.Annotation] = []
+    /// How dark a spotlight turns everything outside its regions,
+    /// remembered between captures like the blur strength.
+    @Published var spotlightDimStrength: CGFloat {
+        didSet {
+            UserDefaults.standard.set(Double(spotlightDimStrength),
+                                      forKey: DefaultsKey.screenshotEditorSpotlightDim)
+            refreshDirtyState()
+        }
+    }
     @Published var selectedID: UUID?
     @Published var editingTextID: UUID?
     @Published var tool: ScreenshotSupport.Tool {
@@ -31,10 +40,24 @@ final class ScreenshotEditorModel: ObservableObject {
                 selectedID = nil
                 editingTextID = nil
             }
+            if tool == .crop, oldValue != .crop {
+                selectedID = nil
+                cropDraft = CGRect(origin: .zero, size: imageSize)
+            } else if oldValue == .crop {
+                cropDraft = nil
+                cropLoupePoint = nil
+            }
         }
     }
     /// Words recognized in the capture and selectable with the select tool.
     @Published private(set) var textWords: [ScreenshotSupport.RecognizedWord] = []
+    /// The recognized words joined into the runs text only blur areas cover,
+    /// or nil until recognition has read all of the current capture.
+    @Published private(set) var textRuns: [CGRect]?
+    /// Runs a crop carried over to the capture it made. Recognition misses a
+    /// line the crop cut through, so the cropped capture's runs keep these
+    /// once it is read, and after an undo or redo back to it.
+    private var carriedRuns: [ObjectIdentifier: [CGRect]] = [:]
     @Published private(set) var selectedWordIndexes: [Int] = []
     private var textSelectionAnchor: CGPoint?
     /// A code found in the capture, offered through the QR button.
@@ -57,7 +80,48 @@ final class ScreenshotEditorModel: ObservableObject {
             applyStyleToSelection()
         }
     }
-    let arrowStyle = ScreenshotSupport.ArrowStyleID.filled
+    @Published var blurLevel: Int {
+        didSet {
+            UserDefaults.standard.set(blurLevel, forKey: DefaultsKey.screenshotEditorBlurLevel)
+            applyBlurToSelection()
+        }
+    }
+    @Published var blurStyle: ScreenshotSupport.BlurStyleID {
+        didSet {
+            UserDefaults.standard.set(blurStyle.rawValue, forKey: DefaultsKey.screenshotEditorBlurStyle)
+            applyBlurToSelection()
+        }
+    }
+    @Published var blurTextOnly: Bool {
+        didSet {
+            UserDefaults.standard.set(blurTextOnly, forKey: DefaultsKey.screenshotEditorBlurTextOnly)
+            applyBlurToSelection()
+        }
+    }
+    @Published var arrowStyle: ScreenshotSupport.ArrowStyleID {
+        didSet {
+            UserDefaults.standard.set(arrowStyle.rawValue, forKey: DefaultsKey.screenshotEditorArrowStyle)
+            applyStyleToSelection()
+        }
+    }
+    @Published var sticker: ScreenshotSupport.StickerID {
+        didSet {
+            UserDefaults.standard.set(sticker.rawValue, forKey: DefaultsKey.screenshotEditorSticker)
+            applyStickerToSelection()
+        }
+    }
+    @Published var annotationShadowsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(annotationShadowsEnabled,
+                                      forKey: DefaultsKey.screenshotEditorAnnotationShadows)
+            refreshDirtyState()
+        }
+    }
+    /// The crop rectangle while the crop tool is active, in image pixels.
+    @Published var cropDraft: CGRect?
+    /// Exact image pixel under a crop resize grip. Nil while moving the
+    /// whole crop so the loupe appears only when it adds precision.
+    @Published private(set) var cropLoupePoint: CGPoint?
     /// Continuous zoom (view points per image pixel); nil fits the window.
     @Published var zoomOverride: CGFloat?
     /// What the view actually laid out last, so pinch and scroll zoom start
@@ -85,9 +149,23 @@ final class ScreenshotEditorModel: ObservableObject {
     private var expansionStartPoint: CGPoint?
 
     let scale: CGFloat
+    /// Sampled mosaics of the base image, one per blur level in use.
+    private(set) var pixelated: [Int: CGImage] = [:]
+    /// Small soft blurs of the base image, one per blur level in use.
+    private(set) var softBlurred: [Int: CGImage] = [:]
+    private let eraseCache = ScreenshotRenderer.EraseCache()
+
+    /// What blur areas paint from, shared by the canvas and the exporter.
+    var blurSources: ScreenshotRenderer.BlurSources {
+        ScreenshotRenderer.BlurSources(mosaics: pixelated, softBlurs: softBlurred, image: baseImage,
+                                       eraseCache: eraseCache, textRuns: textRuns)
+    }
+
     private var history = ScreenshotSupport.EditorHistory<State>(limit: 60)
     private var cleanImage: CGImage?
     private var cleanAnnotations: [ScreenshotSupport.Annotation] = []
+    private var cleanAnnotationShadowsEnabled = false
+    private var cleanSpotlightDimStrength = ScreenshotSupport.defaultSpotlightDim
 
     // Gesture state, in image pixels.
     private var dragStart: CGPoint = .zero
@@ -96,6 +174,9 @@ final class ScreenshotEditorModel: ObservableObject {
     private var moveOrigin: CGRect = .zero
     private var movePoints: [CGPoint] = []
     private var activeHandle: ScreenshotSupport.Handle?
+    private var cropResizeOrigin: CGRect?
+    private var cropMoveOrigin: CGRect?
+    private var cropSelectionOrigin: CGRect?
     private var dragRegistered = false
     private var editingSelectedAnnotation = false
     private var newTextID: UUID?
@@ -124,6 +205,17 @@ final class ScreenshotEditorModel: ObservableObject {
         color = ScreenshotSupport.ColorID.sanitized(defaults.string(forKey: DefaultsKey.screenshotEditorColor))
         stroke = ScreenshotSupport.StrokeID.sanitized(defaults.string(forKey: DefaultsKey.screenshotEditorStroke))
         textSize = ScreenshotSupport.sanitizedTextSize(defaults.integer(forKey: DefaultsKey.screenshotEditorTextSize))
+        blurLevel = ScreenshotSupport.BlurStrength.startingLevel(
+            remembered: defaults.integer(forKey: DefaultsKey.screenshotEditorBlurLevel))
+        blurStyle = ScreenshotSupport.BlurStyleID.sanitized(
+            defaults.string(forKey: DefaultsKey.screenshotEditorBlurStyle))
+        blurTextOnly = defaults.bool(forKey: DefaultsKey.screenshotEditorBlurTextOnly)
+        spotlightDimStrength = ScreenshotSupport.sanitizedSpotlightDim(
+            CGFloat(defaults.double(forKey: DefaultsKey.screenshotEditorSpotlightDim)))
+        arrowStyle = ScreenshotSupport.ArrowStyleID.sanitized(
+            defaults.string(forKey: DefaultsKey.screenshotEditorArrowStyle))
+        sticker = ScreenshotSupport.StickerID.sanitized(defaults.string(forKey: DefaultsKey.screenshotEditorSticker))
+        annotationShadowsEnabled = defaults.bool(forKey: DefaultsKey.screenshotEditorAnnotationShadows)
         recordCleanState()
         forwardDecorChanges()
     }
@@ -144,21 +236,24 @@ final class ScreenshotEditorModel: ObservableObject {
     }
 
     /// Word-level recognition of the base capture, off the main thread; the
-    /// boxes land in image pixels with their line index.
+    /// boxes land in image pixels with their line index, and the runs that
+    /// text only blur areas cover come with them.
     func recognizeText() {
         let image = baseImage
         let languages = ScreenshotRecognition.preferredLanguages(for: L10n.shared.language)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let words = ScreenshotRecognition.readWords(image, languages: languages)
+            let read = ScreenshotRecognition.readWords(image, languages: languages)
             DispatchQueue.main.async {
                 guard let self, image === self.baseImage else { return }
-                self.textWords = words
+                self.textWords = read.words
+                self.textRuns = read.runs.map { $0 + (self.carriedRuns[ObjectIdentifier(image)] ?? []) }
             }
         }
     }
 
     /// Scans the capture for a code off the main thread; the result drives
-    /// the QR button.
+    /// the QR button. Re-run whenever the base image changes (crop, undo) so
+    /// a cropped out code stops being offered.
     func recognizeQRCodes() {
         let image = baseImage
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -205,18 +300,33 @@ final class ScreenshotEditorModel: ObservableObject {
         restore(next)
     }
 
+    /// Keeps carried runs only for captures the editor can still show.
+    private func pruneCarriedRuns() {
+        let live = Set([ObjectIdentifier(baseImage)]
+            + (history.undoStack + history.redoStack).map { ObjectIdentifier($0.image) })
+        carriedRuns = carriedRuns.filter { live.contains($0.key) }
+    }
+
     private func restore(_ state: State) {
         cancelCanvasExpansion()
         if state.image !== baseImage {
             baseImage = state.image
+            pixelated = [:]
+            softBlurred = [:]
+            // The runs belong to the other image. Text only areas cover all
+            // of themselves until this one is read.
+            textRuns = nil
+            textWords = []
             clearTextSelection()
             recognizeText()
             recognizeQRCodes()
         }
         annotations = state.annotations
+        ensureBlurSamplesForAnnotations()
         selectedID = nil
         editingTextID = nil
         newTextID = nil
+        cropDraft = nil
         refreshUndoFlags()
         refreshDirtyState()
     }
@@ -235,38 +345,88 @@ final class ScreenshotEditorModel: ObservableObject {
     private func recordCleanState() {
         cleanImage = baseImage
         cleanAnnotations = annotations
+        cleanAnnotationShadowsEnabled = annotationShadowsEnabled
+        cleanSpotlightDimStrength = spotlightDimStrength
         decor.markClean()
         isDirty = false
     }
 
     private func refreshDirtyState() {
         guard let cleanImage else { return }
-        isDirty = baseImage !== cleanImage || annotations != cleanAnnotations || decor.differsFromClean
+        isDirty = baseImage !== cleanImage
+            || annotations != cleanAnnotations
+            || annotationShadowsEnabled != cleanAnnotationShadowsEnabled
+            // Without a region the dim changes nothing in the output.
+            || (spotlightDimStrength != cleanSpotlightDimStrength
+                && annotations.contains { $0.tool == .spotlight })
+            || decor.differsFromClean
     }
 
     // MARK: - Selection styling
 
-    /// Applies colour, thickness or text size changes to the selected mark.
+    /// Applies colour, thickness, text size or arrow style changes to the
+    /// selected mark.
     private func applyStyleToSelection() {
         guard let selectedID,
               let index = annotations.firstIndex(where: { $0.id == selectedID }),
               annotations[index].tool != .image
         else { return }
+        let arrowStyleChanged = annotations[index].tool == .arrow && annotations[index].arrowStyle != arrowStyle
         let textSizeChanged = annotations[index].tool == .text && annotations[index].textSize != textSize
         // Marks without a thickness control keep theirs, so picking one never
         // records an edit nobody made.
         let usesStroke = ScreenshotSupport.selectionStyle(for: annotations[index]).stroke != nil
         let strokeChanged = usesStroke && annotations[index].stroke != stroke
-        guard annotations[index].color != color || strokeChanged || textSizeChanged else { return }
+        guard annotations[index].color != color || strokeChanged || arrowStyleChanged || textSizeChanged
+        else { return }
         registerUndo()
         annotations[index].color = color
         if usesStroke { annotations[index].stroke = stroke }
+        if annotations[index].tool == .arrow {
+            if arrowStyleChanged, arrowStyle == .scribbly {
+                annotations[index].scribbleSeed = ScreenshotSupport.randomScribbleSeed()
+            }
+            annotations[index].arrowStyle = arrowStyle
+        }
         if annotations[index].tool == .text {
             annotations[index].textSize = textSize
             annotations[index].rect = ScreenshotRenderer.textBounds(
                 annotations[index].text, at: annotations[index].rect.origin,
                 textSize: textSize, scale: scale)
         }
+    }
+
+    private func applyBlurToSelection() {
+        guard let selectedID,
+              let index = annotations.firstIndex(where: { $0.id == selectedID }),
+              annotations[index].tool == .pixelate
+        else { return }
+        let mark = annotations[index]
+        guard mark.blurLevel != blurLevel || mark.blurStyle != blurStyle || mark.blurTextOnly != blurTextOnly
+        else { return }
+        // The sample must exist before the mark points at it, or the redraw
+        // would show the area uncovered. Without one the area keeps its look.
+        guard ensureBlurSample(blurStyle, level: blurLevel) else {
+            self.selectedID = nil
+            syncControls(to: mark)
+            self.selectedID = selectedID
+            return
+        }
+        registerUndo()
+        annotations[index].blurLevel = blurLevel
+        annotations[index].blurStyle = blurStyle
+        annotations[index].blurTextOnly = blurTextOnly
+        ensureBlurSamplesForAnnotations()
+    }
+
+    private func applyStickerToSelection() {
+        guard let selectedID,
+              let index = annotations.firstIndex(where: { $0.id == selectedID }),
+              annotations[index].tool == .sticker,
+              annotations[index].text != sticker.rawValue
+        else { return }
+        registerUndo()
+        annotations[index].text = sticker.rawValue
     }
 
     /// Copies only the controls that have meaning for the picked annotation.
@@ -276,6 +436,13 @@ final class ScreenshotEditorModel: ObservableObject {
         if let color = style.color { self.color = color }
         if let stroke = style.stroke { self.stroke = stroke }
         if let textSize = style.textSize { self.textSize = textSize }
+        if let blurLevel = style.blurLevel { self.blurLevel = blurLevel }
+        if let blurStyle = style.blurStyle { self.blurStyle = blurStyle }
+        if let blurTextOnly = style.blurTextOnly { self.blurTextOnly = blurTextOnly }
+        if let arrowStyle = style.arrowStyle { self.arrowStyle = arrowStyle }
+        if annotation.tool == .sticker {
+            sticker = ScreenshotSupport.StickerID.sanitized(annotation.text)
+        }
     }
 
     // MARK: - Gestures (image-pixel coordinates)
@@ -285,15 +452,31 @@ final class ScreenshotEditorModel: ObservableObject {
         dragRegistered = false
         editingSelectedAnnotation = false
         // The mark just drawn stays directly editable with its creating tool.
-        if tool != .select, tool != .expandCanvas, selectedAnnotationOwns(point) {
+        // A spotlight region claims only its handles and edge, so a drag
+        // inside the one just drawn lights another region.
+        if tool != .select, tool != .crop, tool != .expandCanvas,
+           selectedAnnotationOwns(point, includingInterior: tool != .spotlight) {
             editingSelectedAnnotation = true
             beginSelectDrag(at: point)
             return
         }
-        if tool != .select, tool != .expandCanvas { selectedID = nil }
+        if tool != .select, tool != .crop, tool != .expandCanvas { selectedID = nil }
         switch tool {
         case .select:
             beginSelectDrag(at: point)
+        case .crop:
+            let bounds = CGRect(origin: .zero, size: imageSize)
+            if let draft = cropDraft,
+               let handle = ScreenshotSupport.handle(at: point, rect: draft, tolerance: 14 * scale) {
+                activeHandle = handle
+                cropResizeOrigin = draft
+                cropLoupePoint = handle.position(in: draft)
+            } else if let draft = cropDraft,
+                      ScreenshotSupport.startsNewCropSelection(at: point, draft: draft, within: bounds) {
+                cropSelectionOrigin = draft
+            } else if let draft = cropDraft, draft.contains(point) {
+                cropMoveOrigin = draft
+            }
         case .arrow, .line:
             registerUndo()
             dragRegistered = true
@@ -307,16 +490,18 @@ final class ScreenshotEditorModel: ObservableObject {
             let annotation = ScreenshotSupport.Annotation(tool: tool, points: [point], color: color, stroke: stroke)
             annotations.append(annotation)
             draftID = annotation.id
-        case .rect, .ellipse:
+        case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight:
+            if tool == .pixelate { ensureBlurSample(blurStyle, level: blurLevel) }
             registerUndo()
             dragRegistered = true
             let annotation = ScreenshotSupport.Annotation(
-                tool: tool, rect: CGRect(origin: point, size: .zero), color: color, stroke: stroke)
+                tool: tool, rect: CGRect(origin: point, size: .zero), color: color, stroke: stroke,
+                blurLevel: blurLevel, blurStyle: blurStyle, blurTextOnly: blurTextOnly)
             annotations.append(annotation)
             draftID = annotation.id
         case .expandCanvas:
             beginCanvasExpansion(at: point)
-        case .text, .image:
+        case .text, .sticker, .counter, .image:
             break
         }
     }
@@ -367,15 +552,30 @@ final class ScreenshotEditorModel: ObservableObject {
         switch tool {
         case .select:
             continueSelectDrag(to: point)
+        case .crop:
+            let bounds = CGRect(origin: .zero, size: imageSize)
+            if let handle = activeHandle, let origin = cropResizeOrigin {
+                let rect = ScreenshotSupport.resizedRect(origin, dragging: handle, to: point)
+                let snapped = ScreenshotSupport.pixelSnappedCropRect(rect, within: bounds)
+                cropDraft = snapped
+                cropLoupePoint = handle.position(in: snapped)
+            } else if cropSelectionOrigin != nil {
+                cropDraft = ScreenshotSupport.pixelSnappedCropRect(
+                    ScreenshotSupport.rect(from: dragStart, to: point), within: bounds)
+            } else if let origin = cropMoveOrigin {
+                let delta = CGPoint(x: point.x - dragStart.x, y: point.y - dragStart.y)
+                cropDraft = ScreenshotSupport.pixelSnappedCropRect(
+                    ScreenshotSupport.movedRect(origin, by: delta, within: bounds), within: bounds)
+            }
         case .arrow, .line:
             updateDraft { $0.points = [dragStart, point] }
         case .freehand:
             updateDraft { $0.points.append(point) }
-        case .rect, .ellipse:
+        case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight:
             updateDraft { $0.rect = ScreenshotSupport.rect(from: dragStart, to: point) }
         case .expandCanvas:
             continueCanvasExpansion(to: point)
-        case .text, .image:
+        case .text, .sticker, .counter, .image:
             break
         }
     }
@@ -422,6 +622,10 @@ final class ScreenshotEditorModel: ObservableObject {
         defer {
             draftID = nil
             activeHandle = nil
+            cropResizeOrigin = nil
+            cropMoveOrigin = nil
+            cropSelectionOrigin = nil
+            cropLoupePoint = nil
             dragRegistered = false
             editingSelectedAnnotation = false
         }
@@ -441,7 +645,29 @@ final class ScreenshotEditorModel: ObservableObject {
             newTextID = annotation.id
             selectedID = annotation.id
             editingTextID = annotation.id
-        case .arrow, .line, .rect, .ellipse, .freehand:
+        case .sticker:
+            guard isTap else { return }
+            if selectExistingAnnotation(at: point) { return }
+            registerUndo()
+            let bounds = CGRect(origin: .zero, size: imageSize)
+            let side = ScreenshotSupport.stickerSide(for: imageSize, scale: scale)
+            let annotation = ScreenshotSupport.Annotation(
+                tool: .sticker,
+                rect: ScreenshotSupport.stickerRect(centeredAt: point, side: side, within: bounds),
+                text: sticker.rawValue, color: color, stroke: stroke)
+            annotations.append(annotation)
+            selectedID = annotation.id
+        case .counter:
+            guard isTap else { return }
+            if selectExistingAnnotation(at: point) { return }
+            registerUndo()
+            let annotation = ScreenshotSupport.Annotation(
+                tool: .counter, rect: CGRect(x: point.x, y: point.y, width: 0, height: 0),
+                color: color, stroke: stroke, number: 1)
+            annotations.append(annotation)
+            annotations = ScreenshotSupport.renumberingCounters(annotations)
+            selectedID = annotation.id
+        case .arrow, .line, .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight, .freehand:
             if isTap {
                 // A tap never leaves a degenerate shape behind; treat it as
                 // picking whatever is under the cursor instead.
@@ -459,12 +685,18 @@ final class ScreenshotEditorModel: ObservableObject {
             break
         case .select:
             finishSelectDrag(at: point, isTap: isTap)
+        case .crop:
+            // A click outside the crop keeps the crop it would have replaced.
+            if isTap, let origin = cropSelectionOrigin {
+                cropDraft = origin
+            }
         }
     }
 
     /// The visible selection remains directly editable after creation. A new
     /// tool or a gesture outside it ends that priority and creates normally.
-    func selectedAnnotationOwns(_ point: CGPoint) -> Bool {
+    /// Without the interior, an area mark answers only at its handles and edge.
+    func selectedAnnotationOwns(_ point: CGPoint, includingInterior: Bool = true) -> Bool {
         guard let selectedID, let selected = annotations.first(where: { $0.id == selectedID })
         else { return false }
         let tolerance = 12 * scale
@@ -475,7 +707,7 @@ final class ScreenshotEditorModel: ObservableObject {
            selected.points.prefix(2).contains(where: { hypot(point.x - $0.x, point.y - $0.y) < tolerance }) {
             return true
         }
-        return hitTest(point) == selectedID
+        return hitTest(point, includeShapeInteriors: includingInterior) == selectedID
     }
 
     private func finishSelectDrag(at point: CGPoint, isTap: Bool) {
@@ -496,8 +728,9 @@ final class ScreenshotEditorModel: ObservableObject {
     }
 
     /// A click on an existing mark always means "edit this", even while a
-    /// creation tool is active. Real drags still create with the active tool;
-    /// text enters its inline editor immediately.
+    /// creation tool is active. Real drags still create with the active tool.
+    /// Sticker selection updates the sticker picker without changing the
+    /// mark; text enters its inline editor immediately.
     @discardableResult
     private func selectExistingAnnotation(at point: CGPoint) -> Bool {
         guard let hitID = hitTest(point, includeShapeInteriors: false),
@@ -521,7 +754,7 @@ final class ScreenshotEditorModel: ObservableObject {
     }
 
     func hitTest(_ point: CGPoint, includeShapeInteriors: Bool = true) -> UUID? {
-        ScreenshotSupport.hitTest(annotations, at: point, scale: scale,
+        ScreenshotSupport.hitTest(annotations, at: point, scale: scale, imageSize: imageSize,
                                   includeShapeInteriors: includeShapeInteriors)
     }
 
@@ -531,19 +764,22 @@ final class ScreenshotEditorModel: ObservableObject {
         guard let selectedID, annotations.contains(where: { $0.id == selectedID }) else { return }
         registerUndo()
         annotations.removeAll { $0.id == selectedID }
+        annotations = ScreenshotSupport.renumberingCounters(annotations)
         self.selectedID = nil
         editingTextID = nil
         if newTextID == selectedID { newTextID = nil }
     }
 
     /// Moves the selected annotation one step through the drawing order, so a
-    /// box drawn last can sit behind text written first.
+    /// box drawn last can sit behind text written first. Counters are numbered
+    /// by their place in the array, so moving one past another renumbers both,
+    /// the same way deleting one does.
     func moveSelected(_ move: ScreenshotSupport.LayerMove) {
         guard let selectedID else { return }
         let reordered = ScreenshotSupport.reordering(annotations, moving: selectedID, move)
         guard reordered.map(\.id) != annotations.map(\.id) else { return }
         registerUndo()
-        annotations = reordered
+        annotations = ScreenshotSupport.renumberingCounters(reordered)
     }
 
     /// Ends inline editing. A new text left empty disappears with the undo
@@ -580,16 +816,90 @@ final class ScreenshotEditorModel: ObservableObject {
         newTextID = nil
     }
 
+    /// Cuts the capture to the crop draft, one undo step. Annotations, the
+    /// recognized words and the text runs move into the crop's coordinates;
+    /// the cropped capture is read again afterwards.
+    func applyCrop() {
+        guard let draft = cropDraft else {
+            tool = .select
+            return
+        }
+        let cropRect = ScreenshotSupport.pixelSnappedCropRect(draft, within: CGRect(origin: .zero, size: imageSize))
+        guard cropRect.width >= 8, cropRect.height >= 8,
+              let cropped = baseImage.cropping(to: cropRect)
+        else {
+            tool = .select
+            return
+        }
+        registerUndo()
+        let previousImage = baseImage
+        baseImage = cropped
+        pixelated = [:]
+        softBlurred = [:]
+        clearTextSelection()
+        textWords = ScreenshotSupport.croppedWords(textWords, by: cropRect)
+        // Moved runs still cover the cropped capture's text, including what
+        // the words alone miss, and stay once it is read again. If the old
+        // one was never read, text only areas keep waiting for recognition.
+        let previousCarried = carriedRuns[ObjectIdentifier(previousImage)]
+        textRuns = ScreenshotSupport.croppedRuns(textRuns, by: cropRect)
+        if let carried = textRuns ?? ScreenshotSupport.croppedRuns(previousCarried, by: cropRect),
+           !carried.isEmpty {
+            carriedRuns[ObjectIdentifier(cropped)] = carried
+        }
+        pruneCarriedRuns()
+        annotations = ScreenshotSupport.croppedAnnotations(annotations, by: cropRect)
+        ensureBlurSamplesForAnnotations()
+        cropDraft = nil
+        selectedID = nil
+        tool = .select
+        recognizeText()
+        recognizeQRCodes()
+    }
+
     // MARK: - Output
 
     /// The capture as it leaves the editor, at full resolution: annotations,
     /// then the watermark, the corners and, unless it is for a pin, the
     /// backdrop.
     func exportImage(withBackdrop: Bool = true) -> ScreenshotRenderer.Export? {
+        ensureBlurSamplesForAnnotations()
         guard let flattened = ScreenshotRenderer.renderExport(baseImage: baseImage, annotations: annotations,
-                                                              scale: scale)
+                                                              blurSources: blurSources, scale: scale,
+                                                              annotationShadowsEnabled: annotationShadowsEnabled,
+                                                              spotlightDimStrength: spotlightDimStrength)
         else { return nil }
         return decor.finished(flattened, base: baseImage, withBackdrop: withBackdrop)
+    }
+
+    /// Makes the sample a blur area of this style and level paints from, and
+    /// says whether it is there. Erasing reads the capture and needs none.
+    @discardableResult
+    private func ensureBlurSample(_ style: ScreenshotSupport.BlurStyleID, level: Int) -> Bool {
+        switch style {
+        case .pixelate:
+            if pixelated[level] == nil {
+                pixelated[level] = ScreenshotRenderer.pixelatedImage(from: baseImage, level: level)
+            }
+            return pixelated[level] != nil
+        case .blur:
+            if softBlurred[level] == nil {
+                softBlurred[level] = ScreenshotRenderer.softBlurredImage(from: baseImage, level: level)
+            }
+            return softBlurred[level] != nil
+        case .erase:
+            return true
+        }
+    }
+
+    /// Keeps a sample for each style and level in use and drops the rest.
+    private func ensureBlurSamplesForAnnotations() {
+        let mosaicLevels = ScreenshotSupport.mosaicLevels(for: annotations)
+        let softBlurLevels = ScreenshotSupport.softBlurLevels(for: annotations)
+        pixelated = pixelated.filter { mosaicLevels.contains($0.key) }
+        softBlurred = softBlurred.filter { softBlurLevels.contains($0.key) }
+        for level in mosaicLevels { ensureBlurSample(.pixelate, level: level) }
+        for level in softBlurLevels { ensureBlurSample(.blur, level: level) }
     }
 }
 
@@ -868,13 +1178,22 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             model.deleteSelected()
             return true
         case kVK_Return, kVK_ANSI_KeypadEnter:
-            // The same as ⌘C: selected text as text, otherwise the capture.
-            if model.selectedWordIndexes.isEmpty { copyToClipboard() } else { copySelectedText() }
+            // Applies a crop in progress; otherwise the same as ⌘C: selected
+            // text as text, otherwise the capture.
+            if model.tool == .crop, model.cropDraft != nil {
+                model.applyCrop()
+            } else if model.selectedWordIndexes.isEmpty {
+                copyToClipboard()
+            } else {
+                copySelectedText()
+            }
             return true
         case kVK_Escape:
             // Steps out one level at a time, and closes only at the last.
             if model.tool == .expandCanvas {
                 model.leaveCanvasExpansion()
+            } else if model.tool == .crop, model.cropDraft != nil {
+                model.tool = .select
             } else if !model.selectedWordIndexes.isEmpty {
                 model.clearTextSelection()
             } else if model.selectedID != nil {

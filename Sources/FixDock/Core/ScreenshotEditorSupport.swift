@@ -8,9 +8,10 @@ import Foundation
 
 /// Pure logic for the screenshot editor: window sizing, key rules, the
 /// annotation model, selection handles, shape geometry and hit testing, zoom,
-/// the undo history and recognized words. No AppKit, so a harness compiles it
-/// on its own. Adapted from the upstream editor support, trimmed to the
-/// stage A tools; the shapes stay upstream's so later tools slot in.
+/// the undo history, crop geometry, redaction runs and recognized words. No
+/// AppKit, so a harness compiles it on its own. Adapted from the upstream
+/// editor support, without canvas expansion and pasted images (stage C);
+/// the shapes stay upstream's so those slot in.
 extension ScreenshotSupport {
 
     // MARK: - Editor layout
@@ -41,6 +42,46 @@ extension ScreenshotSupport {
                       height: min(maximum.height, max(minimum.height, preferred.height)))
     }
 
+    /// The footer under the canvas wraps to a second row when a tool's
+    /// controls do not fit beside the info and zoom chips, so its height
+    /// changes with the tool.
+    static let editorWrappedFooterHeight: CGFloat = 76
+
+    /// The height the tool rail plans for: its column, less what a wrapped
+    /// footer would take from it, so picking a tool never reflows the rail
+    /// under the pointer.
+    static func toolRailHeight(column: CGFloat, footer: CGFloat) -> CGFloat {
+        min(column, column + footer - editorWrappedFooterHeight)
+    }
+
+    /// How the tool rail fits its height. Regular rows when every tool fits,
+    /// compact rows when only those fit, and past that the last tools move
+    /// behind an overflow button, as toolbar items that do not fit do.
+    /// Adapted from upstream unchanged: the extra row it plans is the tool
+    /// options button that comes with the tool order settings.
+    struct ToolRailLayout: Equatable {
+        var rowHeight: CGFloat = 29
+        var spacing: CGFloat = 2
+        /// Tools shown as buttons. The ones after them are in the overflow menu.
+        var visibleTools: Int
+
+        /// The rail's padding and the divider above the options button.
+        static let chromeHeight: CGFloat = 15
+
+        init(toolCount: Int, height: CGFloat) {
+            visibleTools = toolCount
+            // Every tool and the options row.
+            if Self.chromeHeight + CGFloat(toolCount + 1) * (rowHeight + spacing) <= height { return }
+            // Compact rows still hold all of them in the shortest editor.
+            rowHeight = 23
+            spacing = 1
+            let rows = Int(((height - Self.chromeHeight) / (rowHeight + spacing)).rounded(.down))
+            if rows >= toolCount + 1 { return }
+            // The overflow button and the options row take the last two rows.
+            visibleTools = max(0, rows - 2)
+        }
+    }
+
     // MARK: - Editor keys
 
     /// Select-to-copy utilities answer a mouse drag with a posted ⌘C, which in
@@ -58,8 +99,8 @@ extension ScreenshotSupport {
     }
 
     /// A held Return or ⌘C repeats into what the first press left on screen:
-    /// Return that chose Edit in the preview would copy the capture and close
-    /// the editor a moment later.
+    /// Return that applied a crop, or chose Edit in the preview, would copy
+    /// the capture and close the editor a moment later.
     static func editorIgnoresRepeatedOutputKey(keyCode: Int, command: Bool, isRepeat: Bool) -> Bool {
         isRepeat && (keyCode == kVK_Return || keyCode == kVK_ANSI_KeypadEnter
             || (command && keyCode == kVK_ANSI_C))
@@ -105,10 +146,10 @@ extension ScreenshotSupport {
 
     enum Tool: String, CaseIterable {
         // Case order is the default rail order and therefore the default
-        // mapping for keys 1 through 9: upstream's order, filtered to these
-        // tools. `ordered(from:)` applies the person's own order.
-        case select, arrow, text, rect, freehand, line, ellipse
-        case expandCanvas, image
+        // mapping for keys 1 through 9: upstream's order. `ordered(from:)`
+        // applies the person's own order.
+        case select, arrow, pixelate, crop, text, sticker, rect, highlight,
+             freehand, line, ellipse, counter, redact, spotlight, expandCanvas, image
 
         /// Pasted image layers never appear in the rail.
         static var editorTools: [Tool] { allCases.filter { $0 != .image } }
@@ -118,21 +159,21 @@ extension ScreenshotSupport {
         /// Tools that create an annotation by dragging a rectangle.
         var dragsRect: Bool {
             switch self {
-            case .rect, .ellipse: return true
-            case .select, .arrow, .text, .freehand, .line: return false
-            case .expandCanvas, .image: return false
+            case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight: return true
+            case .select, .arrow, .line, .freehand, .text, .sticker, .counter, .crop, .expandCanvas, .image:
+                return false
             }
         }
 
         /// Existing rectangular marks with visible resize grips.
-        var resizesWithHandles: Bool { dragsRect || self == .image }
+        var resizesWithHandles: Bool { dragsRect || self == .sticker || self == .image }
 
-        /// The tool a new editor opens with. Select and expand canvas act on
-        /// what is already there and an image is never picked by hand, so
-        /// each falls back to arrow and the editor opens ready to draw.
+        /// The tool a new editor opens with. Select, crop and expand canvas
+        /// act on the capture as a whole and an image is never picked by
+        /// hand, so each falls back to arrow and the editor opens ready to draw.
         static func startingTool(remembered raw: String?) -> Tool {
             let tool = Tool(rawValue: raw ?? "") ?? .arrow
-            return [.select, .expandCanvas, .image].contains(tool) ? .arrow : tool
+            return [.select, .crop, .expandCanvas, .image].contains(tool) ? .arrow : tool
         }
 
         /// The tool in rail slot `number` (1 based), or nil past the rail.
@@ -204,18 +245,130 @@ extension ScreenshotSupport {
         up ? textSizes.first(where: { $0 > size }) : textSizes.last(where: { $0 < size })
     }
 
-    /// Only the filled arrow so far; the other upstream styles come later.
+    /// How dark a spotlight turns everything outside its regions, from 0
+    /// (untouched) to 1 (black).
+    static let defaultSpotlightDim: CGFloat = 0.5
+
+    /// A stored or passed dim kept within 0...1; an unreadable one falls
+    /// back to the default.
+    static func sanitizedSpotlightDim(_ strength: CGFloat) -> CGFloat {
+        strength.isFinite ? min(max(strength, 0), 1) : defaultSpotlightDim
+    }
+
+    /// The dim the editor's control settles on: the nearest 5% step, so a
+    /// continuous slider needs no tick marks and the spoken percent stays
+    /// whole.
+    static func steppedSpotlightDim(_ strength: CGFloat) -> CGFloat {
+        (sanitizedSpotlightDim(strength) * 20).rounded() / 20
+    }
+
+    /// How hard a blur hides what is under it, from 1 (lightest) to 5
+    /// (heaviest). Level 3 is the default strength.
+    enum BlurStrength {
+        static let levels = 1...5
+        static let defaultLevel = 3
+
+        static func sanitized(_ level: Int) -> Int {
+            min(max(level, levels.lowerBound), levels.upperBound)
+        }
+
+        /// Where a new capture's pixelate tool starts: the remembered level,
+        /// but never a light one. Levels 1 and 2 make blocks smaller than a
+        /// line of text, which can stay readable, so they are picked area by
+        /// area instead of carried into the next redaction.
+        static func startingLevel(remembered: Int) -> Int {
+            max(sanitized(remembered), defaultLevel)
+        }
+
+        /// What the level does to the mosaic block, relative to level 3.
+        static func blockFactor(for level: Int) -> CGFloat {
+            switch sanitized(level) {
+            case 1: return 0.4
+            case 2: return 0.65
+            case 4: return 1.5
+            case 5: return 2.2
+            default: return 1
+            }
+        }
+    }
+
     enum ArrowStyleID: String, CaseIterable {
-        case filled
+        case filled, outline, open, doubleEnded, scribbly
 
         static func sanitized(_ raw: String?) -> ArrowStyleID {
             ArrowStyleID(rawValue: raw ?? "") ?? .filled
         }
     }
 
+    /// What a blur area does to what is under it. Pixelate is the default.
+    enum BlurStyleID: String, CaseIterable {
+        case pixelate, blur, erase
+
+        static func sanitized(_ raw: String?) -> BlurStyleID {
+            BlurStyleID(rawValue: raw ?? "") ?? .pixelate
+        }
+
+        /// Erasing paints the surroundings over the area, so it has no strength.
+        var usesStrength: Bool {
+            self != .erase
+        }
+    }
+
+    static func randomScribbleSeed() -> UInt64 {
+        UInt64.random(in: UInt64.min...UInt64.max)
+    }
+
+    enum StickerID: String, CaseIterable {
+        case check, cross, star, heart, thumbsUp, thumbsDown,
+             smile, laugh, party, fire, warning, eyes
+
+        var glyph: String {
+            switch self {
+            case .check: return "✅"
+            case .cross: return "❌"
+            case .star: return "⭐️"
+            case .heart: return "❤️"
+            case .thumbsUp: return "👍"
+            case .thumbsDown: return "👎"
+            case .smile: return "😀"
+            case .laugh: return "😂"
+            case .party: return "🎉"
+            case .fire: return "🔥"
+            case .warning: return "⚠️"
+            case .eyes: return "👀"
+            }
+        }
+
+        static func sanitized(_ raw: String?) -> StickerID {
+            StickerID(rawValue: raw ?? "") ?? .check
+        }
+    }
+
+    /// A new sticker's side in image pixels: about a sixth of the capture's
+    /// short side, within readable limits.
+    static func stickerSide(for imageSize: CGSize, scale: CGFloat) -> CGFloat {
+        let shortSide = min(imageSize.width, imageSize.height)
+        let minimum = min(52 * scale, shortSide * 0.45)
+        return max(1, max(minimum, min(shortSide * 0.16, 128 * scale)))
+    }
+
+    /// A square sticker centered on the tap, moved back inside the capture
+    /// when the tap was near an edge.
+    static func stickerRect(centeredAt point: CGPoint,
+                            side: CGFloat,
+                            within bounds: CGRect) -> CGRect {
+        let fittedSide = min(max(1, side), min(bounds.width, bounds.height))
+        let rect = CGRect(x: point.x - fittedSide / 2,
+                          y: point.y - fittedSide / 2,
+                          width: fittedSide,
+                          height: fittedSide)
+        return movedRect(rect, by: .zero, within: bounds)
+    }
+
     /// One annotation on the canvas. Geometry lives in image-pixel
     /// coordinates (top-left origin), so export is resolution-exact and the
-    /// view only scales for display.
+    /// view only scales for display. A sticker keeps its `StickerID` in
+    /// `text`.
     struct Annotation: Identifiable, Equatable {
         let id: UUID
         var tool: Tool
@@ -225,7 +378,13 @@ extension ScreenshotSupport {
         var color: ColorID
         var stroke: StrokeID
         var textSize: Int
+        var blurLevel: Int
+        var blurStyle: BlurStyleID
+        /// A blur area that covers only the text recognized inside it.
+        var blurTextOnly: Bool
         var arrowStyle: ArrowStyleID
+        var scribbleSeed: UInt64
+        var number: Int
         /// The pixels of a pasted image layer (`tool == .image`).
         var imageAsset: ImageAsset? = nil
 
@@ -237,7 +396,12 @@ extension ScreenshotSupport {
              color: ColorID = .red,
              stroke: StrokeID = .medium,
              textSize: Int = ScreenshotSupport.defaultTextSize,
-             arrowStyle: ArrowStyleID = .filled) {
+             blurLevel: Int = BlurStrength.defaultLevel,
+             blurStyle: BlurStyleID = .pixelate,
+             blurTextOnly: Bool = false,
+             arrowStyle: ArrowStyleID = .filled,
+             scribbleSeed: UInt64? = nil,
+             number: Int = 0) {
             self.id = id
             self.tool = tool
             self.rect = rect
@@ -246,7 +410,13 @@ extension ScreenshotSupport {
             self.color = color
             self.stroke = stroke
             self.textSize = textSize
+            self.blurLevel = blurLevel
+            self.blurStyle = blurStyle
+            self.blurTextOnly = blurTextOnly
             self.arrowStyle = arrowStyle
+            self.scribbleSeed = scribbleSeed
+                ?? (arrowStyle == .scribbly ? ScreenshotSupport.randomScribbleSeed() : 0)
+            self.number = number
         }
     }
 
@@ -256,6 +426,9 @@ extension ScreenshotSupport {
         let stroke: StrokeID?
         let arrowStyle: ArrowStyleID?
         var textSize: Int? = nil
+        var blurLevel: Int? = nil
+        var blurStyle: BlurStyleID? = nil
+        var blurTextOnly: Bool? = nil
     }
 
     static func selectionStyle(for annotation: Annotation) -> SelectionStyle {
@@ -268,7 +441,14 @@ extension ScreenshotSupport {
         case .text:
             return SelectionStyle(color: annotation.color, stroke: nil, arrowStyle: nil,
                                   textSize: annotation.textSize)
-        case .select, .expandCanvas, .image:
+        case .highlight, .counter, .redact:
+            return SelectionStyle(color: annotation.color, stroke: nil, arrowStyle: nil)
+        case .pixelate:
+            return SelectionStyle(color: nil, stroke: nil, arrowStyle: nil,
+                                  blurLevel: annotation.blurLevel,
+                                  blurStyle: annotation.blurStyle,
+                                  blurTextOnly: annotation.blurTextOnly)
+        case .sticker, .select, .crop, .spotlight, .expandCanvas, .image:
             return SelectionStyle(color: nil, stroke: nil, arrowStyle: nil)
         }
     }
@@ -296,6 +476,25 @@ extension ScreenshotSupport {
         var reordered = annotations
         reordered.swapAt(index, target)
         return reordered
+    }
+
+    /// Counters stay 1…n in drawing order; deleting or moving one renumbers
+    /// the rest so a sequence never shows a hole.
+    static func renumberingCounters(_ annotations: [Annotation]) -> [Annotation] {
+        var next = 1
+        return annotations.map { annotation in
+            guard annotation.tool == .counter else { return annotation }
+            var updated = annotation
+            updated.number = next
+            next += 1
+            return updated
+        }
+    }
+
+    /// Counter badge diameter for an image, scaling with capture resolution
+    /// so badges stay readable without swallowing small screenshots.
+    static func counterDiameter(for imageSize: CGSize, scale: CGFloat) -> CGFloat {
+        max(22, min(imageSize.width, imageSize.height) / 24) * scale
     }
 
     // MARK: - Undo history
@@ -411,6 +610,96 @@ extension ScreenshotSupport {
                       width: abs(maxX - minX), height: abs(maxY - minY))
     }
 
+    // MARK: - Crop
+
+    /// Moves an existing crop without resizing it, stopping cleanly at the
+    /// image edges instead of shrinking the rectangle through intersection.
+    static func movedRect(_ rect: CGRect,
+                          by delta: CGPoint,
+                          within bounds: CGRect) -> CGRect {
+        guard rect.width <= bounds.width, rect.height <= bounds.height else {
+            return rect.intersection(bounds)
+        }
+        let x = min(max(rect.minX + delta.x, bounds.minX), bounds.maxX - rect.width)
+        let y = min(max(rect.minY + delta.y, bounds.minY), bounds.maxY - rect.height)
+        return CGRect(x: x, y: y, width: rect.width, height: rect.height)
+    }
+
+    /// The pixel rectangle a crop draft stands for. A crop cuts on pixel
+    /// boundaries, so the chrome, the loupe cross and `applyCrop` all read the
+    /// draft through here and mark the same edge. Rounding both edges to the
+    /// nearest boundary leaves an already snapped rectangle the same size under
+    /// a move, because the two edges carry the same fraction.
+    static func pixelSnappedCropRect(_ rect: CGRect, within bounds: CGRect) -> CGRect {
+        let minX = rect.minX.rounded()
+        let minY = rect.minY.rounded()
+        let maxX = rect.maxX.rounded()
+        let maxY = rect.maxY.rounded()
+        return clamp(CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY),
+                     to: bounds)
+    }
+
+    /// A full-image crop cannot move, so an interior drag must start a new
+    /// selection. Dragging outside an existing crop replaces it as well.
+    static func startsNewCropSelection(at point: CGPoint,
+                                       draft: CGRect,
+                                       within bounds: CGRect) -> Bool {
+        bounds.contains(point)
+            && (draft.standardized == bounds.standardized || !draft.contains(point))
+    }
+
+    /// The square of source pixels the crop loupe magnifies. A crop *edge*
+    /// runs between pixels, and lands in the middle of the frame only when
+    /// the side is even and the coordinate is whole, so the editor passes
+    /// `centredOnPixel: false` and reads a draft `pixelSnappedCropRect` has
+    /// put on a boundary. Near an image edge the sample slides inward
+    /// instead of shrinking. Adapted from upstream unchanged.
+    static func cropLoupeSampleRect(around point: CGPoint,
+                                    imageSize: CGSize,
+                                    sideLength: CGFloat = 13,
+                                    centredOnPixel: Bool = true) -> CGRect {
+        let imageWidth = max(1, floor(imageSize.width))
+        let imageHeight = max(1, floor(imageSize.height))
+        var side = max(1, floor(sideLength))
+        let isEven = side.truncatingRemainder(dividingBy: 2) == 0
+        if centredOnPixel, isEven {
+            side = max(1, side - 1)
+        } else if !centredOnPixel, !isEven {
+            side += 1
+        }
+        let width = min(side, imageWidth)
+        let height = min(side, imageHeight)
+        let x = centredOnPixel ? floor(point.x) - floor(width / 2) : floor(point.x - width / 2)
+        let y = centredOnPixel ? floor(point.y) - floor(height / 2) : floor(point.y - height / 2)
+        return CGRect(x: min(max(x, 0), imageWidth - width),
+                      y: min(max(y, 0), imageHeight - height),
+                      width: width,
+                      height: height)
+    }
+
+    /// Annotations moved into a crop's coordinates. Marks past the crop stay
+    /// in the list off the canvas, as upstream keeps them. From upstream's
+    /// `applyCrop`, pulled out so the harness can check it.
+    static func croppedAnnotations(_ annotations: [Annotation], by crop: CGRect) -> [Annotation] {
+        annotations.map { annotation in
+            var moved = annotation
+            moved.rect = annotation.rect.offsetBy(dx: -crop.minX, dy: -crop.minY)
+            moved.points = annotation.points.map { CGPoint(x: $0.x - crop.minX, y: $0.y - crop.minY) }
+            return moved
+        }
+    }
+
+    /// Recognized words moved into a crop's coordinates, keeping those still
+    /// on it, so text stays selectable until the cropped capture is read.
+    static func croppedWords(_ words: [RecognizedWord], by crop: CGRect) -> [RecognizedWord] {
+        let bounds = CGRect(origin: .zero, size: crop.size)
+        return words.compactMap { word in
+            let moved = word.rect.offsetBy(dx: -crop.minX, dy: -crop.minY)
+            guard moved.intersects(bounds) else { return nil }
+            return RecognizedWord(text: word.text, rect: moved, line: word.line)
+        }
+    }
+
     // MARK: - Shape geometry
 
     /// Arrow head as two wing points for a line ending at `tip`. The head
@@ -458,6 +747,120 @@ extension ScreenshotSupport {
         return path
     }
 
+    /// Shaft and heads of a stroked arrow style as one path, so a single
+    /// stroke draws the whole arrow and casts one shadow. The solid style is a
+    /// filled silhouette rather than a stroke and answers nil.
+    static func arrowStrokePath(from tail: CGPoint,
+                                to tip: CGPoint,
+                                strokeWidth: CGFloat,
+                                style: ArrowStyleID,
+                                seed: UInt64) -> CGPath? {
+        let head = arrowHead(from: tail, to: tip, strokeWidth: strokeWidth)
+        let path = CGMutablePath()
+        switch style {
+        case .filled:
+            return nil
+        case .outline:
+            path.addLines(between: [tail, CGPoint(x: (head.left.x + head.right.x) / 2,
+                                                  y: (head.left.y + head.right.y) / 2)])
+            path.addLines(between: [head.left, tip, head.right])
+            path.closeSubpath()
+        case .open:
+            path.addLines(between: [tail, tip])
+            path.addLines(between: [head.left, tip, head.right])
+        case .doubleEnded:
+            let tailHead = arrowHead(from: tip, to: tail, strokeWidth: strokeWidth)
+            path.addLines(between: [tail, tip])
+            path.addLines(between: [head.left, tip, head.right])
+            path.addLines(between: [tailHead.left, tail, tailHead.right])
+        case .scribbly:
+            let geometry = scribblyArrowGeometry(from: tail, to: tip, strokeWidth: strokeWidth, seed: seed)
+            path.addLines(between: geometry.shaft)
+            path.addLines(between: geometry.leftWing)
+            path.addLines(between: geometry.rightWing)
+        }
+        return path
+    }
+
+    /// A lightly hand-drawn arrow made from stable, seeded wobble. The seed
+    /// belongs to the annotation so a redraw or export keeps the same sketch,
+    /// while each newly created scribbly arrow gets its own variation.
+    struct ScribblyArrowGeometry: Equatable {
+        let shaft: [CGPoint]
+        let leftWing: [CGPoint]
+        let rightWing: [CGPoint]
+    }
+
+    static func scribblyArrowGeometry(from tail: CGPoint,
+                                      to tip: CGPoint,
+                                      strokeWidth: CGFloat,
+                                      seed: UInt64) -> ScribblyArrowGeometry {
+        let dx = tip.x - tail.x
+        let dy = tip.y - tail.y
+        let distance = hypot(dx, dy)
+        let angle = atan2(dy, dx)
+        let direction = CGPoint(x: cos(angle), y: sin(angle))
+        let perpendicular = CGPoint(x: -direction.y, y: direction.x)
+        let head = arrowHead(from: tail, to: tip, strokeWidth: strokeWidth)
+        let base = CGPoint(x: (head.left.x + head.right.x) / 2,
+                           y: (head.left.y + head.right.y) / 2)
+        var randomizer = ScribbleRandomizer(seed: seed)
+        let shaftSegments = max(4, min(24, Int(ceil(distance / max(10, strokeWidth * 3)))))
+        let shaftWobble = min(max(1, strokeWidth * 0.35), distance * 0.025)
+        let shaft = roughPath(from: tail, to: base, segments: shaftSegments,
+                              direction: direction, perpendicular: perpendicular,
+                              wobble: shaftWobble, randomizer: &randomizer)
+        let wingWobble = min(max(0.8, strokeWidth * 0.22), distance * 0.035)
+        let leftWing = roughPath(from: head.left, to: tip, segments: 3,
+                                 wobble: wingWobble, randomizer: &randomizer)
+        let rightWing = roughPath(from: head.right, to: tip, segments: 3,
+                                  wobble: wingWobble, randomizer: &randomizer)
+        return ScribblyArrowGeometry(shaft: shaft, leftWing: leftWing, rightWing: rightWing)
+    }
+
+    private struct ScribbleRandomizer {
+        private var state: UInt64
+
+        init(seed: UInt64) {
+            state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
+        }
+
+        mutating func signedUnit() -> CGFloat {
+            state = state &* 2862933555777941757 &+ 3037000493
+            let normalized = Double(state) / Double(UInt64.max)
+            return CGFloat(normalized * 2 - 1)
+        }
+    }
+
+    private static func roughPath(from start: CGPoint,
+                                  to end: CGPoint,
+                                  segments: Int,
+                                  direction: CGPoint? = nil,
+                                  perpendicular: CGPoint? = nil,
+                                  wobble: CGFloat,
+                                  randomizer: inout ScribbleRandomizer) -> [CGPoint] {
+        let lineX = end.x - start.x
+        let lineY = end.y - start.y
+        let length = hypot(lineX, lineY)
+        let pathDirection = direction
+            ?? CGPoint(x: lineX / max(length, 0.001), y: lineY / max(length, 0.001))
+        let pathPerpendicular = perpendicular ?? CGPoint(x: -pathDirection.y, y: pathDirection.x)
+        let count = max(1, segments)
+        return (0...count).map { index in
+            let progress = CGFloat(index) / CGFloat(count)
+            guard index != 0, index != count else {
+                return CGPoint(x: start.x + lineX * progress, y: start.y + lineY * progress)
+            }
+            let envelope = CGFloat(sin(Double.pi * Double(progress)))
+            let sideOffset = randomizer.signedUnit() * wobble * envelope
+            let forwardOffset = randomizer.signedUnit() * wobble * 0.28 * envelope
+            return CGPoint(x: start.x + lineX * progress
+                                + pathPerpendicular.x * sideOffset + pathDirection.x * forwardOffset,
+                           y: start.y + lineY * progress
+                                + pathPerpendicular.y * sideOffset + pathDirection.y * forwardOffset)
+        }
+    }
+
     /// Distance from a point to a segment, for hit-testing lines and arrows.
     static func distance(from point: CGPoint, toSegment start: CGPoint, _ end: CGPoint) -> CGFloat {
         let dx = end.x - start.x
@@ -472,12 +875,13 @@ extension ScreenshotSupport {
     }
 
     /// The topmost annotation under `point`, in image pixels. Tolerances are
-    /// in points times `scale`. `includeShapeInteriors: false` is the
-    /// creation-tap variant: boxes and ellipses answer only near their edge,
-    /// so a tap inside one still places new text there. Adapted from the
-    /// upstream editor model.
+    /// in points times `scale`; `imageSize` sizes counter badges.
+    /// `includeShapeInteriors: false` is the creation-tap variant: area
+    /// shapes (boxes, ellipses, highlights, blurs) answer only near their
+    /// edge, so a tap inside one still places new text, a sticker or a
+    /// counter there. Adapted from the upstream editor model.
     static func hitTest(_ annotations: [Annotation], at point: CGPoint, scale: CGFloat,
-                        includeShapeInteriors: Bool = true) -> UUID? {
+                        imageSize: CGSize, includeShapeInteriors: Bool = true) -> UUID? {
         let tolerance = 10 * scale
         for annotation in annotations.reversed() {
             switch annotation.tool {
@@ -492,7 +896,13 @@ extension ScreenshotSupport {
                 where hypot(point.x - pathPoint.x, point.y - pathPoint.y) <= tolerance {
                     return annotation.id
                 }
-            case .rect, .ellipse:
+            case .counter:
+                let radius = counterDiameter(for: imageSize, scale: 1) / 2
+                if hypot(point.x - annotation.rect.midX, point.y - annotation.rect.midY)
+                    <= radius + 4 * scale {
+                    return annotation.id
+                }
+            case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight:
                 let outer = annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2)
                 guard outer.contains(point) else { continue }
                 if includeShapeInteriors { return annotation.id }
@@ -502,7 +912,7 @@ extension ScreenshotSupport {
                 if inner.isEmpty || inner.width <= 0 || inner.height <= 0 || !inner.contains(point) {
                     return annotation.id
                 }
-            case .text:
+            case .text, .sticker:
                 if annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
                     return annotation.id
                 }
@@ -512,7 +922,7 @@ extension ScreenshotSupport {
                    annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
                     return annotation.id
                 }
-            case .select, .expandCanvas:
+            case .select, .crop, .expandCanvas:
                 continue
             }
         }
@@ -668,6 +1078,52 @@ extension ScreenshotSupport {
 
     private static func paddedTextRun(_ rect: CGRect) -> CGRect {
         rect.insetBy(dx: -max(1, rect.height * 0.6), dy: -max(1, rect.height * 0.3))
+    }
+
+    // MARK: - Redaction
+
+    /// Pixelation block size in image pixels, scaled to the capture so small
+    /// crops and full screens redact equally well. From the default level up
+    /// the mosaic carries no legible detail; levels 1 and 2 are lighter and
+    /// can leave large text readable.
+    static func pixelBlockSize(for imageSize: CGSize,
+                               level: Int = BlurStrength.defaultLevel) -> Int {
+        let base = max(10, Int(min(imageSize.width, imageSize.height) / 55))
+        return max(2, Int((CGFloat(base) * BlurStrength.blockFactor(for: level)).rounded()))
+    }
+
+    /// The blur levels the pixelate marks use. Only their sampled mosaics are
+    /// kept; drawing expands each one to the capture size when needed.
+    static func mosaicLevels(for annotations: [Annotation]) -> Set<Int> {
+        blurLevels(for: annotations, style: .pixelate)
+    }
+
+    /// The levels the soft blur marks use, each kept as a small blurred sample
+    /// the same way.
+    static func softBlurLevels(for annotations: [Annotation]) -> Set<Int> {
+        blurLevels(for: annotations, style: .blur)
+    }
+
+    private static func blurLevels(for annotations: [Annotation], style: BlurStyleID) -> Set<Int> {
+        Set(annotations.filter { $0.tool == .pixelate && $0.blurStyle == style }.map(\.blurLevel))
+    }
+
+    /// Runs moved into a crop's coordinates, keeping those still on it, or
+    /// nil when there were none to move.
+    static func croppedRuns(_ runs: [CGRect]?, by crop: CGRect) -> [CGRect]? {
+        let bounds = CGRect(origin: .zero, size: crop.size)
+        return runs?.compactMap { run -> CGRect? in
+            let moved = run.offsetBy(dx: -crop.minX, dy: -crop.minY)
+            return moved.intersects(bounds) ? moved : nil
+        }
+    }
+
+    /// The runs a text only blur area covers: every run that reaches into it.
+    /// Nil runs mean recognition has not read the capture yet, and the whole
+    /// area stands in for them, so an early export never leaves text readable.
+    static func blurTextRuns(in rect: CGRect, from runs: [CGRect]?) -> [CGRect] {
+        guard let runs else { return [rect] }
+        return runs.filter { $0.intersects(rect) }
     }
 
     /// Words a selection drag touches, in reading order. A hairline drag
