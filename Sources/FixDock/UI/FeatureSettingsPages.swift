@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Vorssaint
+// Copyright (C) 2026 FixDock contributors
+
+import SwiftUI
+
+/// A feature's own Settings page. Holding one proves the page exists in this
+/// build; only `AppFeature.settingsPage` can make one.
+struct FeaturePage: Hashable {
+    let feature: AppFeature
+    private let makeBody: () -> AnyView
+
+    fileprivate init<Body: View>(_ feature: AppFeature, @ViewBuilder _ body: @escaping () -> Body) {
+        self.feature = feature
+        self.makeBody = { AnyView(body()) }
+    }
+
+    func body() -> AnyView { makeBody() }
+
+    static func == (lhs: FeaturePage, rhs: FeaturePage) -> Bool {
+        lhs.feature == rhs.feature
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(feature)
+    }
+}
+
+extension AppFeature {
+    /// The one place a module gives itself a Settings page. `nil` = no page in
+    /// this build, so no sidebar row. No `default:` arm: a new case must decide
+    /// here (compiler locally, check-shell.py in CI).
+    var settingsPage: FeaturePage? {
+        switch self {
+        case .urlCleaner:
+            return page { URLCleanerSettings() }
+        case .quitWindowProtection, .cleaningMode, .textSnippets,
+             .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+            return nil
+        }
+    }
+
+    /// Binds the page to `self` so an arm cannot attach a body to the wrong feature.
+    private func page<Body: View>(@ViewBuilder _ body: @escaping () -> Body) -> FeaturePage {
+        FeaturePage(self, body)
+    }
+}

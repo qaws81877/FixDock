@@ -1,0 +1,14 @@
+# Static checks only. A macOS compile is not run here.
+name: Static checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the shell tree
+        run: python3 Tools/check-shell.py

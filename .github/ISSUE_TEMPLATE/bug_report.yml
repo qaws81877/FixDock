@@ -1,0 +1,14 @@
+name: Bug report
+description: Something in the FixDock shell is wrong
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: macOS version
+  - type: input
+    attributes:
+      label: FixDock version
