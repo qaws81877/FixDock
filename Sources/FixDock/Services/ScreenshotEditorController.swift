@@ -9,8 +9,8 @@ import SwiftUI
 /// Everything the annotation editor can do to one capture: the mutable
 /// document (image, annotations, undo history) and the gestures that change
 /// it. The SwiftUI editor view observes this model; geometry is in image
-/// pixels. Adapted from the upstream editor model, without canvas
-/// expansion, pasted images, backdrop and watermark (stage C).
+/// pixels. Adapted from the upstream editor model; the backdrop and
+/// watermark live in `ScreenshotEditorDecor`.
 final class ScreenshotEditorModel: ObservableObject {
     /// One undo step. The image is part of it so a crop can be undone.
     struct State {
@@ -34,6 +34,7 @@ final class ScreenshotEditorModel: ObservableObject {
     @Published var tool: ScreenshotSupport.Tool {
         didSet {
             UserDefaults.standard.set(tool.rawValue, forKey: DefaultsKey.screenshotEditorTool)
+            if oldValue == .expandCanvas, tool != .expandCanvas { cancelCanvasExpansion() }
             if tool != .select { clearTextSelection() }
             if tool != oldValue, tool != .select {
                 selectedID = nil
@@ -134,17 +135,32 @@ final class ScreenshotEditorModel: ObservableObject {
     /// A short line over the canvas (text copied, save failed).
     @Published var notice: String?
 
+    // MARK: Backdrop, watermark and canvas expansion state
+
+    /// Backdrop and watermark, remembered between captures.
+    let decor = ScreenshotEditorDecor()
+    /// What Expand canvas fills new space with, and the drag in progress:
+    /// the grown canvas in the current canvas's pixels, or a drag rejected
+    /// for growing past the size limit.
+    @Published var expansionFill = ScreenshotCanvasSupport.Fill.white
+    @Published private(set) var expansionDraft: CGRect?
+    @Published private(set) var expansionRejected = false
+    private var expansionHandle: ScreenshotSupport.Handle?
+    private var expansionStartPoint: CGPoint?
+
     let scale: CGFloat
     /// Sampled mosaics of the base image, one per blur level in use.
     private(set) var pixelated: [Int: CGImage] = [:]
     /// Small soft blurs of the base image, one per blur level in use.
     private(set) var softBlurred: [Int: CGImage] = [:]
     private let eraseCache = ScreenshotRenderer.EraseCache()
+    private let imageLayerCache = ScreenshotRenderer.ImageLayerCache()
 
     /// What blur areas paint from, shared by the canvas and the exporter.
     var blurSources: ScreenshotRenderer.BlurSources {
         ScreenshotRenderer.BlurSources(mosaics: pixelated, softBlurs: softBlurred, image: baseImage,
-                                       eraseCache: eraseCache, textRuns: textRuns)
+                                       eraseCache: eraseCache, textRuns: textRuns,
+                                       imageLayerCache: imageLayerCache)
     }
 
     private var history = ScreenshotSupport.EditorHistory<State>(limit: 60)
@@ -203,6 +219,7 @@ final class ScreenshotEditorModel: ObservableObject {
         sticker = ScreenshotSupport.StickerID.sanitized(defaults.string(forKey: DefaultsKey.screenshotEditorSticker))
         annotationShadowsEnabled = defaults.bool(forKey: DefaultsKey.screenshotEditorAnnotationShadows)
         recordCleanState()
+        forwardDecorChanges()
     }
 
     // MARK: - Selectable text on the canvas
@@ -293,6 +310,7 @@ final class ScreenshotEditorModel: ObservableObject {
     }
 
     private func restore(_ state: State) {
+        cancelCanvasExpansion()
         if state.image !== baseImage {
             baseImage = state.image
             pixelated = [:]
@@ -331,6 +349,7 @@ final class ScreenshotEditorModel: ObservableObject {
         cleanAnnotations = annotations
         cleanAnnotationShadowsEnabled = annotationShadowsEnabled
         cleanSpotlightDimStrength = spotlightDimStrength
+        decor.markClean()
         isDirty = false
     }
 
@@ -342,6 +361,7 @@ final class ScreenshotEditorModel: ObservableObject {
             // Without a region the dim changes nothing in the output.
             || (spotlightDimStrength != cleanSpotlightDimStrength
                 && annotations.contains { $0.tool == .spotlight })
+            || decor.differsFromClean
     }
 
     // MARK: - Selection styling
@@ -350,7 +370,8 @@ final class ScreenshotEditorModel: ObservableObject {
     /// selected mark.
     private func applyStyleToSelection() {
         guard let selectedID,
-              let index = annotations.firstIndex(where: { $0.id == selectedID })
+              let index = annotations.firstIndex(where: { $0.id == selectedID }),
+              annotations[index].tool != .image
         else { return }
         let arrowStyleChanged = annotations[index].tool == .arrow && annotations[index].arrowStyle != arrowStyle
         let textSizeChanged = annotations[index].tool == .text && annotations[index].textSize != textSize
@@ -435,13 +456,13 @@ final class ScreenshotEditorModel: ObservableObject {
         // The mark just drawn stays directly editable with its creating tool.
         // A spotlight region claims only its handles and edge, so a drag
         // inside the one just drawn lights another region.
-        if tool != .select, tool != .crop,
+        if tool != .select, tool != .crop, tool != .expandCanvas,
            selectedAnnotationOwns(point, includingInterior: tool != .spotlight) {
             editingSelectedAnnotation = true
             beginSelectDrag(at: point)
             return
         }
-        if tool != .select, tool != .crop { selectedID = nil }
+        if tool != .select, tool != .crop, tool != .expandCanvas { selectedID = nil }
         switch tool {
         case .select:
             beginSelectDrag(at: point)
@@ -480,7 +501,9 @@ final class ScreenshotEditorModel: ObservableObject {
                 blurLevel: blurLevel, blurStyle: blurStyle, blurTextOnly: blurTextOnly)
             annotations.append(annotation)
             draftID = annotation.id
-        case .text, .sticker, .counter:
+        case .expandCanvas:
+            beginCanvasExpansion(at: point)
+        case .text, .sticker, .counter, .image:
             break
         }
     }
@@ -488,8 +511,7 @@ final class ScreenshotEditorModel: ObservableObject {
     private func beginSelectDrag(at point: CGPoint) {
         if let selectedID, let selected = annotations.first(where: { $0.id == selectedID }) {
             let tolerance = 12 * scale
-            if selected.tool.resizesWithHandles,
-               let handle = ScreenshotSupport.handle(at: point, rect: selected.rect, tolerance: tolerance) {
+            if let handle = grip(of: selected, at: point, tolerance: tolerance) {
                 activeHandle = handle
                 moveOrigin = selected.rect
                 return
@@ -553,7 +575,9 @@ final class ScreenshotEditorModel: ObservableObject {
             updateDraft { $0.points.append(point) }
         case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight:
             updateDraft { $0.rect = ScreenshotSupport.rect(from: dragStart, to: point) }
-        case .text, .sticker, .counter:
+        case .expandCanvas:
+            continueCanvasExpansion(to: point)
+        case .text, .sticker, .counter, .image:
             break
         }
     }
@@ -576,13 +600,18 @@ final class ScreenshotEditorModel: ObservableObject {
                 var points = movePoints
                 if handle == .topLeft { points[0] = point } else { points[1] = point }
                 annotations[index].points = points
+            } else if annotations[index].tool == .image {
+                annotations[index].rect = ScreenshotCanvasSupport.resizedImageRect(moveOrigin, handle: handle,
+                                                                                   point: point)
             } else {
                 annotations[index].rect = ScreenshotSupport.resizedRect(moveOrigin, dragging: handle, to: point)
             }
             return
         }
         let delta = CGPoint(x: point.x - dragStart.x, y: point.y - dragStart.y)
-        if annotations[index].points.isEmpty {
+        if annotations[index].tool == .image {
+            annotations[index].rect = ScreenshotCanvasSupport.movedImageRect(moveOrigin, by: delta)
+        } else if annotations[index].points.isEmpty {
             annotations[index].rect = moveOrigin.offsetBy(dx: delta.x, dy: delta.y)
         } else {
             annotations[index].points = movePoints.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) }
@@ -652,6 +681,10 @@ final class ScreenshotEditorModel: ObservableObject {
             } else if let draftID {
                 selectedID = draftID
             }
+        case .expandCanvas:
+            finishCanvasExpansion()
+        case .image:
+            break
         case .select:
             finishSelectDrag(at: point, isTap: isTap)
         case .crop:
@@ -669,8 +702,7 @@ final class ScreenshotEditorModel: ObservableObject {
         guard let selectedID, let selected = annotations.first(where: { $0.id == selectedID })
         else { return false }
         let tolerance = 12 * scale
-        if selected.tool.resizesWithHandles,
-           ScreenshotSupport.handle(at: point, rect: selected.rect, tolerance: tolerance) != nil {
+        if grip(of: selected, at: point, tolerance: tolerance) != nil {
             return true
         }
         if selected.tool != .freehand,
@@ -829,12 +861,17 @@ final class ScreenshotEditorModel: ObservableObject {
 
     // MARK: - Output
 
-    func exportImage() -> ScreenshotRenderer.Export? {
+    /// The capture as it leaves the editor, at full resolution: annotations,
+    /// then the watermark, the corners and, unless it is for a pin, the
+    /// backdrop.
+    func exportImage(withBackdrop: Bool = true) -> ScreenshotRenderer.Export? {
         ensureBlurSamplesForAnnotations()
-        return ScreenshotRenderer.renderExport(baseImage: baseImage, annotations: annotations,
-                                               blurSources: blurSources, scale: scale,
-                                               annotationShadowsEnabled: annotationShadowsEnabled,
-                                               spotlightDimStrength: spotlightDimStrength)
+        guard let flattened = ScreenshotRenderer.renderExport(baseImage: baseImage, annotations: annotations,
+                                                              blurSources: blurSources, scale: scale,
+                                                              annotationShadowsEnabled: annotationShadowsEnabled,
+                                                              spotlightDimStrength: spotlightDimStrength)
+        else { return nil }
+        return decor.finished(flattened, base: baseImage, withBackdrop: withBackdrop)
     }
 
     /// Makes the sample a blur area of this style and level paints from, and
@@ -865,6 +902,135 @@ final class ScreenshotEditorModel: ObservableObject {
         softBlurred = softBlurred.filter { softBlurLevels.contains($0.key) }
         for level in mosaicLevels { ensureBlurSample(.pixelate, level: level) }
         for level in softBlurLevels { ensureBlurSample(.blur, level: level) }
+    }
+}
+
+// MARK: - Backdrop, canvas expansion, pasted images
+
+/// Same file as the model, so these reach its undo history and base image.
+/// Adapted from the upstream editor model.
+extension ScreenshotEditorModel {
+    /// The canvas, the popovers and the dirty state follow the decor.
+    private func forwardDecorChanges() {
+        decor.forwardChanges(to: self)
+        decor.changed = { [weak self] in self?.refreshDirtyState() }
+    }
+
+    /// Backdrop margin in image pixels; zero while the backdrop is off.
+    var backdropPaddingPixels: CGFloat { decor.paddingPixels(for: imageSize) }
+
+    /// Corner rounding of the capture card in image pixels.
+    var cardCornerPixels: CGFloat { decor.cardCornerPixels(for: imageSize) }
+
+    /// The outline the card's shadow follows, as the exporter draws it.
+    var cardOutlineCornerPixels: CGFloat { decor.cardOutlineCornerPixels(for: baseImage) }
+
+    /// The resize grip of a selected mark under `point`: an image layer's
+    /// keeps its proportions from the corners and never overlaps on a small
+    /// layer.
+    private func grip(of selected: ScreenshotSupport.Annotation, at point: CGPoint,
+                      tolerance: CGFloat) -> ScreenshotSupport.Handle? {
+        guard selected.tool.resizesWithHandles else { return nil }
+        return selected.tool == .image
+            ? ScreenshotCanvasSupport.imageHandle(at: point, rect: selected.rect, tolerance: tolerance)
+            : ScreenshotSupport.handle(at: point, rect: selected.rect, tolerance: tolerance)
+    }
+
+    // MARK: Pasted images
+
+    /// Adds `image` as a movable, resizable layer centred on the canvas and
+    /// selects it. False for a picture past the size limit.
+    func pasteImage(_ image: CGImage) -> Bool {
+        guard ScreenshotCanvasSupport.validSize(CGSize(width: image.width, height: image.height))
+        else { return false }
+        var annotation = ScreenshotSupport.Annotation(
+            tool: .image, rect: ScreenshotCanvasSupport.fittedImageRect(image, canvas: imageSize))
+        annotation.imageAsset = ScreenshotSupport.ImageAsset(image: image)
+        registerUndo()
+        clearTextSelection()
+        // Before the selection: changing the tool clears it.
+        tool = .select
+        annotations.append(annotation)
+        selectedID = annotation.id
+        return true
+    }
+
+    // MARK: Canvas expansion
+
+    private func beginCanvasExpansion(at point: CGPoint) {
+        let bounds = CGRect(origin: .zero, size: imageSize)
+        expansionRejected = false
+        expansionDraft = bounds
+        expansionHandle = ScreenshotCanvasSupport.expansionHandle(
+            at: point, rect: bounds,
+            tolerance: ScreenshotCanvasSupport.expansionGripReach / max(currentDisplayZoom, 0.001))
+        expansionStartPoint = expansionHandle == nil ? nil : point
+    }
+
+    private func continueCanvasExpansion(to point: CGPoint) {
+        guard let handle = expansionHandle, let start = expansionStartPoint else { return }
+        let anchor = handle.position(in: CGRect(origin: .zero, size: imageSize))
+        let target = CGPoint(x: anchor.x + point.x - start.x, y: anchor.y + point.y - start.y)
+        expansionDraft = ScreenshotCanvasSupport.expandedRect(size: imageSize, handle: handle, point: target)
+        expansionRejected = expansionDraft == nil
+    }
+
+    private func finishCanvasExpansion() {
+        if expansionRejected {
+            NSSound.beep()
+        } else if let draft = expansionDraft, draft.size != imageSize {
+            if !commitCanvasExpansion(to: draft) { NSSound.beep() }
+        }
+        cancelCanvasExpansion()
+    }
+
+    /// Grows the canvas to `rect` (in the current canvas's pixels) as one
+    /// undo step; every mark keeps its place on the capture.
+    func commitCanvasExpansion(to rect: CGRect) -> Bool {
+        guard rect != CGRect(origin: .zero, size: imageSize),
+              let expanded = ScreenshotCanvasSupport.expandedImage(baseImage, to: rect, fill: expansionFill)
+        else { return false }
+        registerUndo()
+        let oldSize = imageSize
+        annotations = ScreenshotCanvasSupport.shifted(annotations, into: rect, from: oldSize)
+        // Recognition misses nothing new in a plain margin, so the runs move
+        // with the capture and stay once it is read again.
+        let previousRuns = textRuns ?? carriedRuns[ObjectIdentifier(baseImage)]
+        baseImage = expanded
+        if let previousRuns {
+            carriedRuns[ObjectIdentifier(expanded)] =
+                previousRuns.map { $0.offsetBy(dx: -rect.minX, dy: -rect.minY) }
+        }
+        pixelated = [:]
+        softBlurred = [:]
+        textRuns = nil
+        textWords = []
+        clearTextSelection()
+        selectedID = nil
+        editingTextID = nil
+        cropDraft = nil
+        pruneCarriedRuns()
+        ensureBlurSamplesForAnnotations()
+        recognizeText()
+        recognizeQRCodes()
+        return true
+    }
+
+    func cancelCanvasExpansion() {
+        expansionDraft = nil
+        expansionHandle = nil
+        expansionStartPoint = nil
+        expansionRejected = false
+    }
+
+    /// Escape backs out one step: a drag in progress first, then the tool,
+    /// so the editor only closes once there is nothing left to leave.
+    func leaveCanvasExpansion() {
+        if expansionDraft != nil || expansionRejected {
+            cancelCanvasExpansion()
+        } else {
+            tool = .select
+        }
     }
 }
 
@@ -981,10 +1147,14 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             keyCode: key, command: flags.contains(.command), isRepeat: event.isARepeat) {
             return true
         }
-        // The typed digit picks the rail slot, whatever the keyboard layout.
-        if flags.isDisjoint(with: [.command, .control, .option]),
-           let number = event.characters.flatMap({ Int($0) }),
-           let tool = ScreenshotSupport.Tool.shortcutTool(number: number) {
+        // A typed digit picks its rail slot whatever the keyboard layout; a
+        // tool's own key picks that tool.
+        let defaults = UserDefaults.standard
+        if let tool = ScreenshotSupport.Tool.shortcutTool(
+            keyCode: Int64(key), modifiers: GlobalShortcutModifiers(eventFlags: flags), typed: event.characters,
+            orderRaw: defaults.string(forKey: DefaultsKey.screenshotToolOrder),
+            bindingsRaw: defaults.string(forKey: DefaultsKey.screenshotToolShortcuts),
+            enabled: defaults.bool(forKey: DefaultsKey.screenshotToolShortcutsEnabled)) {
             model.tool = tool
             return true
         }
@@ -1002,6 +1172,7 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
                     copyToClipboard()
                 }
                 return true
+            case kVK_ANSI_V: pasteImageFromClipboard(); return true
             case kVK_ANSI_S:
                 if flags.contains(.shift) { saveAs() } else { save() }
                 return true
@@ -1036,7 +1207,9 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             return true
         case kVK_Escape:
             // Steps out one level at a time, and closes only at the last.
-            if model.tool == .crop, model.cropDraft != nil {
+            if model.tool == .expandCanvas {
+                model.leaveCanvasExpansion()
+            } else if model.tool == .crop, model.cropDraft != nil {
                 model.tool = .select
             } else if !model.selectedWordIndexes.isEmpty {
                 model.clearTextSelection()
@@ -1113,9 +1286,10 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Pinning snapshots the current export and leaves the editor open.
+    /// Pinning snapshots the current export, without the backdrop as
+    /// upstream, and leaves the editor open.
     func pin() {
-        guard let export = model.exportImage() else { return }
+        guard let export = model.exportImage(withBackdrop: false) else { return }
         ScreenshotPinController.shared.pin(image: export.image, scale: export.scale)
         model.markExported()
     }
@@ -1167,5 +1341,37 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
         window?.delegate = nil
         window = nil
         ScreenshotService.shared.editorDidClose(self)
+    }
+}
+
+// MARK: - Pasting an image
+
+extension ScreenshotEditorController {
+    /// Reads the clipboard image on the shared pasteboard lane, since a read
+    /// can wait on data another app only promised. The picture stays in
+    /// memory as a layer; nothing is written. The paste lands only while
+    /// this editor is still open.
+    func pasteImageFromClipboard() {
+        GeneralPasteboardAccess.shared.async({
+            autoreleasepool { Self.clipboardImage() }
+        }, then: { [weak self] image in
+            guard let self, self.window != nil else { return }
+            guard let image, self.model.pasteImage(image) else {
+                NSSound.beep()
+                return
+            }
+        })
+    }
+
+    /// Image data at its own pixel size first; anything else AppKit can
+    /// read as a picture (a copied image file, for one) after that.
+    private static func clipboardImage() -> CGImage? {
+        let pasteboard = NSPasteboard.general
+        if let data = pasteboard.data(forType: .png) ?? pasteboard.data(forType: .tiff),
+           let source = CGImageSourceCreateWithData(data as CFData, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            return image
+        }
+        return NSImage(pasteboard: pasteboard)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
     }
 }

@@ -65,6 +65,17 @@ enum DefaultsKey {
     static let screenshotPreviewPosition = "screenshotPreviewPosition"
     /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
     static let screenshotLastRegions = "screenshotLastRegions"
+    /// The editor's rail order (comma-separated tool ids), each tool's own
+    /// key (`tool=<shortcut>` pairs) and whether keys pick tools at all.
+    static let screenshotToolOrder = "screenshotToolOrder"
+    static let screenshotToolShortcuts = "screenshotToolShortcuts"
+    static let screenshotToolShortcutsEnabled = "screenshotToolShortcutsEnabled"
+    /// The editor's backdrop and watermark in use, and the saved presets of
+    /// each, as JSON. Picked pictures are stored as paths only.
+    static let screenshotBackdropStyle = "screenshotBackdropStyle"
+    static let screenshotBackdropPresets = "screenshotBackdropPresets"
+    static let screenshotWatermarkStyle = "screenshotWatermarkStyle"
+    static let screenshotWatermarkPresets = "screenshotWatermarkPresets"
     /// The editor's last tool, colour, line width and text size, so the next
     /// capture opens with them. Read through the sanitizers.
     static let screenshotEditorTool = "screenshotEditorTool"
@@ -110,6 +121,14 @@ enum Defaults {
             DefaultsKey.screenshotPreviewPosition: ScreenshotSupport.PreviewPosition.bottomRight.rawValue,
             DefaultsKey.screenshotEditorBlurLevel: ScreenshotSupport.BlurStrength.defaultLevel,
             DefaultsKey.screenshotEditorSpotlightDim: Double(ScreenshotSupport.defaultSpotlightDim),
+            // The editor reads these through UserDefaults as well as @AppStorage.
+            DefaultsKey.screenshotToolOrder: ScreenshotSupport.Tool.defaultOrderStorage,
+            DefaultsKey.screenshotToolShortcutsEnabled: true,
+            DefaultsKey.screenshotToolShortcuts: "",
+            DefaultsKey.screenshotBackdropStyle: "",
+            DefaultsKey.screenshotBackdropPresets: "[]",
+            DefaultsKey.screenshotWatermarkStyle: "",
+            DefaultsKey.screenshotWatermarkPresets: "[]",
         ])
     }
 }

@@ -10,8 +10,8 @@ import Foundation
 /// annotation model, selection handles, shape geometry and hit testing, zoom,
 /// the undo history, crop geometry, redaction runs and recognized words. No
 /// AppKit, so a harness compiles it on its own. Adapted from the upstream
-/// editor support, without canvas expansion and pasted images (stage C);
-/// the shapes stay upstream's so those slot in.
+/// editor support; canvas expansion, image layers, the backdrop and the tool
+/// order have files of their own.
 extension ScreenshotSupport {
 
     // MARK: - Editor layout
@@ -58,7 +58,7 @@ extension ScreenshotSupport {
     /// compact rows when only those fit, and past that the last tools move
     /// behind an overflow button, as toolbar items that do not fit do.
     /// Adapted from upstream unchanged: the extra row it plans is the tool
-    /// options button that comes with the tool order settings.
+    /// order and keys button.
     struct ToolRailLayout: Equatable {
         var rowHeight: CGFloat = 29
         var spacing: CGFloat = 2
@@ -145,13 +145,14 @@ extension ScreenshotSupport {
     }
 
     enum Tool: String, CaseIterable {
-        // Case order is the rail order and therefore the mapping for keys 1
-        // through 9: upstream's default order, without canvas expansion and
-        // pasted images, which come with stage C.
+        // Case order is the default rail order and therefore the default
+        // mapping for keys 1 through 9: upstream's order. `ordered(from:)`
+        // applies the person's own order.
         case select, arrow, pixelate, crop, text, sticker, rect, highlight,
-             freehand, line, ellipse, counter, redact, spotlight
+             freehand, line, ellipse, counter, redact, spotlight, expandCanvas, image
 
-        static var editorTools: [Tool] { allCases }
+        /// Pasted image layers never appear in the rail.
+        static var editorTools: [Tool] { allCases.filter { $0 != .image } }
 
         static let shortcutLimit = 9
 
@@ -159,32 +160,22 @@ extension ScreenshotSupport {
         var dragsRect: Bool {
             switch self {
             case .rect, .ellipse, .highlight, .pixelate, .redact, .spotlight: return true
-            case .select, .arrow, .line, .freehand, .text, .sticker, .counter, .crop: return false
+            case .select, .arrow, .line, .freehand, .text, .sticker, .counter, .crop, .expandCanvas, .image:
+                return false
             }
         }
 
         /// Existing rectangular marks with visible resize grips.
-        var resizesWithHandles: Bool { dragsRect || self == .sticker }
+        var resizesWithHandles: Bool { dragsRect || self == .sticker || self == .image }
 
-        /// The tool a new editor opens with. Select and crop act on the
-        /// capture as a whole, so each falls back to arrow and the editor
-        /// opens ready to draw.
+        /// The tool a new editor opens with. Select, crop and expand canvas
+        /// act on the capture as a whole and an image is never picked by
+        /// hand, so each falls back to arrow and the editor opens ready to draw.
         static func startingTool(remembered raw: String?) -> Tool {
             let tool = Tool(rawValue: raw ?? "") ?? .arrow
-            return [.select, .crop].contains(tool) ? .arrow : tool
+            return [.select, .crop, .expandCanvas, .image].contains(tool) ? .arrow : tool
         }
 
-        /// The tool in rail slot `number` (1 based), or nil past the rail.
-        static func shortcutTool(number: Int) -> Tool? {
-            guard (1...shortcutLimit).contains(number) else { return nil }
-            let index = number - 1
-            return editorTools.indices.contains(index) ? editorTools[index] : nil
-        }
-
-        static func shortcutNumber(for tool: Tool) -> Int? {
-            guard let index = editorTools.firstIndex(of: tool), index < shortcutLimit else { return nil }
-            return index + 1
-        }
     }
 
     enum ColorID: String, CaseIterable {
@@ -383,6 +374,12 @@ extension ScreenshotSupport {
         var arrowStyle: ArrowStyleID
         var scribbleSeed: UInt64
         var number: Int
+        /// The pixels of a pasted image layer (`tool == .image`).
+        var imageAsset: ImageAsset? = nil
+        /// The canvas size a counter or blur area keeps its look for after
+        /// the canvas grows: its badge and its mosaic blocks stay the size
+        /// they were drawn at. Nil follows the current canvas.
+        var renderReferenceSize: CGSize? = nil
 
         init(id: UUID = UUID(),
              tool: Tool,
@@ -444,7 +441,7 @@ extension ScreenshotSupport {
                                   blurLevel: annotation.blurLevel,
                                   blurStyle: annotation.blurStyle,
                                   blurTextOnly: annotation.blurTextOnly)
-        case .sticker, .select, .crop, .spotlight:
+        case .sticker, .select, .crop, .spotlight, .expandCanvas, .image:
             return SelectionStyle(color: nil, stroke: nil, arrowStyle: nil)
         }
     }
@@ -893,7 +890,7 @@ extension ScreenshotSupport {
                     return annotation.id
                 }
             case .counter:
-                let radius = counterDiameter(for: imageSize, scale: 1) / 2
+                let radius = counterDiameter(for: annotation.renderReferenceSize ?? imageSize, scale: 1) / 2
                 if hypot(point.x - annotation.rect.midX, point.y - annotation.rect.midY)
                     <= radius + 4 * scale {
                     return annotation.id
@@ -912,7 +909,13 @@ extension ScreenshotSupport {
                 if annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
                     return annotation.id
                 }
-            case .select, .crop:
+            case .image:
+                // Only a creation tap passes over a layer, to place text on it.
+                if includeShapeInteriors,
+                   annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
+                    return annotation.id
+                }
+            case .select, .crop, .expandCanvas:
                 continue
             }
         }

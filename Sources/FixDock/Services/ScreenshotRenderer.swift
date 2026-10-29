@@ -12,10 +12,11 @@ import UniformTypeIdentifiers
 /// All geometry is in image pixels with a top-left origin; `scale` is the
 /// capture's pixels per point, keeping stroke weights and text sizes visually
 /// constant across 1x and Retina captures. Adapted from the upstream
-/// renderer, without the pasted image layers, backdrop and watermark passes
-/// of stage C.
+/// renderer; the watermark, corners and backdrop are finished in
+/// `ScreenshotExportRendering.swift` and pasted layers drawn by
+/// `ScreenshotImageLayerRendering`.
 enum ScreenshotRenderer {
-    private static let blurContext = CIContext(options: [.cacheIntermediates: false])
+    static let blurContext = CIContext(options: [.cacheIntermediates: false])
 
     static func color(_ id: ScreenshotSupport.ColorID, alpha: CGFloat = 1) -> CGColor {
         let c = id.components
@@ -55,13 +56,31 @@ enum ScreenshotRenderer {
                                 skippingText editingID: UUID? = nil,
                                 spotlightDimStrength: CGFloat = ScreenshotSupport.defaultSpotlightDim) {
         blurSources.eraseCache?.beginPass(image: blurSources.image, textRuns: blurSources.textRuns)
+        blurSources.imageLayerCache?.beginPass(base: blurSources.image)
+        var precedingImages: [ScreenshotSupport.Annotation] = []
         let bounds = CGRect(origin: .zero, size: imageSize)
         let topSpotlight = annotations.lastIndex { litRegion($0, within: bounds) != nil }
         let shadows = annotationShadowsEnabled
         for (index, annotation) in annotations.enumerated() {
             switch annotation.tool {
             case .pixelate:
-                drawBlurArea(annotation, in: context, sources: blurSources, imageSize: imageSize)
+                // Every style paints what lies below the area, pasted images
+                // included, and only images its paint reads change what that is.
+                let images = ImageLayerCache.images(below: annotation, among: precedingImages,
+                                                    textRuns: blurSources.textRuns, imageSize: imageSize)
+                if ImageLayerCache.usesCapture(annotation, below: images) {
+                    drawBlurArea(annotation, in: context, sources: blurSources, imageSize: imageSize)
+                } else if let sources = blurSources.imageLayerCache?.sources(
+                    for: annotation, images: images, original: blurSources) {
+                    drawBlurArea(annotation, in: context, sources: sources, imageSize: imageSize)
+                } else {
+                    // Without a sample of what is below, the area stays covered.
+                    context.saveGState()
+                    context.setBlendMode(.copy)
+                    context.setFillColor(CGColor(gray: 0, alpha: 1))
+                    context.fill(annotation.rect.intersection(bounds))
+                    context.restoreGState()
+                }
             case .redact:
                 context.setFillColor(color(annotation.color))
                 context.fill(annotation.rect)
@@ -99,7 +118,10 @@ enum ScreenshotRenderer {
                     drawSpotlight(annotations, dimStrength: spotlightDimStrength,
                                   imageSize: imageSize, in: context)
                 }
-            case .select, .crop:
+            case .image:
+                ScreenshotImageLayerRendering.draw(annotation, in: context)
+                precedingImages.append(annotation)
+            case .select, .crop, .expandCanvas:
                 break
             }
         }
@@ -258,7 +280,8 @@ enum ScreenshotRenderer {
     private static func drawCounter(_ annotation: ScreenshotSupport.Annotation,
                                     in context: CGContext, imageSize: CGSize,
                                     scale: CGFloat, shadowsEnabled: Bool) {
-        let diameter = ScreenshotSupport.counterDiameter(for: imageSize, scale: 1)
+        let diameter = ScreenshotSupport.counterDiameter(for: annotation.renderReferenceSize ?? imageSize,
+                                                         scale: 1)
         let rect = CGRect(x: annotation.rect.midX - diameter / 2, y: annotation.rect.midY - diameter / 2,
                           width: diameter, height: diameter)
         context.saveGState()
@@ -322,8 +345,12 @@ enum ScreenshotRenderer {
         var mosaics: [Int: CGImage] = [:]
         var softBlurs: [Int: CGImage] = [:]
         var image: CGImage?
+        /// Where `image` starts on the canvas: an erase sample over pasted
+        /// images holds only what its area reads.
+        var imageOrigin = CGPoint.zero
         var eraseCache: EraseCache?
         var textRuns: [CGRect]?
+        var imageLayerCache: ImageLayerCache?
 
         static let none = BlurSources()
     }
@@ -352,16 +379,19 @@ enum ScreenshotRenderer {
                        clippedTo: runs.map { $0.intersection(rect) }, interpolation: .high)
         case .erase:
             guard let image = sources.image else { return }
+            // Fills are made in the image's own pixels and drawn back on the canvas.
+            let origin = sources.imageOrigin
+            let local = { (canvas: CGRect) in canvas.offsetBy(dx: -origin.x, dy: -origin.y) }
             // The fill is read around the whole run, so an area that cuts
             // through a word never samples the word itself. Text runs are
             // skipped while reading, and a run's own never lies in what is
             // read around it, so one list serves every run.
-            let text = annotation.blurTextOnly ? (sources.textRuns ?? []) : []
+            let text = (annotation.blurTextOnly ? (sources.textRuns ?? []) : []).map(local)
             let bounds = CGRect(origin: .zero, size: imageSize)
             for run in runs {
-                guard let patch = sources.eraseCache?.patch(for: run, in: image, skipping: text)
-                        ?? erasePatch(for: run, in: image, skipping: text) else { continue }
-                let target = patch.rect
+                guard let patch = sources.eraseCache?.patch(for: local(run), in: image, skipping: text)
+                        ?? erasePatch(for: local(run), in: image, skipping: text) else { continue }
+                let target = patch.rect.offsetBy(dx: origin.x, dy: origin.y)
                 context.saveGState()
                 context.clip(to: run.intersection(rect).intersection(bounds))
                 // Replace what is under the run. Blending would let text in a
@@ -401,10 +431,13 @@ enum ScreenshotRenderer {
     // MARK: - Blur samples
 
     /// A low-resolution mosaic with per-block color variation.
+    /// `referenceSize` keeps the blocks of an area drawn before the canvas
+    /// grew at the size they had.
     static func pixelatedImage(from image: CGImage,
-                               level: Int = ScreenshotSupport.BlurStrength.defaultLevel) -> CGImage? {
+                               level: Int = ScreenshotSupport.BlurStrength.defaultLevel,
+                               referenceSize: CGSize? = nil) -> CGImage? {
         let block = ScreenshotSupport.pixelBlockSize(
-            for: CGSize(width: image.width, height: image.height), level: level)
+            for: referenceSize ?? CGSize(width: image.width, height: image.height), level: level)
         let smallWidth = max(1, image.width / block)
         let smallHeight = max(1, image.height / block)
         guard let small = CGContext(data: nil, width: smallWidth, height: smallHeight,
@@ -424,9 +457,10 @@ enum ScreenshotRenderer {
     /// level keeps, and neighboring samples end up close enough that the
     /// stretch back to full size stays smooth.
     static func softBlurredImage(from image: CGImage,
-                                 level: Int = ScreenshotSupport.BlurStrength.defaultLevel) -> CGImage? {
+                                 level: Int = ScreenshotSupport.BlurStrength.defaultLevel,
+                                 referenceSize: CGSize? = nil) -> CGImage? {
         let block = ScreenshotSupport.pixelBlockSize(
-            for: CGSize(width: image.width, height: image.height), level: level)
+            for: referenceSize ?? CGSize(width: image.width, height: image.height), level: level)
         let step = max(1, block / 4)
         let smallWidth = max(1, image.width / step)
         let smallHeight = max(1, image.height / step)
