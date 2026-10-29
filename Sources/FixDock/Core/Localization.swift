@@ -479,6 +479,28 @@ struct Strings {
     let screenshotEditorDiscardMessage: String
     let screenshotEditorDiscard: String
     let screenshotEditorCancel: String
+    let screenshotEditorToolBlur: String
+    let screenshotEditorToolCrop: String
+    let screenshotEditorToolSticker: String
+    let screenshotEditorToolHighlight: String
+    let screenshotEditorToolCounter: String
+    let screenshotEditorToolRedact: String
+    let screenshotEditorToolSpotlight: String
+    let screenshotEditorMoreTools: String
+    let screenshotEditorArrowStyle: String
+    let screenshotEditorArrowFilled: String
+    let screenshotEditorArrowOutline: String
+    let screenshotEditorArrowOpen: String
+    let screenshotEditorArrowDoubleEnded: String
+    let screenshotEditorArrowScribbly: String
+    let screenshotEditorBlurStyle: String
+    let screenshotEditorBlurPixelate: String
+    let screenshotEditorBlurErase: String
+    let screenshotEditorBlurTextOnly: String
+    let screenshotEditorBlurStrength: String
+    let screenshotEditorSpotlightDim: String
+    let screenshotEditorShadows: String
+    let screenshotEditorCropApply: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -914,6 +936,28 @@ struct Strings {
         screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or pinned.",
         screenshotEditorDiscard: "Discard",
         screenshotEditorCancel: "Cancel",
+        screenshotEditorToolBlur: "Blur",
+        screenshotEditorToolCrop: "Crop",
+        screenshotEditorToolSticker: "Sticker",
+        screenshotEditorToolHighlight: "Highlighter",
+        screenshotEditorToolCounter: "Number",
+        screenshotEditorToolRedact: "Solid block",
+        screenshotEditorToolSpotlight: "Spotlight",
+        screenshotEditorMoreTools: "More tools",
+        screenshotEditorArrowStyle: "Arrow style",
+        screenshotEditorArrowFilled: "Solid",
+        screenshotEditorArrowOutline: "Outline",
+        screenshotEditorArrowOpen: "Open",
+        screenshotEditorArrowDoubleEnded: "Double-ended",
+        screenshotEditorArrowScribbly: "Scribbly",
+        screenshotEditorBlurStyle: "Blur style",
+        screenshotEditorBlurPixelate: "Pixelate",
+        screenshotEditorBlurErase: "Erase",
+        screenshotEditorBlurTextOnly: "Text only",
+        screenshotEditorBlurStrength: "Blur strength",
+        screenshotEditorSpotlightDim: "Dim outside",
+        screenshotEditorShadows: "Shadows",
+        screenshotEditorCropApply: "Crop",
         versionFormat: "Version %@"
     )
 }
