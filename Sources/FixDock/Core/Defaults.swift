@@ -41,6 +41,10 @@ enum DefaultsKey {
     static let mediaVideoSizing = "mediaVideoSizing"
     static let mediaVideoPreset = "mediaVideoPreset"
     static let mediaVideoTargetMegabytes = "mediaVideoTargetMegabytes"
+    static let airdropAutoZipEnabled = "airdropAutoZipEnabled"
+    static let airdropAutoZipPreset = "airdropAutoZipPreset"
+    /// Developer runs only: watch this folder instead of Downloads.
+    static let airdropAutoZipFolderOverride = "airdropAutoZipFolderOverride"
     static let mediaImageFormat = "mediaImageFormat"
     static let mediaImageMaxDimension = "mediaImageMaxDimension"
     static let mediaImageMetadata = "mediaImageMetadata"

@@ -251,6 +251,21 @@ struct Strings {
     let mediaErrorTargetTooSmall: String
     let mediaErrorVideoUnsupported: String
     let mediaErrorVideoFailed: String
+    let airdropEnable: String
+    let airdropWatching: String
+    let airdropProcessing: String
+    let airdropFolderUnavailable: String
+    let airdropHowTitle: String
+    let airdropHowCandidates: String
+    let airdropHowBatch: String
+    let airdropHowZip: String
+    let airdropHowOriginals: String
+    let airdropHowOthers: String
+    let airdropHowLocation: String
+    let airdropKeptFormat: String
+    let airdropOpenDownloads: String
+    let airdropNotifyDoneFormat: String
+    let airdropNotifyFailed: String
     let mediaPresetCaption: String
     let mediaFormatLabel: String
     let mediaFormatOriginal: String
@@ -378,7 +393,7 @@ struct Strings {
         featureSnippetsName: "Text snippets",
         featureSnippetsSummary: "Expand a short abbreviation into text you type often.",
         featureAirDropName: "AirDrop auto-zip",
-        featureAirDropSummary: "Zip a folder automatically when you AirDrop it. New in FixDock.",
+        featureAirDropSummary: "Zip and compress photos as soon as they arrive by AirDrop.",
         featureCleanerName: "Cleaner",
         featureCleanerSummary: "Find leftover junk, caches, and forgotten screenshots.",
         featureScreenshotName: "Screenshot",
@@ -529,6 +544,21 @@ struct Strings {
         mediaErrorTargetTooSmall: "The target size is too small for this video's length.",
         mediaErrorVideoUnsupported: "macOS cannot convert this video.",
         mediaErrorVideoFailed: "The video could not be compressed.",
+        airdropEnable: "Zip photos received by AirDrop",
+        airdropWatching: "Watching the Downloads folder",
+        airdropProcessing: "Compressing a batch…",
+        airdropFolderUnavailable: "FixDock cannot read the Downloads folder. Allow it in System Settings › Privacy & Security › Files and Folders.",
+        airdropHowTitle: "What happens",
+        airdropHowCandidates: "Only photos received by AirDrop. Images saved from a browser or a messenger are never touched.",
+        airdropHowBatch: "Photos that arrive together become one batch, 5 seconds after the last one.",
+        airdropHowZip: "Each batch becomes compressed_images_YYYY-MM-DD.zip in Downloads, with the photos named 1, 2, 3… in the order they were taken. Format and resolution stay.",
+        airdropHowOriginals: "The originals go to the Trash only after the zip is checked. If anything fails, every original stays.",
+        airdropHowOthers: "Videos and other files from the same AirDrop stay where they are.",
+        airdropHowLocation: "Location (GPS) is removed from the compressed photos. Nothing leaves this Mac.",
+        airdropKeptFormat: "%d originals stayed because they changed or could not go to the Trash.",
+        airdropOpenDownloads: "Open Downloads",
+        airdropNotifyDoneFormat: "%d photos zipped into %@.",
+        airdropNotifyFailed: "The batch could not be zipped. The photos were left in Downloads.",
         mediaPresetCaption: "PNG is lossless and ignores the level.",
         mediaFormatLabel: "Format",
         mediaFormatOriginal: "Keep original",

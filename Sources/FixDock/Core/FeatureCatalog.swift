@@ -13,8 +13,8 @@ import Foundation
 /// saved availability key still means the same thing when the module returns.
 /// `airdropAutoZip` is new and has no upstream module.
 ///
-/// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets` and
-/// `mediaTools` have modules. The others still only
+/// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets`,
+/// `mediaTools` and `airdropAutoZip` have modules. The others still only
 /// remember a choice: installing them does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
@@ -32,7 +32,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
     /// True once this build contains the service and its binding.
     var hasService: Bool {
         self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode
-            || self == .textSnippets || self == .mediaTools
+            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
@@ -54,7 +54,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .urlCleaner: key = DefaultsKey.urlCleanerEnabled
         case .quitWindowProtection: key = DefaultsKey.quitProtectionQuitEnabled
         case .textSnippets: key = DefaultsKey.textSnippetsEnabled
-        case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner,
+        case .airdropAutoZip: key = DefaultsKey.airdropAutoZipEnabled
+        case .cleaningMode, .mediaTools, .cleaner,
              .screenshot, .screenRecorder:
             return
         }
