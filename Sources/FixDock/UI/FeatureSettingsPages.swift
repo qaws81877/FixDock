@@ -40,6 +40,8 @@ extension AppFeature {
             return page { CleaningModeSettings() }
         case .textSnippets:
             return page { TextSnippetsSettings() }
+        case .mediaTools:
+            return page { MediaSettings() }
         case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return nil
         }

@@ -15,7 +15,7 @@ struct MenuPanelView: View {
     var body: some View {
         let strings = l10n.s
         let installed = runtime.installedFeatures
-        let cleanerInstalled = AppFeature.urlCleaner.isAvailable
+        let tallPanel = AppFeature.urlCleaner.isAvailable || AppFeature.mediaTools.isAvailable
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -53,7 +53,7 @@ struct MenuPanelView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 320, height: cleanerInstalled ? 560 : 420)
+        .frame(width: 320, height: tallPanel ? 560 : 420)
     }
 
     @ViewBuilder
@@ -81,6 +81,8 @@ struct MenuPanelView: View {
             PanelCleaningModeRow()
         case .textSnippets:
             PanelTextSnippetsRow()
+        case .mediaTools:
+            PanelMediaView()
         case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)

@@ -35,6 +35,11 @@ enum DefaultsKey {
     static let cleaningModeClickPolicy = "cleaningModeClickPolicy"
     static let textSnippetsEnabled = "textSnippetsEnabled"
     static let textSnippets = "textSnippets"
+    static let mediaImagePreset = "mediaImagePreset"
+    static let mediaOutputMode = "mediaOutputMode"
+    static let mediaImageFormat = "mediaImageFormat"
+    static let mediaImageMaxDimension = "mediaImageMaxDimension"
+    static let mediaImageMetadata = "mediaImageMetadata"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
