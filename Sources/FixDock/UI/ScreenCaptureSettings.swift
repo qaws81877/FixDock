@@ -126,6 +126,10 @@ private struct ScreenshotSettingsTab: View {
                 }
             }
 
+            Section(s.screenshotToolKeysTitle) {
+                ScreenshotToolOrderControls(showsTitle: false)
+            }
+
             Section(s.screenshotKeysTitle) {
                 ForEach(keyRows, id: \.0) { key, text in
                     HStack(spacing: 8) {

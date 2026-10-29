@@ -479,6 +479,51 @@ struct Strings {
     let screenshotEditorDiscardMessage: String
     let screenshotEditorDiscard: String
     let screenshotEditorCancel: String
+    let screenshotEditorToolExpandCanvas: String
+    let screenshotEditorPastedImage: String
+    let screenshotEditorCanvasFill: String
+    let screenshotEditorCanvasFillWhite: String
+    let screenshotEditorCanvasFillClear: String
+    let screenshotEditorCanvasFillCustom: String
+    let screenshotEditorCanvasHint: String
+    let screenshotEditorBackdrop: String
+    let screenshotEditorBackdropNone: String
+    let screenshotEditorBackdropPreset: String
+    let screenshotEditorBackdropSaved: String
+    let screenshotEditorBackdropWallpaper: String
+    let screenshotEditorBackdropChooseImage: String
+    let screenshotEditorBackdropSolid: String
+    let screenshotEditorBackdropGradient: String
+    let screenshotEditorBackdropSave: String
+    let screenshotEditorPresetRemove: String
+    let screenshotEditorBackdropPadding: String
+    let screenshotEditorBackdropCorners: String
+    let screenshotEditorBackdropBlur: String
+    let screenshotEditorWatermark: String
+    let screenshotEditorWatermarkText: String
+    let screenshotEditorWatermarkImage: String
+    let screenshotEditorWatermarkPlaceholder: String
+    let screenshotEditorWatermarkSave: String
+    let screenshotEditorWatermarkPosition: String
+    let screenshotEditorWatermarkSize: String
+    let screenshotEditorWatermarkRotation: String
+    let screenshotEditorAnchorTopLeading: String
+    let screenshotEditorAnchorTop: String
+    let screenshotEditorAnchorTopTrailing: String
+    let screenshotEditorAnchorLeading: String
+    let screenshotEditorAnchorCenter: String
+    let screenshotEditorAnchorTrailing: String
+    let screenshotEditorAnchorBottomLeading: String
+    let screenshotEditorAnchorBottom: String
+    let screenshotEditorAnchorBottomTrailing: String
+    let screenshotEditorToolOrder: String
+    let screenshotToolKeysTitle: String
+    let screenshotToolKeysToggle: String
+    let screenshotToolKeysCaption: String
+    let screenshotToolKeyNone: String
+    let screenshotToolMoveUp: String
+    let screenshotToolMoveDown: String
+    let screenshotToolOrderReset: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -914,6 +959,51 @@ struct Strings {
         screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or pinned.",
         screenshotEditorDiscard: "Discard",
         screenshotEditorCancel: "Cancel",
+        screenshotEditorToolExpandCanvas: "Expand canvas",
+        screenshotEditorPastedImage: "Pasted image",
+        screenshotEditorCanvasFill: "Fill",
+        screenshotEditorCanvasFillWhite: "White",
+        screenshotEditorCanvasFillClear: "Transparent",
+        screenshotEditorCanvasFillCustom: "Custom",
+        screenshotEditorCanvasHint: "Drag a handle on the edge to add space",
+        screenshotEditorBackdrop: "Backdrop",
+        screenshotEditorBackdropNone: "None",
+        screenshotEditorBackdropPreset: "Gradient preset",
+        screenshotEditorBackdropSaved: "Saved backdrop",
+        screenshotEditorBackdropWallpaper: "Current desktop picture",
+        screenshotEditorBackdropChooseImage: "Choose an image…",
+        screenshotEditorBackdropSolid: "Solid",
+        screenshotEditorBackdropGradient: "Gradient",
+        screenshotEditorBackdropSave: "Save this backdrop",
+        screenshotEditorPresetRemove: "Remove",
+        screenshotEditorBackdropPadding: "Margin",
+        screenshotEditorBackdropCorners: "Corners",
+        screenshotEditorBackdropBlur: "Blur",
+        screenshotEditorWatermark: "Watermark",
+        screenshotEditorWatermarkText: "Text",
+        screenshotEditorWatermarkImage: "Image",
+        screenshotEditorWatermarkPlaceholder: "Watermark text",
+        screenshotEditorWatermarkSave: "Save this watermark",
+        screenshotEditorWatermarkPosition: "Position",
+        screenshotEditorWatermarkSize: "Size",
+        screenshotEditorWatermarkRotation: "Rotation",
+        screenshotEditorAnchorTopLeading: "Top left",
+        screenshotEditorAnchorTop: "Top",
+        screenshotEditorAnchorTopTrailing: "Top right",
+        screenshotEditorAnchorLeading: "Left",
+        screenshotEditorAnchorCenter: "Centre",
+        screenshotEditorAnchorTrailing: "Right",
+        screenshotEditorAnchorBottomLeading: "Bottom left",
+        screenshotEditorAnchorBottom: "Bottom",
+        screenshotEditorAnchorBottomTrailing: "Bottom right",
+        screenshotEditorToolOrder: "Tool order and keys",
+        screenshotToolKeysTitle: "Editor tools",
+        screenshotToolKeysToggle: "Keys 1 to 9 pick tools",
+        screenshotToolKeysCaption: "The first nine tools in the editor's rail get keys 1 to 9. Give a tool a number to move it into that place.",
+        screenshotToolKeyNone: "No key",
+        screenshotToolMoveUp: "Move up",
+        screenshotToolMoveDown: "Move down",
+        screenshotToolOrderReset: "Reset order",
         versionFormat: "Version %@"
     )
 }

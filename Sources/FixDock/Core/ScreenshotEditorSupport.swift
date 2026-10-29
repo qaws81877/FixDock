@@ -104,11 +104,14 @@ extension ScreenshotSupport {
     }
 
     enum Tool: String, CaseIterable {
-        // Case order is the rail order and therefore the mapping for keys 1
-        // through 9: upstream's default order, filtered to these tools.
+        // Case order is the default rail order and therefore the default
+        // mapping for keys 1 through 9: upstream's order, filtered to these
+        // tools. `ordered(from:)` applies the person's own order.
         case select, arrow, text, rect, freehand, line, ellipse
+        case expandCanvas, image
 
-        static var editorTools: [Tool] { allCases }
+        /// Pasted image layers never appear in the rail.
+        static var editorTools: [Tool] { allCases.filter { $0 != .image } }
 
         static let shortcutLimit = 9
 
@@ -117,17 +120,19 @@ extension ScreenshotSupport {
             switch self {
             case .rect, .ellipse: return true
             case .select, .arrow, .text, .freehand, .line: return false
+            case .expandCanvas, .image: return false
             }
         }
 
         /// Existing rectangular marks with visible resize grips.
-        var resizesWithHandles: Bool { dragsRect }
+        var resizesWithHandles: Bool { dragsRect || self == .image }
 
-        /// The tool a new editor opens with. Select acts on what is already
-        /// there, so it falls back to arrow and the editor opens ready to draw.
+        /// The tool a new editor opens with. Select and expand canvas act on
+        /// what is already there and an image is never picked by hand, so
+        /// each falls back to arrow and the editor opens ready to draw.
         static func startingTool(remembered raw: String?) -> Tool {
             let tool = Tool(rawValue: raw ?? "") ?? .arrow
-            return tool == .select ? .arrow : tool
+            return [.select, .expandCanvas, .image].contains(tool) ? .arrow : tool
         }
 
         /// The tool in rail slot `number` (1 based), or nil past the rail.
@@ -221,6 +226,8 @@ extension ScreenshotSupport {
         var stroke: StrokeID
         var textSize: Int
         var arrowStyle: ArrowStyleID
+        /// The pixels of a pasted image layer (`tool == .image`).
+        var imageAsset: ImageAsset? = nil
 
         init(id: UUID = UUID(),
              tool: Tool,
@@ -261,7 +268,7 @@ extension ScreenshotSupport {
         case .text:
             return SelectionStyle(color: annotation.color, stroke: nil, arrowStyle: nil,
                                   textSize: annotation.textSize)
-        case .select:
+        case .select, .expandCanvas, .image:
             return SelectionStyle(color: nil, stroke: nil, arrowStyle: nil)
         }
     }
@@ -499,7 +506,13 @@ extension ScreenshotSupport {
                 if annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
                     return annotation.id
                 }
-            case .select:
+            case .image:
+                // Only a creation tap passes over a layer, to place text on it.
+                if includeShapeInteriors,
+                   annotation.rect.insetBy(dx: -tolerance / 2, dy: -tolerance / 2).contains(point) {
+                    return annotation.id
+                }
+            case .select, .expandCanvas:
                 continue
             }
         }

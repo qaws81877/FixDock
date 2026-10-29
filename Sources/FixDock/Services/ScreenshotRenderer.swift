@@ -64,7 +64,9 @@ enum ScreenshotRenderer {
                 if annotation.id != editingID {
                     drawText(annotation, in: context, scale: scale)
                 }
-            case .select:
+            case .image:
+                drawImageLayer(annotation, in: context)
+            case .select, .expandCanvas:
                 break
             }
         }

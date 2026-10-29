@@ -23,6 +23,13 @@ struct ScreenshotEditorView: View {
     @State private var appeared = false
     @State private var hoveredTool: ScreenshotSupport.Tool?
     @State private var magnifyBase: CGFloat?
+    // Stage C: rail order and keys, the tool order popover, and the zoom an
+    // Expand canvas drag holds so the canvas does not refit under it.
+    @AppStorage(DefaultsKey.screenshotToolOrder) private var toolOrderRaw =
+        ScreenshotSupport.Tool.defaultOrderStorage
+    @AppStorage(DefaultsKey.screenshotToolShortcutsEnabled) private var toolShortcutsEnabled = true
+    @State private var toolOrderShown = false
+    @State private var expansionDragZoom: CGFloat?
 
     private var s: Strings { l10n.s }
 
@@ -82,7 +89,7 @@ struct ScreenshotEditorView: View {
             // under a still cursor and turns a click into a drag.
             let available = dragCanvasArea ?? proxy.size
             let zoom = zoomFactor(available: available)
-            let canvasSize = CGSize(width: model.imageSize.width * zoom, height: model.imageSize.height * zoom)
+            let canvasSize = CGSize(width: contentPixelSize.width * zoom, height: contentPixelSize.height * zoom)
             ScrollView([.horizontal, .vertical]) {
                 canvas(zoom: zoom, available: available)
                     .frame(width: canvasSize.width, height: canvasSize.height)
@@ -118,8 +125,12 @@ struct ScreenshotEditorView: View {
     }
 
     private func zoomFactor(available: CGSize) -> CGFloat {
+        if let expansionDragZoom { return expansionDragZoom }
+        // Expand canvas leaves room around the capture to drag into.
         let zoom = model.zoomOverride
-            ?? ScreenshotSupport.editorFitZoom(available: available, content: model.imageSize)
+            ?? ScreenshotSupport.editorFitZoom(available: available, content: contentPixelSize,
+                                               margin: model.tool == .expandCanvas
+                                                   ? 64 : ScreenshotSupport.editorCanvasMargin)
         // Pinch and scroll zoom start from what is actually on screen.
         model.currentDisplayZoom = zoom
         return zoom
@@ -133,13 +144,17 @@ struct ScreenshotEditorView: View {
     }
 
     private func canvas(zoom: CGFloat, available: CGSize) -> some View {
-        Canvas { context, size in
-            context.withCGContext { cg in
-                drawContent(cg, size: size, zoom: zoom)
+        let outerRadius = canvasCornerRadius(zoom: zoom)
+        return ZStack {
+            backdropLayer(zoom: zoom)
+            Canvas { context, size in
+                context.withCGContext { cg in
+                    drawContent(cg, size: size, zoom: zoom)
+                }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+        .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: outerRadius, style: .continuous)
             .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1))
         .shadow(color: .black.opacity(0.30), radius: 24, y: 10)
         .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
@@ -147,6 +162,9 @@ struct ScreenshotEditorView: View {
         .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) { appeared = true }
+        }
+        .overlay(alignment: .topLeading) {
+            expansionOverlay(zoom: zoom, cornerRadius: outerRadius)
         }
         .gesture(canvasGesture(zoom: zoom, available: available))
         .onContinuousHover { phase in
@@ -163,13 +181,24 @@ struct ScreenshotEditorView: View {
     }
 
     private func drawContent(_ cg: CGContext, size: CGSize, zoom: CGFloat) {
-        let imageRect = CGRect(x: 0, y: 0, width: model.imageSize.width * zoom,
+        let pad = model.backdropPaddingPixels * zoom
+        let imageRect = CGRect(x: pad, y: pad, width: model.imageSize.width * zoom,
                                height: model.imageSize.height * zoom)
-        drawImageUpright(cg, in: imageRect, canvasHeight: size.height)
+        let cardPath = drawCardBase(cg, imageRect: imageRect, size: size, zoom: zoom)
         cg.saveGState()
-        cg.scaleBy(x: zoom, y: zoom)
+        if let cardPath {
+            cg.addPath(cardPath)
+            cg.clip()
+        }
+        drawImageUpright(cg, in: imageRect, canvasHeight: size.height)
+        cg.restoreGState()
+        cg.saveGState()
+        enterImageSpace(cg, zoom: zoom)
         ScreenshotRenderer.drawAnnotations(model.annotations, in: cg, scale: model.scale,
                                            skippingText: model.editingTextID)
+        ScreenshotRenderer.drawWatermark(model.decor.watermarkStyle, image: model.decor.watermarkImage,
+                                         in: cg, imageSize: model.imageSize,
+                                         cornerRadius: model.cardCornerPixels)
         drawTextSelection(cg)
         drawSelectionChrome(cg)
         cg.restoreGState()
@@ -248,6 +277,7 @@ struct ScreenshotEditorView: View {
             .onChanged { value in
                 let point = imagePoint(from: value.location, zoom: zoom)
                 if !dragInFlight {
+                    if model.tool == .expandCanvas { expansionDragZoom = zoom }
                     dragInFlight = true
                     drag.begin(at: value.startLocation)
                     dragCanvasArea = available
@@ -260,10 +290,12 @@ struct ScreenshotEditorView: View {
                 drag.update(to: value.location)
             }
             .onEnded { value in
+                defer { expansionDragZoom = nil }
                 dragInFlight = false
                 dragCanvasArea = nil
                 let point = imagePoint(from: value.location, zoom: zoom)
                 drag.update(to: value.location)
+                if model.tool == .expandCanvas { model.continueDrag(to: point) }
                 let isTap = drag.isTap(for: model.tool)
                 // A text tap outside the capture places nothing.
                 if isTap, model.tool == .text, !CGRect(origin: .zero, size: model.imageSize).contains(point) {
@@ -277,11 +309,14 @@ struct ScreenshotEditorView: View {
     }
 
     private func imagePoint(from viewPoint: CGPoint, zoom: CGFloat) -> CGPoint {
-        CGPoint(x: viewPoint.x / zoom, y: viewPoint.y / zoom)
+        let pad = model.backdropPaddingPixels
+        return CGPoint(x: viewPoint.x / zoom - pad, y: viewPoint.y / zoom - pad)
     }
 
     private func updateHoverCursor(at point: CGPoint) {
-        if model.tool != .select, model.selectedAnnotationOwns(point) {
+        if model.tool == .expandCanvas {
+            (expansionGrip(at: point) != nil ? NSCursor.crosshair : NSCursor.arrow).set()
+        } else if model.tool != .select, model.selectedAnnotationOwns(point) {
             NSCursor.openHand.set()
         } else if model.tool != .select {
             NSCursor.crosshair.set()
@@ -312,7 +347,8 @@ struct ScreenshotEditorView: View {
                 .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1))
-                .offset(x: annotation.rect.minX * zoom - 6, y: annotation.rect.minY * zoom - 3)
+                .offset(x: (annotation.rect.minX + model.backdropPaddingPixels) * zoom - 6,
+                        y: (annotation.rect.minY + model.backdropPaddingPixels) * zoom - 3)
                 // A fresh field per text, so switching texts reloads its words.
                 .id(editingID)
                 .onAppear {
@@ -334,9 +370,10 @@ struct ScreenshotEditorView: View {
 
     private var toolRail: some View {
         VStack(spacing: 2) {
-            ForEach(ScreenshotSupport.Tool.editorTools, id: \.self) { tool in
+            ForEach(ScreenshotSupport.Tool.ordered(from: toolOrderRaw), id: \.self) { tool in
                 railButton(tool)
             }
+            toolOrderButton
         }
         .padding(5)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -354,7 +391,8 @@ struct ScreenshotEditorView: View {
     private func railButton(_ tool: ScreenshotSupport.Tool) -> some View {
         let isActive = model.tool == tool
         let isHovered = hoveredTool == tool
-        let number = ScreenshotSupport.Tool.shortcutNumber(for: tool)
+        let number = ScreenshotSupport.Tool.shortcutNumber(for: tool, orderRaw: toolOrderRaw,
+                                                           enabled: toolShortcutsEnabled)
         let title = toolTitle(tool) + (number.map { "  (\($0))" } ?? "")
         return Button {
             selectTool(tool)
@@ -387,27 +425,11 @@ struct ScreenshotEditorView: View {
     }
 
     private func toolSymbol(_ tool: ScreenshotSupport.Tool) -> String {
-        switch tool {
-        case .select: return "cursorarrow"
-        case .arrow: return "arrow.up.right"
-        case .text: return "textformat"
-        case .rect: return "rectangle"
-        case .freehand: return "scribble.variable"
-        case .line: return "line.diagonal"
-        case .ellipse: return "circle"
-        }
+        tool.railSymbol
     }
 
     private func toolTitle(_ tool: ScreenshotSupport.Tool) -> String {
-        switch tool {
-        case .select: return s.screenshotEditorToolSelect
-        case .arrow: return s.screenshotEditorToolArrow
-        case .text: return s.screenshotEditorToolText
-        case .rect: return s.screenshotEditorToolRect
-        case .freehand: return s.screenshotEditorToolFreehand
-        case .line: return s.screenshotEditorToolLine
-        case .ellipse: return s.screenshotEditorToolEllipse
-        }
+        tool.railTitle(s)
     }
 
     // MARK: - Action cluster (top right)
@@ -485,7 +507,9 @@ struct ScreenshotEditorView: View {
     }
 
     private var showsColorControls: Bool {
-        model.tool != .select || selectedAnnotation != nil
+        if model.tool == .expandCanvas { return false }
+        if let selectedAnnotation { return selectedAnnotation.tool != .image }
+        return model.tool != .select
     }
 
     /// Text takes a point size where shapes take a thickness.
@@ -507,6 +531,7 @@ struct ScreenshotEditorView: View {
                 infoChip
                 Spacer(minLength: 6)
                 styleBar
+                decorBar
                 Spacer(minLength: 6)
                 zoomChip
             }
@@ -516,6 +541,8 @@ struct ScreenshotEditorView: View {
                 styleBar
                 HStack {
                     infoChip
+                    Spacer()
+                    decorBar
                     Spacer()
                     zoomChip
                 }
@@ -731,5 +758,159 @@ struct ScreenshotEditorView: View {
         let height = Int(model.imageSize.height)
         let retina = model.scale > 1 ? "  @\(Int(model.scale.rounded()))x" : ""
         return "\(width) × \(height) px\(retina)"
+    }
+}
+
+// MARK: - Stage C: backdrop, watermark, canvas expansion, tool order
+
+/// Same file as the view, so these reach its private state. Adapted from
+/// the upstream editor view.
+extension ScreenshotEditorView {
+    /// The capture plus the backdrop margin around it, in image pixels.
+    private var contentPixelSize: CGSize {
+        let pad = model.backdropPaddingPixels
+        return CGSize(width: model.imageSize.width + pad * 2, height: model.imageSize.height + pad * 2)
+    }
+
+    /// With a backdrop the margin is square at the canvas edge; without one
+    /// the canvas is the card and shows its rounding.
+    private func canvasCornerRadius(zoom: CGFloat) -> CGFloat {
+        model.decor.showsBackdrop ? 6 : max(4, model.cardCornerPixels * zoom)
+    }
+
+    /// The live backdrop under the canvas, painted the way the exporter
+    /// paints it; blurred a little past its edge so the blur never shows a
+    /// seam.
+    @ViewBuilder
+    private func backdropLayer(zoom: CGFloat) -> some View {
+        let blur = CGFloat(model.decor.backdropStyle.sanitized().blur)
+        switch model.decor.backdropFill {
+        case .none:
+            EmptyView()
+        case .colors(let components):
+            Group {
+                if components.count == 1, let single = components.first {
+                    Color(.sRGB, red: single.red, green: single.green, blue: single.blue, opacity: 1)
+                } else {
+                    LinearGradient(colors: components.map {
+                        Color(.sRGB, red: $0.red, green: $0.green, blue: $0.blue, opacity: 1)
+                    }, startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+            .scaleEffect(1 + blur * 0.08)
+            .blur(radius: ScreenshotSupport.backdropBlurRadius(for: contentPixelSize, factor: blur) * zoom)
+        case .image(let image):
+            // The overlay clips aspect-fill overflow to the backdrop bounds.
+            Rectangle()
+                .fill(.clear)
+                .overlay {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFill()
+                }
+                .clipped()
+                .scaleEffect(1 + blur * 0.08)
+                .blur(radius: ScreenshotSupport.backdropBlurRadius(for: contentPixelSize, factor: blur) * zoom)
+        }
+    }
+
+    /// Under the capture: the card's shadow and rounding on a backdrop, or
+    /// the checkerboard where a picture without one is transparent, as the
+    /// export keeps it. Returns the card's clip path when there is a card.
+    private func drawCardBase(_ cg: CGContext, imageRect: CGRect, size: CGSize, zoom: CGFloat) -> CGPath? {
+        guard model.decor.showsBackdrop else {
+            cg.setFillColor(ScreenshotCanvasExpansionPreview.checker)
+            cg.fill(imageRect)
+            return nil
+        }
+        let corner = model.cardCornerPixels * zoom
+        let outlineCorner = model.cardOutlineCornerPixels * zoom
+        let outline = CGPath(roundedRect: imageRect, cornerWidth: outlineCorner, cornerHeight: outlineCorner,
+                             transform: nil)
+        cg.saveGState()
+        cg.setShadow(offset: CGSize(width: 0, height: -5), blur: 18, color: CGColor(gray: 0, alpha: 0.38))
+        cg.addRect(CGRect(origin: .zero, size: size))
+        cg.addPath(outline)
+        cg.clip(using: .evenOdd)
+        cg.addPath(outline)
+        cg.setFillColor(CGColor(gray: 1, alpha: 1))
+        cg.fillPath()
+        cg.restoreGState()
+        return CGPath(roundedRect: imageRect, cornerWidth: corner, cornerHeight: corner, transform: nil)
+    }
+
+    /// Image pixels from here on. On a backdrop the exporter composes the
+    /// marks before the margin exists, so they never spill onto it here.
+    private func enterImageSpace(_ cg: CGContext, zoom: CGFloat) {
+        cg.scaleBy(x: zoom, y: zoom)
+        cg.translateBy(x: model.backdropPaddingPixels, y: model.backdropPaddingPixels)
+        if model.decor.showsBackdrop {
+            cg.clip(to: CGRect(origin: .zero, size: model.imageSize))
+        }
+    }
+
+    /// The grown canvas while Expand canvas is the tool. The grips straddle
+    /// the capture's edge, so a clear frame takes presses a little past it
+    /// for the canvas gesture.
+    @ViewBuilder
+    private func expansionOverlay(zoom: CGFloat, cornerRadius: CGFloat) -> some View {
+        if model.tool == .expandCanvas {
+            let reach = ScreenshotCanvasSupport.expansionGripReach
+            let draft = model.expansionDraft ?? CGRect(origin: .zero, size: model.imageSize)
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                    .frame(width: contentPixelSize.width * zoom + reach * 2,
+                           height: contentPixelSize.height * zoom + reach * 2)
+                    .contentShape(Rectangle())
+                    .offset(x: -reach, y: -reach)
+                ScreenshotCanvasExpansionPreview(originalSize: model.imageSize, draft: draft,
+                                                 fill: model.expansionFill, zoom: zoom, scale: model.scale,
+                                                 cardCornerRadius: model.decor.showsBackdrop
+                                                     ? model.cardCornerPixels * zoom : cornerRadius)
+                    .offset(x: (draft.minX + model.backdropPaddingPixels) * zoom,
+                            y: (draft.minY + model.backdropPaddingPixels) * zoom)
+            }
+        }
+    }
+
+    private func expansionGrip(at point: CGPoint) -> ScreenshotSupport.Handle? {
+        ScreenshotCanvasSupport.expansionHandle(
+            at: point, rect: CGRect(origin: .zero, size: model.imageSize),
+            tolerance: ScreenshotCanvasSupport.expansionGripReach / max(model.currentDisplayZoom, 0.001))
+    }
+
+    /// The footer's backdrop and watermark buttons, or the fill and size
+    /// while the canvas is being expanded.
+    @ViewBuilder
+    private var decorBar: some View {
+        if model.tool == .expandCanvas {
+            ScreenshotCanvasExpansionControls(model: model)
+        } else {
+            ScreenshotEditorDecorButtons(decor: model.decor)
+        }
+    }
+
+    /// The rail's last button: the order of the tools and their keys.
+    private var toolOrderButton: some View {
+        Button {
+            toolOrderShown.toggle()
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 33, height: 22)
+                .foregroundStyle(Color.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(s.screenshotEditorToolOrder)
+        .accessibilityLabel(s.screenshotEditorToolOrder)
+        .popover(isPresented: $toolOrderShown, arrowEdge: .trailing) {
+            ScrollView {
+                ScreenshotToolOrderControls()
+                    .padding(14)
+            }
+            .frame(width: 320, height: 420)
+        }
     }
 }
