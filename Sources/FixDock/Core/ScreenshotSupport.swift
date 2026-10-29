@@ -6,7 +6,7 @@ import CoreGraphics
 import Foundation
 
 /// The modes the capture overlay offers. The digit is the key that picks it.
-/// Recording has a slot now and a service in a later step.
+/// Recording returns a region for `ScreenRecorderService` instead of an image.
 enum ScreenCaptureTool: String, CaseIterable, Identifiable {
     case screenshot
     case recording
@@ -51,11 +51,13 @@ enum ScreenshotSupport {
 
     // MARK: - Files
 
-    static func fileName(prefix: String, date: Date) -> String {
+    /// `Prefix yyyy-MM-dd at HH.mm.ss.ext`, PNG unless the recorder asks
+    /// for its movie extension.
+    static func fileName(prefix: String, date: Date, fileExtension: String = "png") -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        return "\(prefix) \(formatter.string(from: date)).png"
+        return "\(prefix) \(formatter.string(from: date)).\(fileExtension)"
     }
 
     /// `name`, or `name (2)`, `name (3)`… when it is taken. `nil` when every

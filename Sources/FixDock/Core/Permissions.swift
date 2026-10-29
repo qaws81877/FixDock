@@ -4,6 +4,7 @@
 
 import AppKit
 import ApplicationServices
+import AVFoundation
 import Combine
 import CoreGraphics
 
@@ -13,6 +14,11 @@ enum PermissionKind: String, CaseIterable, Identifiable {
     case accessibility
     case screenRecording
     case fullDiskAccess
+    /// Optional, for a screen recording with the microphone switched on.
+    case microphone
+    /// Optional, for the Mac's sound in a screen recording (the CoreAudio
+    /// process tap, macOS 14.4 and later).
+    case audioCapture
 
     var id: String { rawValue }
 
@@ -21,6 +27,8 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .accessibility: return strings.permissionAccessibility
         case .screenRecording: return strings.permissionScreenRecording
         case .fullDiskAccess: return strings.permissionFullDiskAccess
+        case .microphone: return strings.recorderPermissionMicrophone
+        case .audioCapture: return strings.recorderPermissionAudioCapture
         }
     }
 
@@ -29,6 +37,8 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .accessibility: return strings.permissionAccessibilityDetail
         case .screenRecording: return strings.permissionScreenRecordingDetail
         case .fullDiskAccess: return strings.permissionFullDiskAccessDetail
+        case .microphone: return strings.recorderPermissionMicrophoneDetail
+        case .audioCapture: return strings.recorderPermissionAudioCaptureDetail
         }
     }
 }
@@ -42,6 +52,11 @@ final class Permissions: ObservableObject {
     @Published private(set) var accessibility = false
     @Published private(set) var screenRecording = false
     @Published private(set) var fullDiskAccess = false
+    @Published private(set) var microphone = false
+    /// There is no API to read this grant. A tap without it hears only
+    /// silence, so it counts as granted once the recorder's tap has heard
+    /// sound through a whole recording (`recorderSystemAudioTapVerified`).
+    @Published private(set) var audioCapture = false
 
     private var pollTimer: Timer?
     private var pageVisible = false
@@ -54,6 +69,30 @@ final class Permissions: ObservableObject {
         case .accessibility: return accessibility
         case .screenRecording: return screenRecording
         case .fullDiskAccess: return fullDiskAccess
+        case .microphone: return microphone
+        case .audioCapture: return audioCapture
+        }
+    }
+
+    /// The microphone has not been asked about yet, so asking shows the
+    /// system prompt rather than sending the person to System Settings.
+    var microphoneUndetermined: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined
+    }
+
+    /// The system prompt on the first ask; the answer comes back on the main
+    /// thread. A denied microphone answers false at once.
+    func requestMicrophone(completion: ((Bool) -> Void)? = nil) {
+        guard microphoneUndetermined else {
+            refresh()
+            completion?(microphone)
+            return
+        }
+        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+            DispatchQueue.main.async {
+                self?.refresh()
+                completion?(granted)
+            }
         }
     }
 
@@ -61,6 +100,8 @@ final class Permissions: ObservableObject {
         accessibility = AXIsProcessTrusted()
         screenRecording = CGPreflightScreenCaptureAccess()
         fullDiskAccess = Self.probeFullDiskAccess()
+        microphone = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        audioCapture = UserDefaults.standard.bool(forKey: DefaultsKey.recorderSystemAudioTapVerified)
     }
 
     /// There is no API to ask. A file only Full Disk Access can read
@@ -87,6 +128,17 @@ final class Permissions: ObservableObject {
             CGRequestScreenCaptureAccess()
         case .fullDiskAccess:
             break
+        case .microphone:
+            // The prompt answers for itself; the guide is only for a
+            // microphone that was already refused.
+            if microphoneUndetermined {
+                requestMicrophone()
+                return
+            }
+        case .audioCapture:
+            // No API asks for it: the system prompts when a recording first
+            // reads the tap. Here the pane and the guide are all there is.
+            break
         }
         refresh()
         if !isGranted(kind) {
@@ -106,6 +158,8 @@ final class Permissions: ObservableObject {
         case .accessibility: service = "Accessibility"
         case .screenRecording: service = "ScreenCapture"
         case .fullDiskAccess: service = "SystemPolicyAllFiles"
+        case .microphone: service = "Microphone"
+        case .audioCapture: service = "AudioCapture"
         }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let task = Process()
@@ -128,6 +182,8 @@ final class Permissions: ObservableObject {
         case .accessibility: pane = "Privacy_Accessibility"
         case .screenRecording: pane = "Privacy_ScreenCapture"
         case .fullDiskAccess: pane = "Privacy_AllFiles"
+        case .microphone: pane = "Privacy_Microphone"
+        case .audioCapture: pane = "Privacy_AudioCapture"
         }
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!
         NSWorkspace.shared.open(url)

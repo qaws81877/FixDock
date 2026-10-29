@@ -94,6 +94,25 @@ enum DefaultsKey {
     static let screenshotEditorSticker = "screenshotEditorSticker"
     static let screenshotEditorAnnotationShadows = "screenshotEditorAnnotationShadows"
 
+    // Screen recorder (7.7 A+B). Names as upstream where upstream had them.
+    static let recorderCountdown = "recorderCountdown"
+    /// The editor's export quality; the take master is always `.high`.
+    static let recorderQuality = "recorderQuality"
+    static let recorderFrameRate = "recorderFrameRate"
+    static let recorderSystemAudio = "recorderSystemAudio"
+    static let recorderMicrophone = "recorderMicrophone"
+    /// Set once the process tap has heard sound through a whole recording,
+    /// so the tap's sound is written instead of the stream's.
+    static let recorderSystemAudioTapVerified = "recorderSystemAudioTapVerified"
+    static let recorderPointerTrack = "recorderPointerTrack"
+    static let recorderTypingTrack = "recorderTypingTrack"
+
+    // Screen recorder editor (7.7 C). Names as upstream.
+    static let recorderAutomaticZoom = "recorderAutomaticZoom"
+    static let recorderGIFSize = "recorderGIFSize"
+    static let recorderGIFFrameRate = "recorderGIFFrameRate"
+    static let recorderEditorPresets = "recorderEditorPresets"
+
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
 
@@ -129,6 +148,19 @@ enum Defaults {
             DefaultsKey.screenshotBackdropPresets: "[]",
             DefaultsKey.screenshotWatermarkStyle: "",
             DefaultsKey.screenshotWatermarkPresets: "[]",
+            // Screen recorder (7.7 A+B).
+            DefaultsKey.recorderCountdown: ScreenRecorderSupport.defaultCountdown,
+            DefaultsKey.recorderQuality: RecorderSupport.Quality.balanced.rawValue,
+            DefaultsKey.recorderFrameRate: 60,
+            DefaultsKey.recorderSystemAudio: true,
+            DefaultsKey.recorderMicrophone: false,
+            DefaultsKey.recorderPointerTrack: true,
+            DefaultsKey.recorderTypingTrack: false,
+            // Screen recorder editor (7.7 C).
+            DefaultsKey.recorderAutomaticZoom: true,
+            DefaultsKey.recorderGIFSize: RecorderSupport.GIFSize.medium.rawValue,
+            DefaultsKey.recorderGIFFrameRate: 12,
+            DefaultsKey.recorderEditorPresets: Data(),
         ])
     }
 }

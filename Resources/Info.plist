@@ -41,6 +41,10 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>FixDock records the Mac's sound into a screen recording only when you start one with system audio switched on. Nothing leaves your Mac.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FixDock records your microphone only when you turn it on for a screen recording. Nothing leaves your Mac.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Vorssaint. FixDock is a modified unofficial fork.</string>
 	<key>NSPrincipalClass</key>

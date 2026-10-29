@@ -90,17 +90,7 @@ struct MenuPanelView: View {
         case .screenshot:
             PanelScreenshotRow()
         case .screenRecorder:
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: feature.symbolName)
-                    .frame(width: 16)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(feature.title(strings))
-                        .font(.system(size: 12, weight: .medium))
-                    Text(strings.panelNotInBuild)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
+            PanelScreenRecorderRow()
         }
     }
 }
@@ -199,5 +189,43 @@ private struct PanelTextSnippetsRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The recorder starts from the capture overlay, so the row only says how,
+/// and offers Stop while a recording runs.
+private struct PanelScreenRecorderRow: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var service = ScreenRecorderService.shared
+
+    var body: some View {
+        let s = l10n.s
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: AppFeature.screenRecorder.symbolName)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(AppFeature.screenRecorder.title(s))
+                    .font(.system(size: 12, weight: .medium))
+                Text(service.isRecording
+                     ? String(format: s.recorderRecordingFormat,
+                              RecorderSupport.elapsedLabel(seconds: service.elapsedSeconds))
+                     : (AppFeature.screenshot.isAvailable ? s.recorderStartHint : s.recorderNeedsScreenshot))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+                if let message = service.lastMessage, !service.isRecording {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+            if service.isRecording {
+                Button(s.recorderStop) { service.stop() }
+                    .controlSize(.small)
+            }
+        }
     }
 }

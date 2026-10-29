@@ -551,6 +551,163 @@ struct Strings {
     let screenshotToolKeyReserved: String
     let screenshotToolKeyTaken: String
     let screenshotToolKeyRemove: String
+    // Screen recorder (7.7 A+B): add strings below this line.
+    let recorderPermissionMicrophone: String
+    let recorderPermissionMicrophoneDetail: String
+    let recorderPermissionAudioCapture: String
+    let recorderPermissionAudioCaptureDetail: String
+    let recorderFilePrefix: String
+    let recorderRecordFailed: String
+    let recorderMicrophoneUnavailable: String
+    let recorderStoppedNoSpace: String
+    let recorderNoSpaceTitle: String
+    let recorderNoSpaceMessage: String
+    let recorderIndicatorTooltip: String
+    let recorderPause: String
+    let recorderResume: String
+    let recorderStop: String
+    let recorderSavedFormat: String
+    let recorderFolderUnavailable: String
+    let recorderSaveElsewhereMessage: String
+    let recorderCountdownLabel: String
+    let recorderCountdownOff: String
+    let recorderCountdownSecondsFormat: String
+    let recorderQualityLabel: String
+    let recorderQualitySmall: String
+    let recorderQualityBalanced: String
+    let recorderQualityHigh: String
+    let recorderQualityCaption: String
+    let recorderFrameRateLabel: String
+    let recorderFrameRateFormat: String
+    let recorderSystemAudioToggle: String
+    let recorderSystemAudioCaption: String
+    let recorderMicrophoneToggle: String
+    let recorderMicrophoneCaption: String
+    let recorderPointerToggle: String
+    let recorderPointerCaption: String
+    let recorderTypingToggle: String
+    let recorderTypingCaption: String
+    let recorderStartHint: String
+    let recorderStopHint: String
+    let recorderNeedsScreenshot: String
+    let recorderFolderFormat: String
+    let recorderRecordingFormat: String
+    let recorderSectionStart: String
+    let recorderSectionCapture: String
+    let recorderPreviewShowInFinder: String
+    let recorderPreviewShare: String
+    let recorderPreviewEdit: String
+    let recorderPreviewClose: String
+    let recorderPreviewDragHint: String
+    // These two lines keep the blocks apart so the A+B and C
+    // branches merge without touching each other.
+    // Screen recorder editor (7.7 C): add strings below this line.
+    let recorderEditorAddBlurButton: String
+    let recorderEditorAddImageButton: String
+    let recorderEditorAddTextButton: String
+    let recorderEditorAddZoomButton: String
+    let recorderEditorAudioVolumeLabel: String
+    let recorderEditorBackgroundSectionLabel: String
+    let recorderEditorBackToOptions: String
+    let recorderEditorBlurCaption: String
+    let recorderEditorBlurLaneEmptyHint: String
+    let recorderEditorBlurLaneLabel: String
+    let recorderEditorBlurPickArea: String
+    let recorderEditorBlurPickAreaHint: String
+    let recorderEditorCancelButton: String
+    let recorderEditorClickRingToggle: String
+    let recorderEditorCopiedHUD: String
+    let recorderEditorCopyAndDeleteButton: String
+    let recorderEditorCopyButton: String
+    let recorderEditorCopyGIFButton: String
+    let recorderEditorCreateAutomaticZooms: String
+    let recorderEditorCutOutButton: String
+    let recorderEditorDiscardButton: String
+    let recorderEditorDiscardMessage: String
+    let recorderEditorDiscardSavedMessage: String
+    let recorderEditorDiscardTitle: String
+    let recorderEditorEditorTitle: String
+    let recorderEditorExportCustom: String
+    let recorderEditorExportDuration: String
+    let recorderEditorExportFailed: String
+    let recorderEditorExportingLabel: String
+    let recorderEditorExportPreviewNote: String
+    let recorderEditorExportSpeed: String
+    let recorderEditorFolderLabel: String
+    let recorderEditorImageImportFailed: String
+    let recorderEditorImageLaneEmptyHint: String
+    let recorderEditorImageLaneLabel: String
+    let recorderEditorImageOpacityLabel: String
+    let recorderEditorImagePositionLabel: String
+    let recorderEditorImageSizeLabel: String
+    let recorderEditorLookClean: String
+    let recorderEditorLookLabel: String
+    let recorderEditorLookRaw: String
+    let recorderEditorLookStudio: String
+    let recorderEditorMicrophoneTrackLabel: String
+    let recorderEditorNoPointerNote: String
+    let recorderEditorPointerSectionLabel: String
+    let recorderEditorPointerShowToggle: String
+    let recorderEditorPointerSizeLabel: String
+    let recorderEditorPointerSmoothingCinematic: String
+    let recorderEditorPointerSmoothingLabel: String
+    let recorderEditorPointerSmoothingLight: String
+    let recorderEditorPointerSmoothingOff: String
+    let recorderEditorPointerSmoothingSmooth: String
+    let recorderEditorPresetNamePlaceholder: String
+    let recorderEditorPresetsButton: String
+    let recorderEditorQualityBalanced: String
+    let recorderEditorQualityHigh: String
+    let recorderEditorQualityLabel: String
+    let recorderEditorQualitySmall: String
+    let recorderEditorRegenerateZooms: String
+    let recorderEditorRemoveAudio: String
+    let recorderEditorRemovePreset: String
+    let recorderEditorRemoveText: String
+    let recorderEditorRemoveZoom: String
+    let recorderEditorRestoreAudio: String
+    let recorderEditorSaveAsButton: String
+    let recorderEditorSaveButton: String
+    let recorderEditorSavedHUDFormat: String
+    let recorderEditorSaveGIFButton: String
+    let recorderEditorSavePreset: String
+    let recorderEditorSaveVideoButton: String
+    let recorderEditorShapeLabel: String
+    let recorderEditorShapeOriginal: String
+    let recorderEditorShapeSquare: String
+    let recorderEditorShapeVertical: String
+    let recorderEditorShapeWide: String
+    let recorderEditorSystemAudioTrackLabel: String
+    let recorderEditorTextColorLabel: String
+    let recorderEditorTextContentLabel: String
+    let recorderEditorTextLaneEmptyHint: String
+    let recorderEditorTextPlaceholder: String
+    let recorderEditorTextPositionLabel: String
+    let recorderEditorTextSizeLabel: String
+    let recorderEditorThisBlurLabel: String
+    let recorderEditorThisImageLabel: String
+    let recorderEditorThisTextLabel: String
+    let recorderEditorThisZoomLabel: String
+    let recorderEditorTypingZoomCaption: String
+    let recorderEditorTypingZoomToggle: String
+    let recorderEditorZoomAmountLabel: String
+    let recorderEditorZoomEmptyCaption: String
+    let recorderEditorZoomEmptyTitle: String
+    let recorderEditorZoomFollowsPointer: String
+    let recorderEditorZoomLaneEmptyHint: String
+    let recorderEditorZoomPickSpot: String
+    let recorderEditorZoomPickSpotHint: String
+    let recorderEditorZoomSectionLabel: String
+    let recorderEditorZoomToggle: String
+    let recorderEditorZoomWhereLabel: String
+    let recorderEditorSettingsSection: String
+    let recorderEditorSettingsAutomaticZoomToggle: String
+    let recorderEditorSettingsAutomaticZoomCaption: String
+    let recorderEditorSettingsGIFSizeLabel: String
+    let recorderEditorSettingsGIFSizeSmall: String
+    let recorderEditorSettingsGIFSizeMedium: String
+    let recorderEditorSettingsGIFSizeLarge: String
+    let recorderEditorSettingsGIFFrameRateLabel: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -923,7 +1080,7 @@ struct Strings {
         screenshotNothingHappens: "With both off, a capture goes nowhere.",
         screenshotKeysTitle: "In the overlay",
         screenshotKeyHelpScreenshot: "Screenshot",
-        screenshotKeyHelpRecording: "Screen recording (later update)",
+        screenshotKeyHelpRecording: "Screen recording",
         screenshotKeyHelpRepeat: "Capture the last area on this display again",
         screenshotKeyHelpLoupe: "Loupe; arrow keys move one pixel, Shift ten",
         screenshotKeyHelpColor: "Copy the colour under the loupe as hex",
@@ -1058,6 +1215,163 @@ struct Strings {
         screenshotToolKeyReserved: "The editor uses this key itself.",
         screenshotToolKeyTaken: "%@ already uses this key.",
         screenshotToolKeyRemove: "Remove its own key",
+        // Screen recorder (7.7 A+B): add strings below this line.
+        recorderPermissionMicrophone: "Microphone",
+        recorderPermissionMicrophoneDetail: "Lets a screen recording include your voice when you turn the microphone on for it.",
+        recorderPermissionAudioCapture: "System audio recording",
+        recorderPermissionAudioCaptureDetail: "Lets a screen recording include the Mac's sound on macOS 14.4 and later. macOS asks the first time a recording with sound starts; FixDock can only tell it was granted after a recording heard sound.",
+        recorderFilePrefix: "Screen Recording",
+        recorderRecordFailed: "The screen could not be recorded",
+        recorderMicrophoneUnavailable: "Microphone unavailable, recording without it",
+        recorderStoppedNoSpace: "Recording stopped, the disk is almost full",
+        recorderNoSpaceTitle: "Not enough space to record",
+        recorderNoSpaceMessage: "Free up some space on the disk and try again.",
+        recorderIndicatorTooltip: "Recording controls",
+        recorderPause: "Pause recording",
+        recorderResume: "Resume recording",
+        recorderStop: "Stop recording",
+        recorderSavedFormat: "Saved as %@",
+        recorderFolderUnavailable: "The recording was not saved: the save folder is missing or not writable.",
+        recorderSaveElsewhereMessage: "The save folder is missing or not writable. Choose where to save the recording.",
+        recorderCountdownLabel: "Countdown",
+        recorderCountdownOff: "Off",
+        recorderCountdownSecondsFormat: "%d s",
+        recorderQualityLabel: "Export quality",
+        recorderQualitySmall: "Small file",
+        recorderQualityBalanced: "Balanced",
+        recorderQualityHigh: "High",
+        recorderQualityCaption: "Used when the editor exports. The recording itself is always kept at high quality.",
+        recorderFrameRateLabel: "Frames per second",
+        recorderFrameRateFormat: "%d fps",
+        recorderSystemAudioToggle: "Record the sound of the Mac",
+        recorderSystemAudioCaption: "Goes into its own track. On macOS 14.4 and later macOS asks for system audio recording the first time.",
+        recorderMicrophoneToggle: "Record the microphone",
+        recorderMicrophoneCaption: "Your voice goes into its own track.",
+        recorderPointerToggle: "Record the pointer and clicks",
+        recorderPointerCaption: "Kept beside the recording for the editor to draw. Off: the system pointer is recorded into the movie instead.",
+        recorderTypingToggle: "Record when you type",
+        recorderTypingCaption: "Only the moments keys were pressed, never which keys. Needs Accessibility.",
+        recorderStartHint: "Press Control-Option-Command-4, then 2. Drag an area, click a window or press Return for the whole screen.",
+        recorderStopHint: "Stop with the indicator at the top of the screen or Control-Option-Command-4.",
+        recorderNeedsScreenshot: "Recording starts from the capture overlay, which comes with the Screenshot tool. Install Screenshot in Features to record.",
+        recorderFolderFormat: "Saved in the screenshot folder: %@",
+        recorderRecordingFormat: "Recording %@",
+        recorderSectionStart: "Start",
+        recorderSectionCapture: "What is recorded",
+        recorderPreviewShowInFinder: "Show in Finder",
+        recorderPreviewShare: "Share",
+        recorderPreviewEdit: "Edit",
+        recorderPreviewClose: "Close",
+        recorderPreviewDragHint: "Drag the movie into Finder or another app",
+        // These two lines keep the blocks apart so the A+B and C
+        // branches merge without touching each other.
+        // Screen recorder editor (7.7 C): add strings below this line.
+        recorderEditorAddBlurButton: "Blur an area",
+        recorderEditorAddImageButton: "Add image",
+        recorderEditorAddTextButton: "Add text",
+        recorderEditorAddZoomButton: "Add a zoom",
+        recorderEditorAudioVolumeLabel: "Volume",
+        recorderEditorBackgroundSectionLabel: "Background",
+        recorderEditorBackToOptions: "All options",
+        recorderEditorBlurCaption: "Hidden for as long as its block lasts on the timeline.",
+        recorderEditorBlurLaneEmptyHint: "Click here to add a blur",
+        recorderEditorBlurLaneLabel: "Blur",
+        recorderEditorBlurPickArea: "Choose the area",
+        recorderEditorBlurPickAreaHint: "Drag over what should stay hidden",
+        recorderEditorCancelButton: "Cancel",
+        recorderEditorClickRingToggle: "Mark where you click",
+        recorderEditorCopiedHUD: "Recording copied",
+        recorderEditorCopyAndDeleteButton: "Copy and delete",
+        recorderEditorCopyButton: "Copy",
+        recorderEditorCopyGIFButton: "Copy as GIF",
+        recorderEditorCreateAutomaticZooms: "Create automatic zooms",
+        recorderEditorCutOutButton: "Cut out",
+        recorderEditorDiscardButton: "Delete",
+        recorderEditorDiscardMessage: "It has not been saved anywhere yet.",
+        recorderEditorDiscardSavedMessage: "Saved and copied files will stay where they are.",
+        recorderEditorDiscardTitle: "Delete this recording?",
+        recorderEditorEditorTitle: "Recording",
+        recorderEditorExportCustom: "Custom speed",
+        recorderEditorExportDuration: "Export duration",
+        recorderEditorExportFailed: "The recording could not be saved",
+        recorderEditorExportingLabel: "Saving…",
+        recorderEditorExportPreviewNote: "Applies to video and GIF. The editing preview stays at 1×; the original recording is unchanged.",
+        recorderEditorExportSpeed: "Export speed",
+        recorderEditorFolderLabel: "Save to",
+        recorderEditorImageImportFailed: "Couldn’t add this image.",
+        recorderEditorImageLaneEmptyHint: "Click here to add an image",
+        recorderEditorImageLaneLabel: "Image",
+        recorderEditorImageOpacityLabel: "Opacity",
+        recorderEditorImagePositionLabel: "Position",
+        recorderEditorImageSizeLabel: "Size",
+        recorderEditorLookClean: "Smooth",
+        recorderEditorLookLabel: "Look",
+        recorderEditorLookRaw: "Original",
+        recorderEditorLookStudio: "Studio",
+        recorderEditorMicrophoneTrackLabel: "Microphone",
+        recorderEditorNoPointerNote: "This recording has no pointer track, so there is nothing to smooth. Zooms placed by hand still work.",
+        recorderEditorPointerSectionLabel: "Pointer",
+        recorderEditorPointerShowToggle: "Draw the pointer",
+        recorderEditorPointerSizeLabel: "Size",
+        recorderEditorPointerSmoothingCinematic: "Cinematic",
+        recorderEditorPointerSmoothingLabel: "Smoothing",
+        recorderEditorPointerSmoothingLight: "Light",
+        recorderEditorPointerSmoothingOff: "None",
+        recorderEditorPointerSmoothingSmooth: "Smooth",
+        recorderEditorPresetNamePlaceholder: "Preset name",
+        recorderEditorPresetsButton: "Presets",
+        recorderEditorQualityBalanced: "Balanced",
+        recorderEditorQualityHigh: "High",
+        recorderEditorQualityLabel: "Quality",
+        recorderEditorQualitySmall: "Small file",
+        recorderEditorRegenerateZooms: "Back to one per click",
+        recorderEditorRemoveAudio: "Remove",
+        recorderEditorRemovePreset: "Remove preset",
+        recorderEditorRemoveText: "Remove",
+        recorderEditorRemoveZoom: "Remove",
+        recorderEditorRestoreAudio: "Restore",
+        recorderEditorSaveAsButton: "Save as…",
+        recorderEditorSaveButton: "Save",
+        recorderEditorSavedHUDFormat: "Saved to %@",
+        recorderEditorSaveGIFButton: "Save as GIF",
+        recorderEditorSavePreset: "Save current preset…",
+        recorderEditorSaveVideoButton: "Save",
+        recorderEditorShapeLabel: "Shape",
+        recorderEditorShapeOriginal: "Original",
+        recorderEditorShapeSquare: "Square",
+        recorderEditorShapeVertical: "Tall",
+        recorderEditorShapeWide: "Wide",
+        recorderEditorSystemAudioTrackLabel: "Mac sound",
+        recorderEditorTextColorLabel: "Colour",
+        recorderEditorTextContentLabel: "Text",
+        recorderEditorTextLaneEmptyHint: "Click here to add text",
+        recorderEditorTextPlaceholder: "Your text here",
+        recorderEditorTextPositionLabel: "Position",
+        recorderEditorTextSizeLabel: "Size",
+        recorderEditorThisBlurLabel: "This blur",
+        recorderEditorThisImageLabel: "This image",
+        recorderEditorThisTextLabel: "This text",
+        recorderEditorThisZoomLabel: "This zoom",
+        recorderEditorTypingZoomCaption: "After a click, typing keeps the automatic zoom on that spot.",
+        recorderEditorTypingZoomToggle: "Keep zoomed in while typing",
+        recorderEditorZoomAmountLabel: "How close",
+        recorderEditorZoomEmptyCaption: "Create them from your clicks or add one on the timeline.",
+        recorderEditorZoomEmptyTitle: "No zooms yet",
+        recorderEditorZoomFollowsPointer: "Follows the pointer",
+        recorderEditorZoomLaneEmptyHint: "Click here to add a zoom",
+        recorderEditorZoomPickSpot: "Pick a spot",
+        recorderEditorZoomPickSpotHint: "Click the picture to aim it",
+        recorderEditorZoomSectionLabel: "Zoom",
+        recorderEditorZoomToggle: "Zoom in on every click",
+        recorderEditorZoomWhereLabel: "Where it looks",
+        recorderEditorSettingsSection: "Editor",
+        recorderEditorSettingsAutomaticZoomToggle: "Add zooms automatically",
+        recorderEditorSettingsAutomaticZoomCaption: "Turn this off to start new recordings without zooms. You can still add them in the editor.",
+        recorderEditorSettingsGIFSizeLabel: "GIF size",
+        recorderEditorSettingsGIFSizeSmall: "Small",
+        recorderEditorSettingsGIFSizeMedium: "Medium",
+        recorderEditorSettingsGIFSizeLarge: "Large",
+        recorderEditorSettingsGIFFrameRateLabel: "GIF smoothness",
         versionFormat: "Version %@"
     )
 }

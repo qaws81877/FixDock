@@ -243,9 +243,9 @@ def main():
     if (
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
         "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
-        "            || self == .cleaner || self == .screenshot\n" not in catalog
+        "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner and screenshot should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot and screen recorder should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files

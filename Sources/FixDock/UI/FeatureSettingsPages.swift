@@ -50,13 +50,16 @@ extension AppFeature {
             return page { ScreenCaptureSettingsPage() }
         case .screenRecorder:
             // Its tab lives on the screenshot tool's "Screen capture" page.
-            return nil
+            // With only the recorder installed that page is the recorder's
+            // own, showing just the recording tab.
+            return AppFeature.screenshot.isAvailable ? nil : page { ScreenCaptureSettingsPage() }
         }
     }
 
-    /// The sidebar and page title. Screenshot's page holds both capture tools.
+    /// The sidebar and page title. The "Screen capture" page holds both
+    /// capture tools, whichever of them owns it.
     func pageTitle(_ strings: Strings) -> String {
-        self == .screenshot ? strings.screenCapturePageTitle : title(strings)
+        self == .screenshot || self == .screenRecorder ? strings.screenCapturePageTitle : title(strings)
     }
 
     /// Binds the page to `self` so an arm cannot attach a body to the wrong feature.
