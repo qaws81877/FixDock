@@ -79,22 +79,14 @@ final class SettingsNavigator: ObservableObject {
         sections = Self.buildSections()
     }
 
-    /// For `List(selection:)`. Ignores `nil` (click on empty space) and
-    /// unreachable values.
-    var selection: Binding<SettingsDestination?> {
-        Binding(
-            get: { self.destination },
-            set: { newValue in
-                guard let newValue else { return }
-                self.select(newValue)
-            }
-        )
+    func isExpanded(_ group: FeatureGroup) -> Bool {
+        !collapsed.contains(group)
     }
 
-    /// For `Section(_:isExpanded:)`. Collapse never moves the selection.
+    /// For the sidebar `DisclosureHeaderRow`. Collapse never moves the selection.
     func expansion(of group: FeatureGroup) -> Binding<Bool> {
         Binding(
-            get: { !self.collapsed.contains(group) },
+            get: { self.isExpanded(group) },
             set: { expanded in
                 if expanded {
                     self.collapsed.remove(group)
@@ -131,11 +123,6 @@ final class SettingsNavigator: ObservableObject {
     /// (all expanded). Selection is unchanged.
     func resetExpansion() {
         collapsed = []
-    }
-
-    private func select(_ destination: SettingsDestination) {
-        guard isReachable(destination) else { return }
-        self.destination = destination
     }
 
     private func refreshFromRuntime() {

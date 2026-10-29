@@ -12,7 +12,9 @@ struct SettingsView: View {
     var body: some View {
         let strings = l10n.s
         HStack(spacing: 0) {
-            List(selection: navigator.selection) {
+            // No List(selection:): on macOS 27 it hid the category headers.
+            // Rows navigate via open(_:) and draw their own highlight.
+            List {
                 ForEach(navigator.sections) { section in
                     sidebarSection(section, strings)
                 }
@@ -37,16 +39,53 @@ struct SettingsView: View {
                 destinationRows(section.destinations, strings)
             }
         case .category(let group):
-            Section(group.title(strings), isExpanded: navigator.expansion(of: group)) {
-                destinationRows(section.destinations, strings)
+            Section {
+                categoryHeader(group, strings)
+                if navigator.isExpanded(group) {
+                    destinationRows(section.destinations, strings)
+                }
             }
         }
+    }
+
+    /// Tap gesture rather than `DisclosureHeaderRow`: a Button in this sidebar
+    /// List did not receive clicks, while tap-gesture rows do.
+    private func categoryHeader(_ group: FeatureGroup, _ strings: Strings) -> some View {
+        let expanded = navigator.isExpanded(group)
+        return HStack(spacing: 8) {
+            Text(group.title(strings))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .rotationEffect(.degrees(expanded ? 90 : 0))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                navigator.expansion(of: group).wrappedValue.toggle()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(expanded ? strings.disclosureExpanded : strings.disclosureCollapsed)
     }
 
     @ViewBuilder
     private func destinationRows(_ destinations: [SettingsDestination], _ strings: Strings) -> some View {
         ForEach(destinations, id: \.self) { destination in
-            Text(destination.title(strings)).tag(Optional(destination))
+            Text(destination.title(strings))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { navigator.open(destination) }
+                .listRowBackground(
+                    navigator.destination == destination
+                        ? Color.accentColor.opacity(0.18)
+                        : Color.clear
+                )
         }
     }
 
