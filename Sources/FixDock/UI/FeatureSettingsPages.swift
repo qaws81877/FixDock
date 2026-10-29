@@ -46,9 +46,17 @@ extension AppFeature {
             return page { AirDropAutoZipSettingsPage() }
         case .cleaner:
             return page { CleanerSettings() }
-        case .screenshot, .screenRecorder:
+        case .screenshot:
+            return page { ScreenCaptureSettingsPage() }
+        case .screenRecorder:
+            // Its tab lives on the screenshot tool's "Screen capture" page.
             return nil
         }
+    }
+
+    /// The sidebar and page title. Screenshot's page holds both capture tools.
+    func pageTitle(_ strings: Strings) -> String {
+        self == .screenshot ? strings.screenCapturePageTitle : title(strings)
     }
 
     /// Binds the page to `self` so an arm cannot attach a body to the wrong feature.

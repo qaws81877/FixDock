@@ -377,6 +377,54 @@ struct Strings {
     let aboutNoUpdates: String
     let aboutUpstreamButton: String
     let aboutRepositoryButton: String
+    let screenCapturePageTitle: String
+    let screenshotToolScreenshot: String
+    let screenshotToolRecording: String
+    let screenshotRecordingLater: String
+    let screenshotFilePrefix: String
+    let screenshotCaptureFailed: String
+    let screenshotFolderUnavailable: String
+    let screenshotSavedAs: String
+    let screenshotCopied: String
+    let screenshotPanelSelect: String
+    let screenshotPanelFullScreen: String
+    let screenshotHint: String
+    let screenshotHintScrolling: String
+    let screenshotKeyRepeat: String
+    let screenshotKeyLoupe: String
+    let screenshotKeyColor: String
+    let screenshotKeyScroll: String
+    let screenshotKeyCancel: String
+    let screenshotNoLastRegion: String
+    let screenshotColorNeedsLoupe: String
+    let screenshotColorCopied: String
+    let screenshotScrollingPrompt: String
+    let screenshotScrollingHeight: String
+    let screenshotScrollingDone: String
+    let screenshotScrollingSkipped: String
+    let screenshotNeedsPermission: String
+    let screenshotGrantPermission: String
+    let screenshotShortcutsTitle: String
+    let screenshotShortcutOverlay: String
+    let screenshotShortcutFullScreen: String
+    let screenshotAfterTitle: String
+    let screenshotSaveToFile: String
+    let screenshotFolder: String
+    let screenshotChooseFolder: String
+    let screenshotUseDesktop: String
+    let screenshotCopyToClipboard: String
+    let screenshotNothingHappens: String
+    let screenshotKeysTitle: String
+    let screenshotKeyHelpScreenshot: String
+    let screenshotKeyHelpRecording: String
+    let screenshotKeyHelpRepeat: String
+    let screenshotKeyHelpLoupe: String
+    let screenshotKeyHelpColor: String
+    let screenshotKeyHelpScroll: String
+    let screenshotKeyHelpFull: String
+    let screenshotKeyHelpMove: String
+    let screenshotWindowLimit: String
+    let shortcutConflict: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -673,11 +721,11 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. The cleaner needs Full Disk Access. Nothing else in this build needs a permission.",
+        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. The cleaner needs Full Disk Access. Screenshots need Screen Recording. Nothing else in this build needs a permission.",
         permissionAccessibility: "Accessibility",
         permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, and text snippets to see triggers and type their text.",
         permissionScreenRecording: "Screen Recording",
-        permissionScreenRecordingDetail: "Later screenshot and recording tools need this. A grant applies only after a relaunch.",
+        permissionScreenRecordingDetail: "The screenshot tool needs this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
         permissionRequest: "Request…",
         permissionGranted: "Granted",
@@ -710,6 +758,54 @@ struct Strings {
         aboutNoUpdates: "This build does not check for updates.",
         aboutUpstreamButton: "Original project",
         aboutRepositoryButton: "FixDock source",
+        screenCapturePageTitle: "Screen capture",
+        screenshotToolScreenshot: "Screenshot",
+        screenshotToolRecording: "Screen recording",
+        screenshotRecordingLater: "Screen recording comes in a later update.",
+        screenshotFilePrefix: "Screenshot",
+        screenshotCaptureFailed: "The capture failed.",
+        screenshotFolderUnavailable: "The save folder is missing or read-only, so the capture was not saved as a file.",
+        screenshotSavedAs: "Saved %@",
+        screenshotCopied: "Copied to the clipboard",
+        screenshotPanelSelect: "Select…",
+        screenshotPanelFullScreen: "Full screen",
+        screenshotHint: "Drag for an area · click a window · Return for the whole screen",
+        screenshotHintScrolling: "Scrolling capture: drag the area to scroll",
+        screenshotKeyRepeat: "Last area",
+        screenshotKeyLoupe: "Loupe",
+        screenshotKeyColor: "Copy colour",
+        screenshotKeyScroll: "Scrolling",
+        screenshotKeyCancel: "Cancel",
+        screenshotNoLastRegion: "No earlier area on this display.",
+        screenshotColorNeedsLoupe: "Turn on the loupe (Z) to pick a colour.",
+        screenshotColorCopied: "Copied %@",
+        screenshotScrollingPrompt: "Scroll the area, then press Done.",
+        screenshotScrollingHeight: "%ld px so far",
+        screenshotScrollingDone: "Done",
+        screenshotScrollingSkipped: "%ld frames did not line up and were skipped. Scroll more slowly.",
+        screenshotNeedsPermission: "Screenshots need the Screen Recording permission.",
+        screenshotGrantPermission: "Allow Screen Recording…",
+        screenshotShortcutsTitle: "Shortcuts",
+        screenshotShortcutOverlay: "Capture overlay",
+        screenshotShortcutFullScreen: "Full screen at once",
+        screenshotAfterTitle: "After a capture",
+        screenshotSaveToFile: "Save as a PNG file",
+        screenshotFolder: "Folder",
+        screenshotChooseFolder: "Choose…",
+        screenshotUseDesktop: "Use Desktop",
+        screenshotCopyToClipboard: "Copy to the clipboard",
+        screenshotNothingHappens: "With both off, a capture goes nowhere.",
+        screenshotKeysTitle: "In the overlay",
+        screenshotKeyHelpScreenshot: "Screenshot",
+        screenshotKeyHelpRecording: "Screen recording (later update)",
+        screenshotKeyHelpRepeat: "Capture the last area on this display again",
+        screenshotKeyHelpLoupe: "Loupe; arrow keys move one pixel, Shift ten",
+        screenshotKeyHelpColor: "Copy the colour under the loupe as hex",
+        screenshotKeyHelpScroll: "Scrolling capture of the next area",
+        screenshotKeyHelpFull: "Whole display under the pointer",
+        screenshotKeyHelpMove: "Hold while dragging to move the area",
+        screenshotWindowLimit: "A window is captured on its own, without its shadow. Sheets and dialogs attached to it are not included.",
+        shortcutConflict: "Another FixDock shortcut already uses that combination.",
         versionFormat: "Version %@"
     )
 }

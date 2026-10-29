@@ -14,8 +14,8 @@ import Foundation
 /// `airdropAutoZip` is new and has no upstream module.
 ///
 /// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets`,
-/// `mediaTools`, `airdropAutoZip` and `cleaner` have modules. The others still only
-/// remember a choice: installing them does not load a service.
+/// `mediaTools`, `airdropAutoZip`, `cleaner` and `screenshot` have modules. The
+/// recorder still only remembers a choice: installing it does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection
@@ -33,7 +33,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
     var hasService: Bool {
         self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode
             || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip
-            || self == .cleaner
+            || self == .cleaner || self == .screenshot
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
@@ -41,7 +41,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
         switch self {
         case .quitWindowProtection, .cleaningMode, .textSnippets: return [.accessibility]
         case .cleaner: return [.fullDiskAccess]
-        case .urlCleaner, .mediaTools, .airdropAutoZip, .screenshot, .screenRecorder:
+        case .screenshot: return [.screenRecording]
+        case .urlCleaner, .mediaTools, .airdropAutoZip, .screenRecorder:
             return []
         }
     }
