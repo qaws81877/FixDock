@@ -520,7 +520,11 @@ struct ScreenshotEditorView: View {
             if layout.visibleTools < tools.count {
                 railOverflowMenu(Array(tools.dropFirst(layout.visibleTools)), height: layout.rowHeight)
             }
-            toolOrderButton
+            // The row ToolRailLayout plans for: tool order and keys.
+            Divider()
+                .frame(width: 22)
+                .padding(.vertical, 2)
+            toolOrderButton(height: layout.rowHeight)
         }
         .padding(5)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -1360,15 +1364,17 @@ extension ScreenshotEditorView {
     }
 
     /// The rail's last button: the order of the tools and their keys.
-    private var toolOrderButton: some View {
+    private func toolOrderButton(height: CGFloat) -> some View {
         Button {
             toolOrderShown.toggle()
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 33, height: 22)
-                .foregroundStyle(Color.secondary)
-                .contentShape(Rectangle())
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 33, height: height)
+                .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(toolOrderShown ? Color.accentColor.opacity(0.22) : .clear))
+                .foregroundStyle(toolOrderShown ? Color.accentColor : Color.secondary)
+                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.borderless)
         .help(s.screenshotEditorToolOrder)
@@ -1378,7 +1384,7 @@ extension ScreenshotEditorView {
                 ScreenshotToolOrderControls()
                     .padding(14)
             }
-            .frame(width: 320, height: 420)
+            .frame(width: 340, height: 480)
         }
     }
 }

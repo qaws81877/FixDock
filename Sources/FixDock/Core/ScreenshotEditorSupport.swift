@@ -58,7 +58,7 @@ extension ScreenshotSupport {
     /// compact rows when only those fit, and past that the last tools move
     /// behind an overflow button, as toolbar items that do not fit do.
     /// Adapted from upstream unchanged: the extra row it plans is the tool
-    /// options button that comes with the tool order settings.
+    /// order and keys button.
     struct ToolRailLayout: Equatable {
         var rowHeight: CGFloat = 29
         var spacing: CGFloat = 2
