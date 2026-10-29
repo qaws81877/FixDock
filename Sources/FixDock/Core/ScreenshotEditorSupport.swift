@@ -387,6 +387,10 @@ extension ScreenshotSupport {
         var number: Int
         /// The pixels of a pasted image layer (`tool == .image`).
         var imageAsset: ImageAsset? = nil
+        /// The canvas size a counter or blur area keeps its look for after
+        /// the canvas grows: its badge and its mosaic blocks stay the size
+        /// they were drawn at. Nil follows the current canvas.
+        var renderReferenceSize: CGSize? = nil
 
         init(id: UUID = UUID(),
              tool: Tool,

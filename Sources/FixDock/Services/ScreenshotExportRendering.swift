@@ -5,13 +5,12 @@
 import AppKit
 import CoreImage
 
-/// The passes around the annotations: pasted image layers, the watermark,
-/// the card's rounded corners and the padded backdrop behind it. Export
-/// takes the flattened capture `renderExport` made and finishes it here, at
-/// full resolution; the live canvas calls the same watermark pass, so the
-/// screen matches the file. Adapted from upstream's renderer export
+/// The passes around the annotations: the watermark, the card's rounded
+/// corners and the padded backdrop behind it. Export takes the flattened
+/// capture `renderExport` made and finishes it here, at full resolution; the
+/// live canvas calls the same watermark pass, so the screen matches the file. Adapted from upstream's renderer export
 /// (`renderExport`, `renderBackdrop`, `blurredBackdrop`, `drawFill`,
-/// `drawWatermark`) and `ScreenshotImageLayerRendering`.
+/// `drawWatermark`).
 extension ScreenshotRenderer {
     /// What actually paints behind the capture, resolved by the editor from
     /// the persisted style (image files loaded and cached there).
@@ -20,19 +19,6 @@ extension ScreenshotRenderer {
         /// 1 color = solid, 2 colors = gradient.
         case colors([(red: Double, green: Double, blue: Double)])
         case image(CGImage)
-    }
-
-    // MARK: - Image layers
-
-    /// A pasted picture in its rectangle, in the annotations' flipped space.
-    static func drawImageLayer(_ annotation: ScreenshotSupport.Annotation, in context: CGContext) {
-        guard let image = annotation.imageAsset?.image else { return }
-        context.saveGState()
-        context.translateBy(x: 0, y: annotation.rect.minY + annotation.rect.maxY)
-        context.scaleBy(x: 1, y: -1)
-        context.interpolationQuality = .high
-        context.draw(image, in: annotation.rect)
-        context.restoreGState()
     }
 
     // MARK: - Watermark

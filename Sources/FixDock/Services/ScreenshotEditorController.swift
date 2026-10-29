@@ -154,11 +154,13 @@ final class ScreenshotEditorModel: ObservableObject {
     /// Small soft blurs of the base image, one per blur level in use.
     private(set) var softBlurred: [Int: CGImage] = [:]
     private let eraseCache = ScreenshotRenderer.EraseCache()
+    private let imageLayerCache = ScreenshotRenderer.ImageLayerCache()
 
     /// What blur areas paint from, shared by the canvas and the exporter.
     var blurSources: ScreenshotRenderer.BlurSources {
         ScreenshotRenderer.BlurSources(mosaics: pixelated, softBlurs: softBlurred, image: baseImage,
-                                       eraseCache: eraseCache, textRuns: textRuns)
+                                       eraseCache: eraseCache, textRuns: textRuns,
+                                       imageLayerCache: imageLayerCache)
     }
 
     private var history = ScreenshotSupport.EditorHistory<State>(limit: 60)
