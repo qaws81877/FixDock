@@ -33,6 +33,8 @@ enum DefaultsKey {
     static let quitProtectionCloseShowFeedback = "quitProtectionCloseShowFeedback"
     static let cleaningModeKeepScreenVisible = "cleaningModeKeepScreenVisible"
     static let cleaningModeClickPolicy = "cleaningModeClickPolicy"
+    static let textSnippetsEnabled = "textSnippetsEnabled"
+    static let textSnippets = "textSnippets"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }

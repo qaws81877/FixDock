@@ -75,6 +75,12 @@ final class URLCleanerService: ObservableObject {
         })
     }
 
+    /// Another FixDock tool wrote the pasteboard (a snippet paste or its
+    /// restore). Main thread, where the poll compares against the count.
+    func ignoreChanges(upTo changeCount: Int) {
+        lastChangeCount = max(lastChangeCount, changeCount)
+    }
+
     func stop() {
         timer?.invalidate()
         timer = nil

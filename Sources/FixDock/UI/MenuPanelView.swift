@@ -79,8 +79,9 @@ struct MenuPanelView: View {
             PanelQuitProtectionRow()
         case .cleaningMode:
             PanelCleaningModeRow()
-        case .textSnippets,
-             .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+        case .textSnippets:
+            PanelTextSnippetsRow()
+        case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)
                     .frame(width: 16)
@@ -158,5 +159,37 @@ private struct PanelCleaningModeRow: View {
             }
             .controlSize(.small)
         }
+    }
+}
+
+/// Snippets work while typing; the row counts them and opens their page.
+private struct PanelTextSnippetsRow: View {
+    @ObservedObject private var l10n = L10n.shared
+    @AppStorage(DefaultsKey.textSnippets) private var stored = Data()
+
+    var body: some View {
+        let strings = l10n.s
+        Button {
+            if let page = AppFeature.textSnippets.settingsPage {
+                SettingsNavigator.shared.open(.feature(page))
+            }
+            appDelegate()?.openSettings()
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: AppFeature.textSnippets.symbolName)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(AppFeature.textSnippets.title(strings))
+                        .font(.system(size: 12, weight: .medium))
+                    Text(String(format: strings.snippetsCountFormat,
+                                TextSnippetSupport.decode(stored.isEmpty ? nil : stored).count))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

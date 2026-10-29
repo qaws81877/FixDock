@@ -187,6 +187,32 @@ struct Strings {
     let cleaningModeClickPolicyCaption: String
     let cleaningModeOverlayHoldUnlock: String
     let cleaningModeOverlayAutoUnlockHint: String
+    let snippetsEnable: String
+    let snippetsEnableCaption: String
+    let snippetsSecureNote: String
+    let snippetsNeedsAccessibility: String
+    let snippetsUnreadable: String
+    let snippetsAddButton: String
+    let snippetsNewTitle: String
+    let snippetsEditTitle: String
+    let snippetsNameLabel: String
+    let snippetsNamePlaceholder: String
+    let snippetsTriggerLabel: String
+    let snippetsTriggerPlaceholder: String
+    let snippetsReplacementLabel: String
+    let snippetsExpansionLabel: String
+    let snippetsExpansionImmediate: String
+    let snippetsExpansionDelimiter: String
+    let snippetsIgnoreCaseLabel: String
+    let snippetsVariablesHint: String
+    let snippetsVariablesCaption: String
+    let snippetsEmptyList: String
+    let snippetsDuplicateTrigger: String
+    let snippetsTriggerTooShort: String
+    let snippetsDeleteButton: String
+    let snippetsSaveButton: String
+    let snippetsCancelButton: String
+    let snippetsCountFormat: String
     let shortcutTitle: String
     let shortcutCaption: String
     let shortcutRecord: String
@@ -374,6 +400,32 @@ struct Strings {
         cleaningModeClickPolicyCaption: "Escape 5 times unlocks in every mode. With clicks blocked the pointer still moves, but nothing on screen can be clicked.",
         cleaningModeOverlayHoldUnlock: "Hold to unlock",
         cleaningModeOverlayAutoUnlockHint: "Clicks are blocked. The lock ends by itself after 3 minutes.",
+        snippetsEnable: "Expand snippets while typing",
+        snippetsEnableCaption: "Type a trigger anywhere and it becomes its text. Everything stays on this Mac.",
+        snippetsSecureNote: "Password fields are left alone. Text with a line break is pasted, and the clipboard is put back right after.",
+        snippetsNeedsAccessibility: "Snippets do not expand until FixDock has Accessibility.",
+        snippetsUnreadable: "The saved snippets could not be read, so editing is off to keep them from being overwritten.",
+        snippetsAddButton: "Add snippet",
+        snippetsNewTitle: "New snippet",
+        snippetsEditTitle: "Edit snippet",
+        snippetsNameLabel: "Name",
+        snippetsNamePlaceholder: "Personal email",
+        snippetsTriggerLabel: "Trigger",
+        snippetsTriggerPlaceholder: ";email",
+        snippetsReplacementLabel: "Text",
+        snippetsExpansionLabel: "Expand",
+        snippetsExpansionImmediate: "Right away",
+        snippetsExpansionDelimiter: "After space, Tab or Return",
+        snippetsIgnoreCaseLabel: "Ignore capitalization",
+        snippetsVariablesHint: "Variables: {{date}}, {{time}}, {{datetime}}, {{clipboard}}",
+        snippetsVariablesCaption: "They become the date, the time and the copied text at the moment of expansion. A format after a colon picks how they look, like {{date:yyyy-MM-dd}}.",
+        snippetsEmptyList: "No snippets yet. Add the first one.",
+        snippetsDuplicateTrigger: "Another snippet already uses this trigger.",
+        snippetsTriggerTooShort: "The trigger needs at least 2 characters.",
+        snippetsDeleteButton: "Delete",
+        snippetsSaveButton: "Save",
+        snippetsCancelButton: "Cancel",
+        snippetsCountFormat: "%d snippets",
         shortcutTitle: "Open the panel",
         shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
@@ -381,9 +433,9 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection and cleaning mode. Nothing else in this build needs a permission. Later tools will ask for more.",
+        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. Nothing else in this build needs a permission. Later tools will ask for more.",
         permissionAccessibility: "Accessibility",
-        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W. Cleaning mode uses it to lock the keyboard.",
+        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, and text snippets to see triggers and type their text.",
         permissionScreenRecording: "Screen Recording",
         permissionScreenRecordingDetail: "Later screenshot and recording tools need this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
@@ -405,7 +457,7 @@ struct Strings {
         onboardingFeaturesTitle: "Tools, later",
         onboardingFeaturesBody: "These eight are the planned tools, in the order they are added. URL cleaner works now. Choosing another one only saves the choice.",
         onboardingPermissionsTitle: "Permissions",
-        onboardingPermissionsBody: "Only the keyboard tools touch the keyboard: quit and close protection watches ⌘Q and ⌘W, and cleaning mode blocks keys only while it is on. Nothing reads the screen or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
+        onboardingPermissionsBody: "Only the keyboard tools touch the keyboard: quit and close protection watches ⌘Q and ⌘W, cleaning mode blocks keys only while it is on, and text snippets look for your triggers. Nothing reads the screen or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
         onboardingFinishTitle: "The icon is in the menu bar",
         onboardingFinishBody: "Click it for the panel. Control-Option-Command-F opens it from anywhere. Right-click the icon for Settings and Quit.",
         onboardingContinue: "Continue",

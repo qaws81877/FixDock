@@ -240,10 +240,10 @@ def main():
         if count < 3:
             errors += fail(f"{name} is missing a symbol, title, or summary switch ({count})")
     if (
-        "var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection"
-        " || self == .cleaningMode }" not in catalog
+        "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
+        "            || self == .textSnippets\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection and cleaning mode should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode and text snippets should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
