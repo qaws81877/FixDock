@@ -85,7 +85,9 @@ struct MenuPanelView: View {
             PanelMediaView()
         case .airdropAutoZip:
             PanelAirDropRow()
-        case .cleaner, .screenshot, .screenRecorder:
+        case .cleaner:
+            PanelCleanerRow()
+        case .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)
                     .frame(width: 16)

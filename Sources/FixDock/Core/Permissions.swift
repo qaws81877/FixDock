@@ -12,6 +12,7 @@ import CoreGraphics
 enum PermissionKind: String, CaseIterable, Identifiable {
     case accessibility
     case screenRecording
+    case fullDiskAccess
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         switch self {
         case .accessibility: return strings.permissionAccessibility
         case .screenRecording: return strings.permissionScreenRecording
+        case .fullDiskAccess: return strings.permissionFullDiskAccess
         }
     }
 
@@ -26,6 +28,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         switch self {
         case .accessibility: return strings.permissionAccessibilityDetail
         case .screenRecording: return strings.permissionScreenRecordingDetail
+        case .fullDiskAccess: return strings.permissionFullDiskAccessDetail
         }
     }
 }
@@ -38,6 +41,7 @@ final class Permissions: ObservableObject {
 
     @Published private(set) var accessibility = false
     @Published private(set) var screenRecording = false
+    @Published private(set) var fullDiskAccess = false
 
     private var pollTimer: Timer?
     private var pageVisible = false
@@ -49,12 +53,28 @@ final class Permissions: ObservableObject {
         switch kind {
         case .accessibility: return accessibility
         case .screenRecording: return screenRecording
+        case .fullDiskAccess: return fullDiskAccess
         }
     }
 
     func refresh() {
         accessibility = AXIsProcessTrusted()
         screenRecording = CGPreflightScreenCaptureAccess()
+        fullDiskAccess = Self.probeFullDiskAccess()
+    }
+
+    /// There is no API to ask. A file only Full Disk Access can read
+    /// answers it; failing that, folders TCC guards the same way. Adapted
+    /// from upstream.
+    static func probeFullDiskAccess() -> Bool {
+        if let handle = FileHandle(forReadingAtPath: "/Library/Application Support/com.apple.TCC/TCC.db") {
+            defer { try? handle.close() }
+            if (try? handle.read(upToCount: 1))?.isEmpty == false { return true }
+        }
+        let home = NSHomeDirectory()
+        return ["/Library/Safari", "/Library/Mail", "/Library/Messages"].contains {
+            (try? FileManager.default.contentsOfDirectory(atPath: home + $0)) != nil
+        }
     }
 
     /// Shows the system prompt when one exists, then floats the guide.
@@ -65,6 +85,8 @@ final class Permissions: ObservableObject {
             AXIsProcessTrustedWithOptions(options)
         case .screenRecording:
             CGRequestScreenCaptureAccess()
+        case .fullDiskAccess:
+            break
         }
         refresh()
         if !isGranted(kind) {
@@ -79,7 +101,12 @@ final class Permissions: ObservableObject {
     /// current user's own entries.
     func startOver(_ kind: PermissionKind) {
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
-        let service = kind == .accessibility ? "Accessibility" : "ScreenCapture"
+        let service: String
+        switch kind {
+        case .accessibility: service = "Accessibility"
+        case .screenRecording: service = "ScreenCapture"
+        case .fullDiskAccess: service = "SystemPolicyAllFiles"
+        }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
@@ -96,7 +123,12 @@ final class Permissions: ObservableObject {
     }
 
     func openSettings(for kind: PermissionKind) {
-        let pane = kind == .accessibility ? "Privacy_Accessibility" : "Privacy_ScreenCapture"
+        let pane: String
+        switch kind {
+        case .accessibility: pane = "Privacy_Accessibility"
+        case .screenRecording: pane = "Privacy_ScreenCapture"
+        case .fullDiskAccess: pane = "Privacy_AllFiles"
+        }
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!
         NSWorkspace.shared.open(url)
     }

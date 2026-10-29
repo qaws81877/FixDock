@@ -45,6 +45,8 @@ enum DefaultsKey {
     static let airdropAutoZipPreset = "airdropAutoZipPreset"
     /// Developer runs only: watch this folder instead of Downloads.
     static let airdropAutoZipFolderOverride = "airdropAutoZipFolderOverride"
+    /// Standardized paths the cleaner never removes.
+    static let cleanerExceptions = "cleanerExceptions"
     static let mediaImageFormat = "mediaImageFormat"
     static let mediaImageMaxDimension = "mediaImageMaxDimension"
     static let mediaImageMetadata = "mediaImageMetadata"

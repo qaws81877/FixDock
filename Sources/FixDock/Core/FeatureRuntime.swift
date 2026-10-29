@@ -9,7 +9,7 @@ import Combine
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
 /// anything that is not installed. URL cleaner, quit protection, cleaning
-/// mode, text snippets, media and AirDrop auto-zip are wired.
+/// mode, text snippets, media, AirDrop auto-zip and the cleaner are wired.
 /// The other catalog entries still only store the availability key.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
@@ -74,5 +74,6 @@ final class FeatureRuntime: ObservableObject {
         .textSnippets: { TextSnippetService.shared.syncWithPreferences() },
         .mediaTools: { MediaService.shared.syncWithPreferences() },
         .airdropAutoZip: { AirDropAutoZipService.shared.syncWithPreferences() },
+        .cleaner: { CleanerService.shared.syncWithPreferences() },
     ]
 }

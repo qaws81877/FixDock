@@ -266,6 +266,46 @@ struct Strings {
     let airdropOpenDownloads: String
     let airdropNotifyDoneFormat: String
     let airdropNotifyFailed: String
+    let permissionFullDiskAccess: String
+    let permissionFullDiskAccessDetail: String
+    let cleanerIntro: String
+    let cleanerPermanentNote: String
+    let cleanerNeedsFullDiskAccess: String
+    let cleanerHomeUnusable: String
+    let cleanerScan: String
+    let cleanerScanning: String
+    let cleanerCancel: String
+    let cleanerScanAgain: String
+    let cleanerSafeSection: String
+    let cleanerReviewSection: String
+    let cleanerCatCaches: String
+    let cleanerCatLogs: String
+    let cleanerCatDeveloper: String
+    let cleanerCatBrowserCaches: String
+    let cleanerCatDownloads: String
+    let cleanerCatLeftovers: String
+    let cleanerCatLoginItems: String
+    let cleanerCatDeviceBackups: String
+    let cleanerCatLargeDeveloper: String
+    let cleanerCatTrash: String
+    let cleanerNothingFound: String
+    let cleanerSelectedFormat: String
+    let cleanerRemoveButtonFormat: String
+    let cleanerLockedHelp: String
+    let cleanerExceptionHelp: String
+    let cleanerExceptionRemoveHelp: String
+    let cleanerRevealHelp: String
+    let cleanerConfirmTitleFormat: String
+    let cleanerConfirmMessageFormat: String
+    let cleanerConfirmButton: String
+    let cleanerBackupConfirmTitle: String
+    let cleanerBackupConfirmMessageFormat: String
+    let cleanerRemoving: String
+    let cleanerDoneFormat: String
+    let cleanerNotRemovedFormat: String
+    let cleanerSkippedLabel: String
+    let cleanerFailedLabel: String
+    let cleanerOpenButton: String
     let mediaPresetCaption: String
     let mediaFormatLabel: String
     let mediaFormatOriginal: String
@@ -395,7 +435,7 @@ struct Strings {
         featureAirDropName: "AirDrop auto-zip",
         featureAirDropSummary: "Zip and compress photos as soon as they arrive by AirDrop.",
         featureCleanerName: "Cleaner",
-        featureCleanerSummary: "Find leftover junk, caches, and forgotten screenshots.",
+        featureCleanerSummary: "Find caches, logs, leftovers and backups, and remove what you check.",
         featureScreenshotName: "Screenshot",
         featureScreenshotSummary: "Capture the screen and mark it up.",
         featureRecorderName: "Screen recorder",
@@ -559,6 +599,46 @@ struct Strings {
         airdropOpenDownloads: "Open Downloads",
         airdropNotifyDoneFormat: "%d photos zipped into %@.",
         airdropNotifyFailed: "The batch could not be zipped. The photos were left in Downloads.",
+        permissionFullDiskAccess: "Full Disk Access",
+        permissionFullDiskAccessDetail: "The cleaner uses this to read caches, device backups and the Trash. A grant applies after a relaunch.",
+        cleanerIntro: "Find caches, logs and other data you can remove. Nothing is removed until you check it and confirm.",
+        cleanerPermanentNote: "Removal is permanent and cannot be undone.",
+        cleanerNeedsFullDiskAccess: "The cleaner needs Full Disk Access before it can scan.",
+        cleanerHomeUnusable: "The home folder could not be read safely, so the scan did not start.",
+        cleanerScan: "Scan",
+        cleanerScanning: "Scanning…",
+        cleanerCancel: "Cancel",
+        cleanerScanAgain: "Scan again",
+        cleanerSafeSection: "Safe cleanup",
+        cleanerReviewSection: "Review first",
+        cleanerCatCaches: "App caches",
+        cleanerCatLogs: "Logs older than 7 days",
+        cleanerCatDeveloper: "Xcode build data",
+        cleanerCatBrowserCaches: "Browser caches",
+        cleanerCatDownloads: "Unfinished downloads",
+        cleanerCatLeftovers: "Leftovers of deleted apps",
+        cleanerCatLoginItems: "Login items of deleted apps",
+        cleanerCatDeviceBackups: "iPhone and iPad backups",
+        cleanerCatLargeDeveloper: "Xcode archives and simulators",
+        cleanerCatTrash: "Trash",
+        cleanerNothingFound: "Nothing to clean.",
+        cleanerSelectedFormat: "%d of %d selected · %@",
+        cleanerRemoveButtonFormat: "Remove %@",
+        cleanerLockedHelp: "In use by a running app. Quit it to clean this.",
+        cleanerExceptionHelp: "Never clean this",
+        cleanerExceptionRemoveHelp: "Allow cleaning this again",
+        cleanerRevealHelp: "Show in Finder",
+        cleanerConfirmTitleFormat: "Remove %d items permanently?",
+        cleanerConfirmMessageFormat: "%@ will be removed from: %@. This cannot be undone.",
+        cleanerConfirmButton: "Remove permanently",
+        cleanerBackupConfirmTitle: "Remove these device backups too?",
+        cleanerBackupConfirmMessageFormat: "%@\n\nA removed backup cannot be restored. Make sure the device is backed up elsewhere.",
+        cleanerRemoving: "Removing…",
+        cleanerDoneFormat: "Removed %d items. %@ freed.",
+        cleanerNotRemovedFormat: "%d items were not removed:",
+        cleanerSkippedLabel: "skipped: changed since the scan or now in use",
+        cleanerFailedLabel: "could not be removed",
+        cleanerOpenButton: "Open",
         mediaPresetCaption: "PNG is lossless and ignores the level.",
         mediaFormatLabel: "Format",
         mediaFormatOriginal: "Keep original",
@@ -593,7 +673,7 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. Nothing else in this build needs a permission. Later tools will ask for more.",
+        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. The cleaner needs Full Disk Access. Nothing else in this build needs a permission.",
         permissionAccessibility: "Accessibility",
         permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, and text snippets to see triggers and type their text.",
         permissionScreenRecording: "Screen Recording",
