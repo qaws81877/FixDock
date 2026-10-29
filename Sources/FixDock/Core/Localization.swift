@@ -433,7 +433,6 @@ struct Strings {
     let screenshotPreviewSave: String
     let screenshotPreviewCopy: String
     let screenshotPreviewEdit: String
-    let screenshotPreviewEditLater: String
     let screenshotPreviewPin: String
     let screenshotPreviewQR: String
     let screenshotPreviewCopyText: String
@@ -458,6 +457,28 @@ struct Strings {
     let screenshotPinClickThrough: String
     let screenshotPinClose: String
     let screenshotPinCloseAll: String
+    let screenshotEditorTitle: String
+    let screenshotEditorToolSelect: String
+    let screenshotEditorToolArrow: String
+    let screenshotEditorToolText: String
+    let screenshotEditorToolRect: String
+    let screenshotEditorToolFreehand: String
+    let screenshotEditorToolLine: String
+    let screenshotEditorToolEllipse: String
+    let screenshotEditorColor: String
+    let screenshotEditorStroke: String
+    let screenshotEditorTextSize: String
+    let screenshotEditorBringForward: String
+    let screenshotEditorSendBackward: String
+    let screenshotEditorTextPlaceholder: String
+    let screenshotEditorZoomFit: String
+    let screenshotEditorZoomActual: String
+    let screenshotEditorZoomHint: String
+    let screenshotEditorSaveMenu: String
+    let screenshotEditorDiscardTitle: String
+    let screenshotEditorDiscardMessage: String
+    let screenshotEditorDiscard: String
+    let screenshotEditorCancel: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -847,7 +868,6 @@ struct Strings {
         screenshotPreviewSave: "Save",
         screenshotPreviewCopy: "Copy",
         screenshotPreviewEdit: "Edit",
-        screenshotPreviewEditLater: "The editor comes in a later update.",
         screenshotPreviewPin: "Pin above other windows",
         screenshotPreviewQR: "Show the QR code's content",
         screenshotPreviewCopyText: "Copy the text in the capture",
@@ -872,6 +892,28 @@ struct Strings {
         screenshotPinClickThrough: "Click through (Option-click to undo)",
         screenshotPinClose: "Close",
         screenshotPinCloseAll: "Close all pins",
+        screenshotEditorTitle: "Edit capture",
+        screenshotEditorToolSelect: "Select",
+        screenshotEditorToolArrow: "Arrow",
+        screenshotEditorToolText: "Text",
+        screenshotEditorToolRect: "Rectangle",
+        screenshotEditorToolFreehand: "Pen",
+        screenshotEditorToolLine: "Line",
+        screenshotEditorToolEllipse: "Ellipse",
+        screenshotEditorColor: "Colour",
+        screenshotEditorStroke: "Line width",
+        screenshotEditorTextSize: "Text size",
+        screenshotEditorBringForward: "Bring forward",
+        screenshotEditorSendBackward: "Send backward",
+        screenshotEditorTextPlaceholder: "Type text",
+        screenshotEditorZoomFit: "Fit to window",
+        screenshotEditorZoomActual: "Actual size",
+        screenshotEditorZoomHint: "Pinch, or scroll with Control held, to zoom",
+        screenshotEditorSaveMenu: "Save options",
+        screenshotEditorDiscardTitle: "Discard your edits?",
+        screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or pinned.",
+        screenshotEditorDiscard: "Discard",
+        screenshotEditorCancel: "Cancel",
         versionFormat: "Version %@"
     )
 }

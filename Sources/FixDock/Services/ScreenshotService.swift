@@ -26,6 +26,8 @@ final class ScreenshotService: ObservableObject {
     private var overlay: ScreenshotOverlayController?
     private var scrolling: ScreenshotScrollingSession?
     private var preview: ScreenshotPreviewController?
+    /// Open editors, dropped as each window closes.
+    private var editors: [ScreenshotEditorController] = []
 
     private init() {}
 
@@ -40,6 +42,9 @@ final class ScreenshotService: ObservableObject {
             hotkeys.actions[.captureFullScreen] = nil
             cancelOverlay()
             preview?.close()
+            // Uninstalling tears the tool down at once, edits included, as
+            // it does the preview.
+            editors.forEach { $0.closeWithoutAsking() }
         }
         hotkeys.sync()
     }
@@ -207,9 +212,12 @@ final class ScreenshotService: ObservableObject {
                     self.lastOutcome = .copied
                     return true
                 case .pin:
-                    let scale = anchor.map { $0.width > 0 ? CGFloat(image.width) / $0.width : 2 }
-                        ?? (NSScreen.main?.backingScaleFactor ?? 2)
-                    ScreenshotPinController.shared.pin(image: image, scale: max(1, scale))
+                    ScreenshotPinController.shared.pin(image: image, scale: Self.scale(of: image, anchor: anchor))
+                    return true
+                case .edit:
+                    // The preview closes without saving; the editor owns the
+                    // capture from here.
+                    self.openEditor(image: image, scale: Self.scale(of: image, anchor: anchor))
                     return true
                 case .discard:
                     // Nothing was written: Save closes the preview, so a
@@ -220,6 +228,52 @@ final class ScreenshotService: ObservableObject {
             onClose: { [weak self] in self?.preview = nil })
         preview = controller
         controller.show()
+    }
+
+    /// Pixels per point of a capture: from the area it came from, else the
+    /// main display's.
+    private static func scale(of image: CGImage, anchor: CGRect?) -> CGFloat {
+        let scale = anchor.map { $0.width > 0 ? CGFloat(image.width) / $0.width : 2 }
+            ?? (NSScreen.main?.backingScaleFactor ?? 2)
+        return max(1, scale)
+    }
+
+    // MARK: - Editor
+
+    func openEditor(image: CGImage, scale: CGFloat) {
+        guard AppFeature.screenshot.isAvailable else { return }
+        let editor = ScreenshotEditorController(image: image, scale: scale)
+        editors.append(editor)
+        editor.show()
+    }
+
+    func editorDidClose(_ editor: ScreenshotEditorController) {
+        editors.removeAll { $0 === editor }
+    }
+
+    /// The editor's Save: a new file in the chosen folder, as the preview's
+    /// Save. False after the beep and message when the folder is unusable.
+    func saveEdited(_ png: Data) -> Bool {
+        switch Self.write(png, to: Self.saveFolder) {
+        case .success(let url):
+            lastOutcome = .saved(url)
+            return true
+        case .failure:
+            fail(L10n.shared.s.screenshotFolderUnavailable)
+            return false
+        }
+    }
+
+    /// Save As wrote `url` after the save panel's own replace question.
+    func editorSaved(_ url: URL) {
+        lastOutcome = .saved(url)
+    }
+
+    /// The edited image on the clipboard, image data only.
+    func copyEdited(_ image: CGImage) -> Bool {
+        guard copyImage(image) else { return false }
+        lastOutcome = .copied
+        return true
     }
 
     private func fail(_ message: String) {
@@ -262,13 +316,15 @@ final class ScreenshotService: ObservableObject {
         return .success(url)
     }
 
-    /// The image on the clipboard, for a pin's Copy.
-    func copyImage(_ image: CGImage) {
+    /// The image on the clipboard, for a pin's and the editor's Copy.
+    @discardableResult
+    func copyImage(_ image: CGImage) -> Bool {
         guard let png = Self.pngData(image) else {
             NSSound.beep()
-            return
+            return false
         }
         copyToClipboard(image, png: png)
+        return true
     }
 
     /// Text on the clipboard (a QR payload, recognized text, a colour), marked
