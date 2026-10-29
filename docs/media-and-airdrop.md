@@ -58,16 +58,16 @@ Status: agreed with the owner 2026-10-29. Built in three pull requests:
 
 | Question | Decision |
 |---|---|
-| Which files | Images received by AirDrop only: `com.apple.quarantine` agent is `sharingd`. |
+| Which files | Images received by AirDrop after the watch started: `com.apple.quarantine` agent is `sharingd` and its timestamp (second field, hex Unix seconds) is not older than the watch, so an old AirDrop photo renamed or moved into Downloads is left alone. Confirmed on a real AirDrop photo. |
 | Compression | Its own level setting (Low, Medium, High), default Medium. Original format and size, GPS removed. |
 | Names inside the zip | `1.heic`, `2.jpg`, … in capture-time order. |
 | Zip | `compressed_images_YYYY-MM-DD.zip` in `~/Downloads`; `_2` and so on for later batches that day. |
 | Originals | `FileManager.trashItem`, only after the zip is verified. Never `rm`. |
 | Videos and other files | Left where they are. |
-| Finish notice | Notification Center, success and failure. |
+| Finish notice | Notification Center, success and failure. No batch history is shown in Settings or the panel. |
 | Network | None. |
 
-Flow: FSEvents on `~/Downloads`; files present when the watch starts are
+Flow: a `DispatchSource` watch on the top level of `~/Downloads`; files present when the watch starts are
 never processed; a batch closes 5 seconds after the last candidate once sizes
 are stable; the engine writes into a private folder under
 `~/Library/Caches/<bundle id>/`; `/usr/bin/ditto -c -k` writes the zip to a
@@ -81,7 +81,9 @@ batch go to the next one; turning the tool off stops the watch.
 
 ## Open items to confirm on the Mac
 
-- AirDrop photos carry the `sharingd` quarantine agent (seen on an AirDrop
-  mp4; photos not yet checked).
+- Confirmed: AirDrop photos carry the `sharingd` quarantine agent. They also
+  carry Photos extended attributes, one of them a location copy
+  (`com.apple.assetsd.customLocation`); zip members are written from encoded
+  bytes and zipped with `--noextattr`, so it never comes along.
 - Whether macOS asks for Downloads access the first time.
 - HEIC at Medium is smaller than the iPhone original in practice.

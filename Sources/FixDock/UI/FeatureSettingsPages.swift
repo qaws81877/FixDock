@@ -42,7 +42,9 @@ extension AppFeature {
             return page { TextSnippetsSettings() }
         case .mediaTools:
             return page { MediaSettings() }
-        case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+        case .airdropAutoZip:
+            return page { AirDropAutoZipSettingsPage() }
+        case .cleaner, .screenshot, .screenRecorder:
             return nil
         }
     }

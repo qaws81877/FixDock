@@ -83,7 +83,9 @@ struct MenuPanelView: View {
             PanelTextSnippetsRow()
         case .mediaTools:
             PanelMediaView()
-        case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+        case .airdropAutoZip:
+            PanelAirDropRow()
+        case .cleaner, .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)
                     .frame(width: 16)
