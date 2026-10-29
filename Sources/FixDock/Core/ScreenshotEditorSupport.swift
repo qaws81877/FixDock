@@ -901,7 +901,7 @@ extension ScreenshotSupport {
                     return annotation.id
                 }
             case .counter:
-                let radius = counterDiameter(for: imageSize, scale: 1) / 2
+                let radius = counterDiameter(for: annotation.renderReferenceSize ?? imageSize, scale: 1) / 2
                 if hypot(point.x - annotation.rect.midX, point.y - annotation.rect.midY)
                     <= radius + 4 * scale {
                     return annotation.id

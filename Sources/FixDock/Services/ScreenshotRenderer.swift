@@ -279,7 +279,8 @@ enum ScreenshotRenderer {
     private static func drawCounter(_ annotation: ScreenshotSupport.Annotation,
                                     in context: CGContext, imageSize: CGSize,
                                     scale: CGFloat, shadowsEnabled: Bool) {
-        let diameter = ScreenshotSupport.counterDiameter(for: imageSize, scale: 1)
+        let diameter = ScreenshotSupport.counterDiameter(for: annotation.renderReferenceSize ?? imageSize,
+                                                         scale: 1)
         let rect = CGRect(x: annotation.rect.midX - diameter / 2, y: annotation.rect.midY - diameter / 2,
                           width: diameter, height: diameter)
         context.saveGState()

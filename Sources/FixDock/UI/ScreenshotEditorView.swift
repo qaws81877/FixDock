@@ -313,7 +313,8 @@ struct ScreenshotEditorView: View {
 
     /// A counter's rect is its tap point; the badge around it is framed.
     private func counterBox(_ annotation: ScreenshotSupport.Annotation) -> CGRect {
-        let diameter = ScreenshotSupport.counterDiameter(for: model.imageSize, scale: 1)
+        let diameter = ScreenshotSupport.counterDiameter(for: annotation.renderReferenceSize ?? model.imageSize,
+                                                         scale: 1)
         return CGRect(x: annotation.rect.midX - diameter / 2, y: annotation.rect.midY - diameter / 2,
                       width: diameter, height: diameter).insetBy(dx: -3, dy: -3)
     }

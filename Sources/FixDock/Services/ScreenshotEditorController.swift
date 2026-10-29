@@ -991,12 +991,26 @@ extension ScreenshotEditorModel {
               let expanded = ScreenshotCanvasSupport.expandedImage(baseImage, to: rect, fill: expansionFill)
         else { return false }
         registerUndo()
-        annotations = ScreenshotCanvasSupport.shifted(annotations, into: rect)
+        let oldSize = imageSize
+        annotations = ScreenshotCanvasSupport.shifted(annotations, into: rect, from: oldSize)
+        // Recognition misses nothing new in a plain margin, so the runs move
+        // with the capture and stay once it is read again.
+        let previousRuns = textRuns ?? carriedRuns[ObjectIdentifier(baseImage)]
         baseImage = expanded
+        if let previousRuns {
+            carriedRuns[ObjectIdentifier(expanded)] =
+                previousRuns.map { $0.offsetBy(dx: -rect.minX, dy: -rect.minY) }
+        }
+        pixelated = [:]
+        softBlurred = [:]
+        textRuns = nil
         textWords = []
         clearTextSelection()
         selectedID = nil
         editingTextID = nil
+        cropDraft = nil
+        pruneCarriedRuns()
+        ensureBlurSamplesForAnnotations()
         recognizeText()
         recognizeQRCodes()
         return true

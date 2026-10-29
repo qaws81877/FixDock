@@ -83,13 +83,26 @@ enum ScreenshotCanvasSupport {
 
     /// Marks keep their place on the capture when the canvas grows: the
     /// grown canvas's origin is `rect.origin` in the old space, so every mark
-    /// moves by its negative.
+    /// moves by its negative. A spotlight region lights only its part on the
+    /// old capture: past the old edge it would light the new margin, and one
+    /// with nothing on the capture goes. Counters and blur areas keep the
+    /// size they were drawn for, so a badge or a mosaic does not grow with
+    /// the canvas. Adapted from upstream's `commitCanvasExpansion`.
     static func shifted(_ annotations: [ScreenshotSupport.Annotation],
-                        into rect: CGRect) -> [ScreenshotSupport.Annotation] {
-        annotations.map { annotation in
+                        into rect: CGRect, from oldSize: CGSize) -> [ScreenshotSupport.Annotation] {
+        let oldBounds = CGRect(origin: .zero, size: oldSize)
+        return annotations.compactMap { annotation in
             var moved = annotation
+            if moved.tool == .spotlight {
+                let lit = moved.rect.standardized.intersection(oldBounds)
+                guard !lit.isEmpty else { return nil }
+                moved.rect = lit
+            }
             moved.rect = moved.rect.offsetBy(dx: -rect.minX, dy: -rect.minY)
             moved.points = moved.points.map { CGPoint(x: $0.x - rect.minX, y: $0.y - rect.minY) }
+            if moved.tool == .counter || moved.tool == .pixelate {
+                moved.renderReferenceSize = moved.renderReferenceSize ?? oldSize
+            }
             return moved
         }
     }
