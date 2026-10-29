@@ -78,9 +78,12 @@ final class PermissionGuideOverlay {
             holdingSurface = true
         }
 
-        let publisher: Published<Bool>.Publisher = kind == .accessibility
-            ? Permissions.shared.$accessibility
-            : Permissions.shared.$screenRecording
+        let publisher: Published<Bool>.Publisher
+        switch kind {
+        case .accessibility: publisher = Permissions.shared.$accessibility
+        case .screenRecording: publisher = Permissions.shared.$screenRecording
+        case .fullDiskAccess: publisher = Permissions.shared.$fullDiskAccess
+        }
         grantWatcher = publisher
             .removeDuplicates()
             .filter { $0 }
@@ -161,7 +164,7 @@ private struct PermissionGuideCard: View {
                     Text(guide.guideGranted)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.green)
-                    if kind == .screenRecording {
+                    if kind != .accessibility {
                         Spacer(minLength: 8)
                         Button(guide.guideRelaunch, action: onRelaunch)
                             .controlSize(.small)

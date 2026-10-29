@@ -44,7 +44,9 @@ extension AppFeature {
             return page { MediaSettings() }
         case .airdropAutoZip:
             return page { AirDropAutoZipSettingsPage() }
-        case .cleaner, .screenshot, .screenRecorder:
+        case .cleaner:
+            return page { CleanerSettings() }
+        case .screenshot, .screenRecorder:
             return nil
         }
     }

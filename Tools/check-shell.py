@@ -242,9 +242,10 @@ def main():
             errors += fail(f"{name} is missing a symbol, title, or summary switch ({count})")
     if (
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
-        "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n" not in catalog
+        "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
+        "            || self == .cleaner\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media and AirDrop auto-zip should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip and cleaner should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
