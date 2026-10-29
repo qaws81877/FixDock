@@ -12,7 +12,7 @@ func appDelegate() -> AppDelegate? {
 /// Menu bar app lifecycle: status item, panel, settings, onboarding, and the
 /// global shortcut. Feature services are not started here; the catalog only
 /// records which tools a later build should load.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var settingsWindow: NSWindow?
@@ -48,6 +48,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         popover?.performClose(nil)
     }
 
+    /// Runs a modal (an open panel) started from the menu panel: the panel
+    /// steps aside while it is up and comes back when it closes, so the work
+    /// the modal starts is in view.
+    func hidingPopover<T>(_ body: () -> T) -> T {
+        guard let popover, popover.isShown else { return body() }
+        popover.close()
+        let result = body()
+        togglePopover()
+        return result
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        MediaService.shared.setVisible(true, on: .panel)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        MediaService.shared.setVisible(false, on: .panel)
+    }
+
     func togglePopover() {
         guard let button = statusItem?.button else { return }
         let popover = self.popover ?? makePopover()
@@ -70,6 +89,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
+        if case .feature(let page) = SettingsNavigator.shared.destination, page.feature == .mediaTools {
+            MediaService.shared.setVisible(true, on: .settings)
+        }
     }
 
     func showOnboarding() {
@@ -113,6 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if window === onboardingWindow {
             PermissionGuideOverlay.suppressed = false
             onboardingWindow = nil
+        }
+        // The window is kept and reused, so its pages never see onDisappear.
+        if window === settingsWindow {
+            MediaService.shared.setVisible(false, on: .settings)
         }
     }
 
@@ -166,6 +192,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func makePopover() -> NSPopover {
         let popover = NSPopover()
         popover.behavior = .transient
+        popover.delegate = self
         popover.animates = true
         popover.contentSize = NSSize(width: 320, height: 560)
         popover.contentViewController = NSHostingController(rootView: MenuPanelView())
@@ -231,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.minSize = NSSize(width: 680, height: 440)
         window.title = L10n.shared.s.settingsTitle
         window.isReleasedWhenClosed = false
+        window.delegate = self
         return window
     }
 

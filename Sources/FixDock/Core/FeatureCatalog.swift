@@ -6,21 +6,22 @@ import Foundation
 
 /// Features the hub can install. Declaration order is the order later steps
 /// add the real modules:
-/// URL cleaner, quit/close protection, cleaning mode, text snippets,
+/// URL cleaner, quit/close protection, cleaning mode, text snippets, media,
 /// AirDrop auto-zip, cleaner, screenshot, screen recorder.
 ///
 /// Raw values match upstream vorssaint-utils where the feature existed, so a
 /// saved availability key still means the same thing when the module returns.
 /// `airdropAutoZip` is new and has no upstream module.
 ///
-/// `urlCleaner`, `quitWindowProtection`, `cleaningMode` and `textSnippets`
-/// have modules. The others still only
+/// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets` and
+/// `mediaTools` have modules. The others still only
 /// remember a choice: installing them does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection
     case cleaningMode
     case textSnippets
+    case mediaTools
     case airdropAutoZip
     case cleaner
     case screenshot
@@ -31,14 +32,14 @@ enum AppFeature: String, CaseIterable, Identifiable {
     /// True once this build contains the service and its binding.
     var hasService: Bool {
         self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode
-            || self == .textSnippets
+            || self == .textSnippets || self == .mediaTools
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
     var requiredPermissions: [PermissionKind] {
         switch self {
         case .quitWindowProtection, .cleaningMode, .textSnippets: return [.accessibility]
-        case .urlCleaner, .airdropAutoZip,
+        case .urlCleaner, .mediaTools, .airdropAutoZip,
              .cleaner, .screenshot, .screenRecorder:
             return []
         }
@@ -53,7 +54,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .urlCleaner: key = DefaultsKey.urlCleanerEnabled
         case .quitWindowProtection: key = DefaultsKey.quitProtectionQuitEnabled
         case .textSnippets: key = DefaultsKey.textSnippetsEnabled
-        case .cleaningMode, .airdropAutoZip, .cleaner,
+        case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner,
              .screenshot, .screenRecorder:
             return
         }
@@ -75,7 +76,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return .files
         case .quitWindowProtection, .textSnippets:
             return .keyboard
-        case .cleaningMode, .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+        case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return .tools
         }
     }
@@ -86,6 +87,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .quitWindowProtection: return "shield.lefthalf.filled"
         case .cleaningMode: return "bubbles.and.sparkles"
         case .textSnippets: return "text.append"
+        case .mediaTools: return "photo.on.rectangle.angled"
         case .airdropAutoZip: return "airdrop"
         case .cleaner: return "sparkles"
         case .screenshot: return "camera.viewfinder"
@@ -99,6 +101,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .quitWindowProtection: return strings.featureQuitProtectionName
         case .cleaningMode: return strings.featureCleaningModeName
         case .textSnippets: return strings.featureSnippetsName
+        case .mediaTools: return strings.featureMediaName
         case .airdropAutoZip: return strings.featureAirDropName
         case .cleaner: return strings.featureCleanerName
         case .screenshot: return strings.featureScreenshotName
@@ -112,6 +115,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .quitWindowProtection: return strings.featureQuitProtectionSummary
         case .cleaningMode: return strings.featureCleaningModeSummary
         case .textSnippets: return strings.featureSnippetsSummary
+        case .mediaTools: return strings.featureMediaSummary
         case .airdropAutoZip: return strings.featureAirDropSummary
         case .cleaner: return strings.featureCleanerSummary
         case .screenshot: return strings.featureScreenshotSummary

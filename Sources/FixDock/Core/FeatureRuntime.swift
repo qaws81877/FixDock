@@ -9,7 +9,7 @@ import Combine
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
 /// anything that is not installed. URL cleaner, quit protection, cleaning
-/// mode and text snippets are wired.
+/// mode, text snippets and media are wired.
 /// The other catalog entries still only store the availability key.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
@@ -72,5 +72,6 @@ final class FeatureRuntime: ObservableObject {
         .quitWindowProtection: { QuitProtectionService.shared.syncWithPreferences() },
         .cleaningMode: { CleaningModeManager.shared.syncWithPreferences() },
         .textSnippets: { TextSnippetService.shared.syncWithPreferences() },
+        .mediaTools: { MediaService.shared.syncWithPreferences() },
     ]
 }

@@ -213,6 +213,52 @@ struct Strings {
     let snippetsSaveButton: String
     let snippetsCancelButton: String
     let snippetsCountFormat: String
+    let featureMediaName: String
+    let featureMediaSummary: String
+    let mediaIntro: String
+    let mediaImageSection: String
+    let mediaPresetLabel: String
+    let mediaPresetLow: String
+    let mediaPresetMedium: String
+    let mediaPresetHigh: String
+    let mediaPresetLowCaption: String
+    let mediaPresetMediumCaption: String
+    let mediaPresetHighCaption: String
+    let mediaOutputLabel: String
+    let mediaOutputZip: String
+    let mediaOutputFiles: String
+    let mediaOutputZipCaption: String
+    let mediaZipResultFormat: String
+    let mediaErrorZip: String
+    let mediaLocalNote: String
+    let mediaMoreOptions: String
+    let mediaPresetCaption: String
+    let mediaFormatLabel: String
+    let mediaFormatOriginal: String
+    let mediaResizeToggle: String
+    let mediaPixelsFormat: String
+    let mediaMetadataLabel: String
+    let mediaMetadataKeep: String
+    let mediaMetadataRemoveLocation: String
+    let mediaMetadataRemoveAll: String
+    let mediaDropHint: String
+    let mediaOutputCaption: String
+    let mediaRunningFormat: String
+    let mediaCancel: String
+    let mediaCancelled: String
+    let mediaClearResults: String
+    let mediaShowInFinder: String
+    let mediaOpenButton: String
+    let mediaResultSizeFormat: String
+    let mediaResultGrewFormat: String
+    let mediaResultKeptOriginal: String
+    let mediaSkippedFormat: String
+    let mediaErrorUnreadable: String
+    let mediaErrorUnsupported: String
+    let mediaErrorTooLarge: String
+    let mediaErrorEncode: String
+    let mediaErrorLocation: String
+    let mediaErrorWrite: String
     let shortcutTitle: String
     let shortcutCaption: String
     let shortcutRecord: String
@@ -426,6 +472,52 @@ struct Strings {
         snippetsSaveButton: "Save",
         snippetsCancelButton: "Cancel",
         snippetsCountFormat: "%d snippets",
+        featureMediaName: "Media",
+        featureMediaSummary: "Compress images and videos by hand.",
+        mediaIntro: "Compress images when you choose to. Everything happens on this Mac, and the originals are never changed.",
+        mediaImageSection: "Image",
+        mediaPresetLabel: "Compression",
+        mediaPresetLow: "Low",
+        mediaPresetMedium: "Medium",
+        mediaPresetHigh: "High",
+        mediaPresetLowCaption: "High quality, larger file.",
+        mediaPresetMediumCaption: "Balanced quality and file size.",
+        mediaPresetHighCaption: "Smaller file, lower quality.",
+        mediaOutputLabel: "Output",
+        mediaOutputZip: "One zip",
+        mediaOutputFiles: "Separate files",
+        mediaOutputZipCaption: "A compressed_images_YYYY-MM-DD zip is saved in the first image's folder.",
+        mediaZipResultFormat: "%d images in %@ (%@)",
+        mediaErrorZip: "The zip could not be made, so nothing was saved.",
+        mediaLocalNote: "Local. No network.",
+        mediaMoreOptions: "More options in Settings",
+        mediaPresetCaption: "PNG is lossless and ignores the level.",
+        mediaFormatLabel: "Format",
+        mediaFormatOriginal: "Keep original",
+        mediaResizeToggle: "Limit the longest edge",
+        mediaPixelsFormat: "%d px",
+        mediaMetadataLabel: "Metadata",
+        mediaMetadataKeep: "Keep all",
+        mediaMetadataRemoveLocation: "Remove location (GPS)",
+        mediaMetadataRemoveAll: "Remove all",
+        mediaDropHint: "Drop images here, or click to choose.",
+        mediaOutputCaption: "Each result is saved next to its original as name-compressed.",
+        mediaRunningFormat: "Compressing %d of %d",
+        mediaCancel: "Cancel",
+        mediaCancelled: "Cancelled. Files already saved stay.",
+        mediaClearResults: "Clear",
+        mediaShowInFinder: "Show",
+        mediaOpenButton: "Open",
+        mediaResultSizeFormat: "%@ → %@ (%@ smaller)",
+        mediaResultGrewFormat: "%@ → %@ (larger in the new format)",
+        mediaResultKeptOriginal: "Could not get smaller, so the original image was saved as is.",
+        mediaSkippedFormat: "%d files skipped because they are not images.",
+        mediaErrorUnreadable: "Could not read this image.",
+        mediaErrorUnsupported: "macOS cannot save this format.",
+        mediaErrorTooLarge: "Too large to process.",
+        mediaErrorEncode: "Could not encode the image.",
+        mediaErrorLocation: "The location could not be removed, so nothing was saved.",
+        mediaErrorWrite: "Could not save next to the original.",
         shortcutTitle: "Open the panel",
         shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
