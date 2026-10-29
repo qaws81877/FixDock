@@ -75,7 +75,7 @@ Click the menu bar icon for the panel. The default shortcut is Control-Option-Co
 
 Audio and the mixer, the system monitor, fan control, the notch, window and Dock tools, the app switcher, mouse and scroll tools, Homebrew, app updates, the uninstaller, ports, wallpaper, agent usage, and the other upstream modules. Their source remains in git history at merge commit `7336fd329db673743444ce169c1373097be9765a`. Languages other than English and Korean were removed. Upstream brand images were removed. No third-party font was bundled upstream, and none is bundled here.
 
-A future personal Homebrew tap is described in [docs/HOMEBREW.md](docs/HOMEBREW.md). The tap is not created yet.
+A personal Homebrew tap is planned. The tap is not created yet.
 
 ## 한국어
 
@@ -150,4 +150,4 @@ Vorssaint 설치는 건드리지 않고 FixDock만 지우려면:
 
 오디오와 믹서, 시스템 모니터, 팬 제어, 노치, 창과 Dock 도구, 앱 전환, 마우스와 스크롤, Homebrew, 앱 업데이트, 제거 도구, 포트, 배경화면, 에이전트 사용량, 그 밖의 업스트림 모듈을 뺐습니다. 소스는 머지 커밋 `7336fd329db673743444ce169c1373097be9765a`의 git 기록에 남아 있습니다. 영어와 한국어 외 언어를 뺐습니다. 업스트림 브랜드 이미지를 뺐습니다. 업스트림은 서드파티 글꼴을 넣지 않았고, 여기도 없습니다.
 
-개인 Homebrew 탭은 [docs/HOMEBREW.md](docs/HOMEBREW.md)에 적어 두었습니다. 탭 저장소는 아직 만들지 않습니다.
+개인 Homebrew 탭을 만들 계획입니다. 탭 저장소는 아직 만들지 않습니다.
