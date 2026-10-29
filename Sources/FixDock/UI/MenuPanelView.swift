@@ -75,7 +75,9 @@ struct MenuPanelView: View {
         switch feature {
         case .urlCleaner:
             PanelURLCleanerView(onClose: { appDelegate()?.closePopover() })
-        case .quitWindowProtection, .cleaningMode, .textSnippets,
+        case .quitWindowProtection:
+            PanelQuitProtectionRow()
+        case .cleaningMode, .textSnippets,
              .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)
@@ -89,5 +91,43 @@ struct MenuPanelView: View {
                 }
             }
         }
+    }
+}
+
+/// Quit protection has nothing to do from the panel; the row says whether it
+/// is guarding and opens its Settings page.
+private struct PanelQuitProtectionRow: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var service = QuitProtectionService.shared
+
+    var body: some View {
+        let strings = l10n.s
+        Button {
+            if let page = AppFeature.quitWindowProtection.settingsPage {
+                SettingsNavigator.shared.open(.feature(page))
+            }
+            appDelegate()?.openSettings()
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: AppFeature.quitWindowProtection.symbolName)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(AppFeature.quitWindowProtection.title(strings))
+                        .font(.system(size: 12, weight: .medium))
+                    Text(status(strings))
+                        .font(.caption2)
+                        .foregroundStyle(service.isWaitingForAccessibility ? .orange : .secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func status(_ strings: Strings) -> String {
+        if service.isWaitingForAccessibility { return strings.quitProtectionNeedsAccessibility }
+        if service.isRunning { return strings.quitProtectionActiveNow }
+        return strings.featureQuitProtectionSummary
     }
 }

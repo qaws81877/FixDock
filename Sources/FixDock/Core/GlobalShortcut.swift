@@ -252,7 +252,8 @@ struct GlobalShortcut: Equatable, Hashable {
     /// The character the current layout prints for a key. Command shortcuts
     /// read the layout's Command table, because a non-Latin layout still
     /// answers Command combinations from that table. Adapted from upstream.
-    private static func layoutKeyLabel(for keyCode: Int64, usesCommand: Bool) -> String? {
+    /// Quit protection reads it from its event tap, on the main run loop.
+    static func layoutKeyLabel(for keyCode: Int64, usesCommand: Bool) -> String? {
         guard Thread.isMainThread, let code = UInt16(exactly: keyCode) else { return nil }
         let cacheKey = LayoutLabelKey(keyCode: keyCode, usesCommand: usesCommand)
         if let cached = layoutLabels[cacheKey] { return cached }

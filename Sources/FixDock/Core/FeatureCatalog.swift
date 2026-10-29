@@ -13,7 +13,7 @@ import Foundation
 /// saved availability key still means the same thing when the module returns.
 /// `airdropAutoZip` is new and has no upstream module.
 ///
-/// `urlCleaner` is the first module in the tree. The others still only
+/// `urlCleaner` and `quitWindowProtection` have modules. The others still only
 /// remember a choice: installing them does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
@@ -28,15 +28,33 @@ enum AppFeature: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// True once this build contains the service and its binding.
-    var hasService: Bool { self == .urlCleaner }
+    var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection }
+
+    /// Grants the module cannot run without. Installing asks for any missing.
+    var requiredPermissions: [PermissionKind] {
+        switch self {
+        case .quitWindowProtection: return [.accessibility]
+        case .urlCleaner, .cleaningMode, .textSnippets, .airdropAutoZip,
+             .cleaner, .screenshot, .screenRecorder:
+            return []
+        }
+    }
 
     /// The first time a tool is installed, turn on its main switch if the
     /// person has never chosen. A later install keeps the saved choice.
+    /// Quit protection starts with ⌘Q only; ⌘W stays a choice.
     func enableOnFirstInstall() {
-        guard self == .urlCleaner else { return }
+        let key: String
+        switch self {
+        case .urlCleaner: key = DefaultsKey.urlCleanerEnabled
+        case .quitWindowProtection: key = DefaultsKey.quitProtectionQuitEnabled
+        case .cleaningMode, .textSnippets, .airdropAutoZip, .cleaner,
+             .screenshot, .screenRecorder:
+            return
+        }
         let defaults = UserDefaults.standard
-        if defaults.object(forKey: DefaultsKey.urlCleanerEnabled) == nil {
-            defaults.set(true, forKey: DefaultsKey.urlCleanerEnabled)
+        if defaults.object(forKey: key) == nil {
+            defaults.set(true, forKey: key)
         }
     }
 

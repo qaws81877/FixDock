@@ -137,6 +137,39 @@ struct Strings {
     let urlCleanerRemovedFormat: String
     let disclosureExpanded: String
     let disclosureCollapsed: String
+    let quitProtectionIntro: String
+    let quitProtectionAccessibilityCaption: String
+    let quitProtectionNeedsAccessibility: String
+    let quitProtectionActiveNow: String
+    let quitProtectionEnabled: String
+    let quitProtectionEnabledCaption: String
+    let quitProtectionMode: String
+    let quitProtectionHold: String
+    let quitProtectionDoublePress: String
+    let quitProtectionExtraModifier: String
+    let quitProtectionHoldDuration: String
+    let quitProtectionDoublePressInterval: String
+    let quitProtectionModifier: String
+    let quitProtectionAppScope: String
+    let quitProtectionAllApps: String
+    let quitProtectionSelectedOnly: String
+    let quitProtectionAllExceptSelected: String
+    let quitProtectionExceptions: String
+    let quitProtectionNoExceptions: String
+    let quitProtectionAddApp: String
+    let quitProtectionRemoveApp: String
+    let quitProtectionFeedback: String
+    let quitProtectionHoldQuitHUDFormat: String
+    let quitProtectionHoldCloseHUDFormat: String
+    let quitProtectionDoubleQuitHUDFormat: String
+    let quitProtectionDoubleCloseHUDFormat: String
+    let quitProtectionExtraQuitHUDFormat: String
+    let quitProtectionExtraCloseHUDFormat: String
+    let quitProtectionCancelHint: String
+    let quitProtectionShiftKey: String
+    let quitProtectionOptionKey: String
+    let quitProtectionControlKey: String
+    let permissionNeededNow: String
     let shortcutTitle: String
     let shortcutCaption: String
     let shortcutRecord: String
@@ -218,7 +251,7 @@ struct Strings {
         launchAtLoginNeedsApplications: "Move FixDock to /Applications, then turn this on again.",
         launchAtLoginNeedsApproval: "macOS is waiting for approval. Turn FixDock on in System Settings → General → Login Items.",
         relaunch: "Relaunch FixDock",
-        featuresIntro: "URL cleaner runs in this build. Installing another tool only remembers it for a later build. Nothing here asks for a permission.",
+        featuresIntro: "URL cleaner and quit and close protection run in this build. Installing another tool only remembers it for a later build. Quit and close protection asks for Accessibility.",
         featuresInstall: "Install",
         featuresRemove: "Remove",
         featuresInstallAll: "Install all",
@@ -274,6 +307,39 @@ struct Strings {
         urlCleanerRemovedFormat: "Removed %@",
         disclosureExpanded: "Expanded",
         disclosureCollapsed: "Collapsed",
+        quitProtectionIntro: "Configure each shortcut independently. The original action passes only after the selected confirmation.",
+        quitProtectionAccessibilityCaption: "Protection uses Accessibility to observe only ⌘Q and ⌘W globally.",
+        quitProtectionNeedsAccessibility: "Protection is off until FixDock has Accessibility.",
+        quitProtectionActiveNow: "Protecting",
+        quitProtectionEnabled: "Protect this shortcut",
+        quitProtectionEnabledCaption: "Other Command shortcuts continue to work normally.",
+        quitProtectionMode: "Confirmation mode",
+        quitProtectionHold: "Hold to confirm",
+        quitProtectionDoublePress: "Double press",
+        quitProtectionExtraModifier: "Require extra modifier",
+        quitProtectionHoldDuration: "Hold duration",
+        quitProtectionDoublePressInterval: "Double press interval",
+        quitProtectionModifier: "Extra modifier",
+        quitProtectionAppScope: "Applications",
+        quitProtectionAllApps: "All applications",
+        quitProtectionSelectedOnly: "Selected applications only",
+        quitProtectionAllExceptSelected: "All except selected applications",
+        quitProtectionExceptions: "Selected applications",
+        quitProtectionNoExceptions: "No applications selected",
+        quitProtectionAddApp: "Add application…",
+        quitProtectionRemoveApp: "Remove",
+        quitProtectionFeedback: "Show visual feedback",
+        quitProtectionHoldQuitHUDFormat: "Hold %@ to quit",
+        quitProtectionHoldCloseHUDFormat: "Hold %@ to close",
+        quitProtectionDoubleQuitHUDFormat: "Press %@ again to quit",
+        quitProtectionDoubleCloseHUDFormat: "Press %@ again to close",
+        quitProtectionExtraQuitHUDFormat: "Use %@ to quit",
+        quitProtectionExtraCloseHUDFormat: "Use %@ to close",
+        quitProtectionCancelHint: "Esc cancels",
+        quitProtectionShiftKey: "Shift",
+        quitProtectionOptionKey: "Option",
+        quitProtectionControlKey: "Control",
+        permissionNeededNow: "An installed tool uses this.",
         shortcutTitle: "Open the panel",
         shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
@@ -281,9 +347,9 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "This build does not need a permission. Later tools will. You can open the system pane and the guide now so the path is familiar.",
+        permissionsIntro: "Quit and close protection needs Accessibility. Nothing else in this build needs a permission. Later tools will ask for more.",
         permissionAccessibility: "Accessibility",
-        permissionAccessibilityDetail: "Later keyboard and protection tools need this to see shortcuts. The shell does not.",
+        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W. Later keyboard tools will too.",
         permissionScreenRecording: "Screen Recording",
         permissionScreenRecordingDetail: "Later screenshot and recording tools need this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
@@ -305,7 +371,7 @@ struct Strings {
         onboardingFeaturesTitle: "Tools, later",
         onboardingFeaturesBody: "These eight are the planned tools, in the order they are added. URL cleaner works now. Choosing another one only saves the choice.",
         onboardingPermissionsTitle: "Permissions",
-        onboardingPermissionsBody: "Nothing in this build reads the screen, the keyboard, or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
+        onboardingPermissionsBody: "Only quit and close protection reads the keyboard, and only ⌘Q and ⌘W. Nothing reads the screen or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
         onboardingFinishTitle: "The icon is in the menu bar",
         onboardingFinishBody: "Click it for the panel. Control-Option-Command-F opens it from anywhere. Right-click the icon for Settings and Quit.",
         onboardingContinue: "Continue",

@@ -8,8 +8,8 @@ import Combine
 /// Bridges the feature catalog to live services.
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
-/// anything that is not installed. URL cleaner is wired. The other catalog
-/// entries still only store the availability key.
+/// anything that is not installed. URL cleaner and quit protection are wired.
+/// The other catalog entries still only store the availability key.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
 
@@ -50,13 +50,24 @@ final class FeatureRuntime: ObservableObject {
                 if feature.hasService { loadedThisSession.insert(feature) }
             }
             Self.bindings[feature]?()
+            if available { requestMissingPermissions(for: feature) }
             changed = true
         }
         if changed { revision += 1 }
     }
 
+    /// Only on install, never at launch: a tool someone chose not to grant
+    /// yet should not prompt on every start. Settings keeps the request.
+    private func requestMissingPermissions(for feature: AppFeature) {
+        Permissions.shared.refresh()
+        if let kind = feature.requiredPermissions.first(where: { !Permissions.shared.isGranted($0) }) {
+            Permissions.shared.request(kind)
+        }
+    }
+
     /// Later steps add a closure per module, in catalog order.
     private static let bindings: [AppFeature: () -> Void] = [
         .urlCleaner: { URLCleanerService.shared.syncWithPreferences() },
+        .quitWindowProtection: { QuitProtectionService.shared.syncWithPreferences() },
     ]
 }
