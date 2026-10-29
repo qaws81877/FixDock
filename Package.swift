@@ -1,25 +1,22 @@
 // swift-tools-version:5.9
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Vorssaint
+// Copyright (C) 2026 FixDock contributors
 
 import PackageDescription
 
+// FixDock is built with build.sh, which pins the macOS SDK and assembles the
+// .app bundle. `swift build` compiles the executable only.
 let package = Package(
-    name: "Vorssaint",
+    name: "FixDock",
     platforms: [.macOS(.v14)],
+    products: [
+        .executable(name: "FixDock", targets: ["FixDock"])
+    ],
     targets: [
-        .systemLibrary(
-            name: "HIDEventSystem",
-            path: "Sources/HIDEventSystem"
-        ),
-        .systemLibrary(
-            name: "VMStatisticsCompat",
-            path: "Sources/VMStatisticsCompat"
-        ),
         .executableTarget(
-            name: "Vorssaint",
-            dependencies: ["VMStatisticsCompat", "HIDEventSystem"],
-            path: "Sources/Vorssaint"
+            name: "FixDock",
+            path: "Sources/FixDock"
         )
     ]
 )

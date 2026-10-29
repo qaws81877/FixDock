@@ -1,255 +1,153 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/logo-dark.svg">
-    <img src="docs/assets/readme/logo.svg" width="220" alt="Vorssaint logo">
-  </picture>
-</p>
+# FixDock
 
-<h1 align="center">Vorssaint</h1>
+Menu bar shell for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
 
-<p align="center">
-  One menu bar icon doing the job of a dozen paid Mac apps.<br>
-  Install only what you use.
-</p>
+This build is the shell only. It has the menu bar icon, settings, the feature catalog, onboarding, the permission guide, shared controls, and one global shortcut. The tools themselves are not included yet.
 
-<p align="center">
-  <a href="https://vorssaint.com">Website</a> ·
-  <a href="#install">Install</a> ·
-  <a href="#everything-it-does">Features</a> ·
-  <a href="#private-by-default">Privacy</a> ·
-  <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="mailto:hello@vorssaint.com">Contact</a> ·
-  <a href="https://discord.gg/M6BwWH4BJp">Discord</a>
-</p>
+## English
 
-<p align="center">
-  <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/v/release/vorssaint/vorssaint-utils?label=release&color=4c8dff" alt="Latest release"></a>
-  <a href="https://github.com/vorssaint/vorssaint-utils/releases"><img src="https://img.shields.io/github/downloads/vorssaint/vorssaint-utils/total?color=4c8dff" alt="Downloads"></a>
-  <a href="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml"><img src="https://github.com/vorssaint/vorssaint-utils/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
-  <a href="#what-you-need"><img src="https://img.shields.io/badge/macOS-14%2B%20Apple%20Silicon-black" alt="macOS 14 and newer, Apple Silicon"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License GPL 3.0 or later"></a>
-</p>
+FixDock is a lightweight macOS 14+ menu bar app for someone who repairs Macs. It is free, it is not sold, and it does not phone home. There is no account, no analytics, and no update check.
 
-<p align="center">
-  <a href="https://buymeacoffee.com/vorssaint">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="217" height="60" alt="Buy Me a Coffee">
-  </a>
-</p>
+The planned tools, in the order they will be added:
 
-<p align="center">
-  For anything private, email
-  <a href="mailto:hello@vorssaint.com"><strong>hello@vorssaint.com</strong></a>.
-</p>
+1. URL cleaner
+2. Quit and close protection
+3. Cleaning mode
+4. Text snippets
+5. AirDrop auto-zip (new; not in the original project)
+6. Cleaner
+7. Screenshot
+8. Screen recorder
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/53716?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-53716" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/53716" alt="vorssaint/vorssaint-utils | Trendshift" width="250" height="55"></a>
-  <a href="https://trendshift.io/repositories/53716?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-53716" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/53716/weekly?language=Swift" alt="vorssaint/vorssaint-utils | Trendshift weekly ranking" width="250" height="55"></a>
-  <a href="https://trendshift.io/repositories/53716?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-53716" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/53716/monthly?language=Swift" alt="vorssaint/vorssaint-utils | Trendshift monthly ranking" width="250" height="55"></a>
-</p>
+In this build those names appear in Settings. Installing one only saves the choice. Nothing runs, and the app does not ask for a permission on its own. You can open the permission guide from Settings to see how a later tool will ask.
 
-<p align="center">
-  <img src="docs/assets/readme/panel-mixer.png" width="196" alt="Volume mixer with per app sliders, one app boosted past 100 percent">
-  <img src="docs/assets/readme/panel-system.png" width="196" alt="System tab with temperatures, usage graphs and memory pressure">
-  <img src="docs/assets/readme/panel-controls.png" width="196" alt="Window controls with the app switcher and Dock features">
-  <img src="docs/assets/readme/panel-utilities.png" width="196" alt="Utilities with cleaner, Homebrew, media tools and clipboard">
-</p>
+### License
 
-Per app volume, a real system monitor, a better app switcher, window snapping, Dock previews, clipboard history, text snippets, a file shelf, an uninstaller. The utilities Mac users usually buy one by one, together behind a single menu bar icon, with no account, no telemetry and no subscription.
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE) (unchanged from upstream) and [NOTICE](NOTICE). Copyright in the original code is Vorssaint and the vorssaint-utils contributors, Copyright (C) 2026. FixDock keeps those headers. Upstream history is in this repository, imported at `1cdbd59b1c7dccd036ec1713b2ea048334990d06`.
 
-## Install only what you use
+The Vorssaint name, logo, and signing identity are not used. See [TRADEMARKS.md](TRADEMARKS.md).
 
-Choose individual features or start with a preset. Uninstalled features stop loading and disappear from the interface; reinstalling restores their settings. Setup asks only for the permissions your choices need.
+### Build and run
 
-<p align="center">
-  <img src="docs/assets/readme/features-hub.png" width="720" alt="The Features hub in Settings, installing and uninstalling whole features">
-</p>
+The build has not been verified here. This checkout was prepared on Linux, which cannot compile a macOS Swift app. On a Mac with Xcode Command Line Tools:
 
-Reorder or hide panel sections, choose a compact layout, and export settings to another Mac. The app supports more than a dozen languages.
+```bash
+xcode-select --install
 
-## Everything it does
-
-### Sound
-
-- **Volume mixer.** Set volume per app, boost quiet audio past 100%, and pin or reorder favorites. No audio driver required.
-- **Per app output.** Play music through speakers while a call uses your headset.
-- **Output switcher.** Switch audio outputs with a shortcut and lower the volume when headphones disconnect.
-- **Microphone tools.** Choose a preferred input, adjust its level on supported devices, and apply available microphone mute or input-volume controls with one shortcut. Siri and some apps may still hear you; Mic Mute is not a privacy lock. Its indicator shows that the feature is on, not that every app receives silence.
-- **Music app blocker.** Prevent unwanted Music launches after detected playback-button presses. Requires Accessibility.
-
-### Know what your Mac is doing
-
-- **System monitor.** CPU, GPU, memory, temperatures, battery health and power use, with history graphs and a view of energy-hungry apps.
-- **Fan Control (beta).** Set manual fan speeds or temperature curves and monitor live RPM.
-- **Menu bar readouts.** Put your chosen readings, usage bars, battery time or fan speed directly in the menu bar.
-- **Network.** See live traffic, session totals and your local IP address, or run a speed test.
-- **Alerts.** Get notified about sustained CPU load, high temperatures, memory pressure, low disk space or low battery.
-
-### Windows and the Dock
-
-- **App switcher.** Switch between apps and windows with live previews, search and display filters. A simpler mode works without screen capture.
-- **Window layout.** Snap windows into layouts, move them between displays and restore earlier positions using shortcuts, screen edges or modifier-drag gestures.
-- **Dock Preview.** Hover over Dock icons to preview windows across desktops. Switch, close, move or snap them from the preview.
-- **Dock clicks.** Click an active app's Dock icon to minimize, hide or cycle through its windows.
-- **Maximize windows.** Use the green button to fill the screen without creating another Space.
-- **Fixed Space order.** Keep Spaces in the order you set instead of rearranging them by recent use. Turning it off restores your previous setting.
-- **Quit on close.** Quit selected apps when their last window closes.
-- **Quit and close protection.** Prevent accidental ⌘Q or ⌘W with a hold, double press or extra modifier, per app.
-
-<p align="center">
-  <img src="docs/assets/readme/quit-protection-hold.png" width="300" alt="The hold-to-confirm prompt showing progress below the Command-Q quit shortcut hint">
-</p>
-
-<p align="center">
-  <img src="docs/assets/readme/window-switcher.gif" width="540" alt="The window switcher showing live thumbnails of open windows">
-</p>
-
-### Keyboard and mouse
-
-- **Text snippets.** Expand short triggers into text with clipboard, date and time variables, or insert snippets from a searchable menu.
-- **Smooth scrolling.** Give your mouse wheel a fluid glide with adjustable speed and response.
-- **Pointer acceleration.** Disable mouse acceleration and restore your previous setting when turned off.
-- **Linear scrolling.** Make every mouse wheel notch scroll the same number of lines, however fast the wheel spins.
-- **Focus follows mouse.** Bring the window under the pointer forward after an adjustable pause.
-- **Scroll direction.** Invert vertical and horizontal mouse scrolling independently of the trackpad.
-- **Scroll sideways while holding a key.** Turn vertical wheel movement into horizontal scrolling while holding a chosen key.
-- **Side buttons.** Use mouse Back and Forward buttons in Finder, browsers and compatible apps.
-- **Mouse button shortcuts.** Assign keys to extra buttons and side wheels, or use button-drag gestures for Spaces and Mission Control.
-- **Middle click.** Turn a three-finger trackpad press into a middle click.
-- **Apps to leave alone.** Exclude chosen apps from mouse enhancements.
-- **Extra click filter.** Ignore accidental rapid clicks from worn mouse buttons without delaying normal clicks.
-- **Key debounce.** Filter repeated letters caused by a worn keyboard.
-- **Super key.** Use Caps Lock or a right-side modifier as a shortcut combination, with a separate tap action and app exclusions.
-- **Keyboard shortcuts.** Manage feature shortcuts in one place, including optional takeover of supported macOS shortcuts while a feature is active.
-
-### Clipboard, files and links
-
-- **Clipboard history.** Search local text, image and file history, pin favorites, preview entries and paste with shortcuts.
-- **Auto clear clipboard.** Clear the system clipboard after a delay, sleep or lock, while keeping saved history.
-- **Paste as plain text.** Paste without formatting while preserving the original clipboard content.
-- **Shelf.** Park files, text and links near your cursor while dragging, then drop or share them later.
-- **Finder shortcuts.** Move files with ⌘X and ⌘V, rename with F2, or paste copied images as PNG files.
-- **Clean URL.** Remove tracking parameters from links, manually or automatically.
-- **Disk image installer.** Install an app from a mounted disk image and eject it, with optional download cleanup.
-
-### Everyday tools
-
-- **Dynamic Island.** Keep music, notifications, calendars, timers, downloads and everyday controls around the camera cutout, or a simulated one on other Macs. Customize sections and shortcuts, with optional lyrics, a live equalizer, camera preview and file tools.
-- **AI agents.** Follow Claude, Codex, OpenCode and GitHub Copilot in the Dynamic Island: plan limits and when they reset where available, tokens, API value, models, projects and live work, with a notice when a long task finishes. Codex's banked resets can be used from there too, and each extra Codex account (`CODEX_HOME`) can have a limits card of its own. Copilot uses local CLI/app session logs; its token totals update when shutdown metrics arrive, and aggregate API-value estimates use base rates.
-- **Command Bar.** Search apps, windows, files, clipboard history, snippets and app menu commands from one field. Calculate, convert units, find emoji or run saved scripts.
-- **Quick panel.** Open a floating palette of favorite tools with ⌃⌘V.
-- **Quick toggles.** Switch appearance, hide desktop icons, eject disks, empty the Trash, lock the screen and more.
-- **Quit apps.** See every open app in one list and quit them one by one, all at once or all but the one in front.
-- **Radial menu.** Open a customizable wheel of apps, files, shortcuts and tools around the pointer, with profiles and submenus.
-- **Scratchpad.** Keep autosaved notes in tabs, with Markdown preview and export, in a floating window or Dynamic Island.
-- **Cleaning Mode.** Lock keyboard input while cleaning, with a black screen or a small visible indicator.
-
-### Capture and create
-
-- **Screen capture.** Switch between screenshots, recording, text recognition and color picking in one selector with a pixel magnifier.
-- **Screenshot.** Capture an area, window, screen or scrolling page. Annotate, crop, redact, add backgrounds and watermarks, pin captures, send them through the Share menu or share an expiring link.
-- **Screen recording.** Record with separate system-audio and microphone tracks. Trim, cut, add automatic zooms, blur private details and export video or GIFs, or share an expiring link.
-- **Camera preview.** Check your camera in a floating mirror or Dynamic Island before a call.
-- **Copy text from screen.** Recognize text offline from any screen area, or read a QR code.
-- **Color picker.** Copy a screen color as HEX, RGB, HSL or SwiftUI code.
-- **Media tools.** Compress and edit videos, batch-convert images, add watermarks, make GIFs and extract text, all locally.
-
-### App management
-
-- **App updates.** Check store apps, package-managed apps and supported developer feeds in one list. Install managed updates together or open an app's own updater.
-- **Cleaner.** Remove caches, logs and app leftovers, manually or on a schedule.
-- **Messaging downloads.** Review, organize or move messaging downloads to the Trash using retention rules.
-- **Uninstaller.** Remove apps and review their related caches, preferences and helpers before moving them to the Trash.
-- **Homebrew manager.** Search, install and remove formulae and casks without opening a terminal.
-- **Port manager.** Find processes listening on network ports and stop them with Kill Process when installed.
-
-### Energy and display
-
-- **Keep awake.** Keep your Mac working on a timer, with the lid closed, or while selected apps, power or external displays are present.
-- **Displays.** Control individual displays and brightness, with hardware control where supported, half or quarter steps for the brightness keys, optional extra dimming below a monitor's minimum, and software dimming as a fallback.
-- **Extra brightness.** Use a MacBook Pro XDR display's HDR headroom to go beyond its normal maximum brightness.
-- **Bluetooth on sleep.** Disconnect Bluetooth during sleep and restore it on wake only if Vorssaint turned it off.
-
-## Install
-
-With [Homebrew](https://brew.sh):
-
-```sh
-brew install --cask vorssaint
+git clone https://github.com/qaws81877/FixDock.git
+cd FixDock
+chmod +x build.sh Tools/uninstall.sh
+./build.sh
+open build/stage/FixDock.app
 ```
 
-Or grab the disk image from the [releases page](https://github.com/vorssaint/vorssaint-utils/releases) and drag Vorssaint into Applications.
+Install into `/Applications` (needed for a stable login item):
 
-Builds are signed with an Apple Developer ID and notarized, so macOS opens them without a fuss and your permissions survive updates.
-
-## Uninstall
-
-With Homebrew:
-
-```sh
-brew uninstall --cask vorssaint
+```bash
+./build.sh --install
+open /Applications/FixDock.app
 ```
 
-To remove Vorssaint completely, including its settings and permissions:
+A second copy that can sit beside the release app:
 
-```sh
+```bash
+./build.sh --dev
+open "build/stage.noindex/FixDock (Developer).app"
+```
+
+The script builds Apple Silicon (`arm64`) only, same as upstream. It signs ad-hoc. To sign with your own identity:
+
+```bash
+FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
+```
+
+Do not use the upstream signing identity. There is no notarization step and no update feed.
+
+Remove FixDock without touching a Vorssaint install:
+
+```bash
 ./Tools/uninstall.sh
 ```
 
-## Private by default
+Click the menu bar icon for the panel. The default shortcut is Control-Option-Command-F. Right-click the icon for Settings and Quit.
 
-Vorssaint is local-first, with no account, analytics or tracking. The network is touched only by things you can see: update checks, the speed test, Homebrew actions, optional online lyric lookup, temporary screenshot or recording links and feedback you explicitly send. The full story is in the [privacy notes](docs/PRIVACY.md).
+### What was removed
 
-Permissions get the same treatment. Every one is optional, the app explains each in plain words, shows which features actually use it, and even tells you when a permission you granted is no longer needed by anything, with a shortcut to revoke it.
+Audio and the mixer, the system monitor, fan control, the notch, window and Dock tools, the app switcher, mouse and scroll tools, Homebrew, app updates, the uninstaller, ports, wallpaper, agent usage, and the other upstream modules. Their source remains in git history at merge commit `7336fd329db673743444ce169c1373097be9765a`. Languages other than English and Korean were removed. Upstream brand images were removed. No third-party font was bundled upstream, and none is bundled here.
 
-<p align="center">
-  <img src="docs/assets/readme/permissions.png" width="720" alt="The Permissions page showing what each permission does, which features use it, and an unused permission warning">
-</p>
+A future personal Homebrew tap is described in [docs/HOMEBREW.md](docs/HOMEBREW.md). The tap is not created yet.
 
-See the [permissions guide](docs/PERMISSIONS.md) for which features need access and what remains available without it.
+## 한국어
 
-## What you need
+FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정, 분석, 업데이트 확인이 없습니다.
 
-- A Mac with Apple Silicon
-- macOS 14 Sonoma or newer
+이 빌드는 껍데기만 있습니다. 메뉴 막대 아이콘, 설정, 기능 목록, 처음 실행 안내, 권한 안내, 공통 화면, 전역 단축키입니다. 도구 코드는 아직 없습니다.
 
-### Build it yourself
+나중에 이 순서로 넣을 도구:
 
-```sh
-git clone https://github.com/vorssaint/vorssaint-utils.git
-cd vorssaint-utils
-./build.sh --dev            # build the separate Developer variant
-./build.sh --dev --install  # install and launch it
+1. 링크 정리
+2. 종료·닫기 보호
+3. 화면 정리 모드
+4. 상용구
+5. AirDrop 자동 압축 (원본에는 없는 새 기능)
+6. Mac 정리
+7. 스크린샷
+8. 화면 녹화
+
+설정에 이름이 보입니다. 설치는 선택만 저장합니다. 이 빌드에서는 실행되지 않고, 앱이 스스로 권한을 요구하지 않습니다. 설정에서 권한 안내를 미리 열어볼 수 있습니다.
+
+### 라이선스
+
+GNU General Public License v3.0 이상. [LICENSE](LICENSE)는 업스트림 그대로입니다. [NOTICE](NOTICE)에 출처와 수정 내용이 있습니다. 원본 저작권은 Vorssaint 및 vorssaint-utils 기여자, Copyright (C) 2026입니다. 소스 헤더를 유지합니다. 업스트림 기록은 이 저장소에 있으며, 가져온 커밋은 `1cdbd59b1c7dccd036ec1713b2ea048334990d06`입니다.
+
+Vorssaint 이름, 로고, 서명 신원은 쓰지 않습니다. [TRADEMARKS.md](TRADEMARKS.md)를 보세요.
+
+### 빌드와 실행
+
+이 빌드는 여기서 검증하지 않았습니다. Linux에서는 macOS Swift 앱을 컴파일할 수 없습니다. Xcode Command Line Tools가 있는 Mac에서:
+
+```bash
+xcode-select --install
+
+git clone https://github.com/qaws81877/FixDock.git
+cd FixDock
+chmod +x build.sh Tools/uninstall.sh
+./build.sh
+open build/stage/FixDock.app
 ```
 
-Xcode Command Line Tools are the only requirement. The [contributing guide](CONTRIBUTING.md) covers the layout and conventions. Official builds come only from the maintainer: the GPL covers the source, while the Vorssaint name, icon and look are covered by [TRADEMARKS.md](TRADEMARKS.md), so forks need their own identity.
+`/Applications`에 설치 (로그인 시 열기는 이곳에 있어야 안정적입니다):
 
-## When something misbehaves
+```bash
+./build.sh --install
+open /Applications/FixDock.app
+```
 
-See [troubleshooting](docs/TROUBLESHOOTING.md) for launch problems, permissions and missing previews, or [support](SUPPORT.md) for help.
+정식 앱과 나란히 두는 개발용 복사본:
 
-## Documentation
+```bash
+./build.sh --dev
+open "build/stage.noindex/FixDock (Developer).app"
+```
 
-- [Privacy](docs/PRIVACY.md), what does and does not leave your Mac
-- [Permissions](docs/PERMISSIONS.md), every macOS permission in plain words
-- [Troubleshooting](docs/TROUBLESHOOTING.md), the common fixes
-- [Contributing](CONTRIBUTING.md), build, layout and conventions
-- [Support](SUPPORT.md), where to get help
-- [Security](SECURITY.md), how to report a vulnerability
+Apple Silicon (`arm64`)만 빌드합니다. 서명은 ad-hoc입니다. 본인 신원으로 서명하려면:
 
-## Community
+```bash
+FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
+```
 
-Vorssaint went from first commit to the front of GitHub trending in three days, top of the Swift charts, and issues and pull requests have shaped every release since. Bug reports, feature ideas and translations are all welcome, starting from the [contributing guide](CONTRIBUTING.md).
+업스트림 서명 신원은 쓰지 마세요. 공증과 업데이트 피드는 없습니다.
 
-Vorssaint is free and will stay that way. If it earned its place in your menu bar, a star helps other people find it, and a [coffee](https://buymeacoffee.com/vorssaint) keeps the maintainer awake, with or without the Keep awake feature.
+Vorssaint 설치는 건드리지 않고 FixDock만 지우려면:
 
-## Acknowledgements
+```bash
+./Tools/uninstall.sh
+```
 
-- App icon designed by [@divisionseven](https://github.com/divisionseven)
+메뉴 막대 아이콘을 누르면 패널이 열립니다. 기본 단축키는 Control-Option-Command-F입니다. 아이콘을 오른쪽 클릭하면 설정과 종료가 나옵니다.
 
-## License
+### 뺀 것
 
-[GPL 3.0 or later](LICENSE), copyright 2026 Vorssaint. The license covers the source code; the Vorssaint name, logo and look are covered separately in [TRADEMARKS.md](TRADEMARKS.md).
+오디오와 믹서, 시스템 모니터, 팬 제어, 노치, 창과 Dock 도구, 앱 전환, 마우스와 스크롤, Homebrew, 앱 업데이트, 제거 도구, 포트, 배경화면, 에이전트 사용량, 그 밖의 업스트림 모듈을 뺐습니다. 소스는 머지 커밋 `7336fd329db673743444ce169c1373097be9765a`의 git 기록에 남아 있습니다. 영어와 한국어 외 언어를 뺐습니다. 업스트림 브랜드 이미지를 뺐습니다. 업스트림은 서드파티 글꼴을 넣지 않았고, 여기도 없습니다.
 
-<p align="center">
-  <sub>Made by <a href="https://x.com/vorssaint">@vorssaint</a></sub>
-</p>
+개인 Homebrew 탭은 [docs/HOMEBREW.md](docs/HOMEBREW.md)에 적어 두었습니다. 탭 저장소는 아직 만들지 않습니다.
