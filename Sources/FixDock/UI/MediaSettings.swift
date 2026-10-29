@@ -6,11 +6,13 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Media tool's workspace: image options, a drop zone and the results.
-/// Adapted from upstream's MediaWorkspaceView, image compression only.
+/// The Media tool's workspace: an Image | Video bar, the chosen tool's
+/// options, a drop zone and the results. Adapted from upstream's
+/// MediaWorkspaceView, image and video compression only.
 struct MediaSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var media = MediaService.shared
+    @AppStorage(DefaultsKey.mediaTool) private var tool = MediaTool.image.rawValue
     @AppStorage(DefaultsKey.mediaImageFormat) private var format = ImageOutputFormat.original.rawValue
     @AppStorage(DefaultsKey.mediaImageMaxDimension) private var maxDimension = 0
     @AppStorage(DefaultsKey.mediaImageMetadata) private var metadata = ImageMetadataPolicy.removeLocation.rawValue
@@ -19,37 +21,45 @@ struct MediaSettings: View {
     var body: some View {
         Form {
             Section {
+                MediaToolBar()
                 Text(s.mediaIntro)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section(s.mediaImageSection) {
-                MediaPresetBar()
-                Picker(s.mediaFormatLabel, selection: $format) {
-                    Text(s.mediaFormatOriginal).tag(ImageOutputFormat.original.rawValue)
-                    Text("JPEG").tag(ImageOutputFormat.jpeg.rawValue)
-                    Text("PNG").tag(ImageOutputFormat.png.rawValue)
-                    Text("HEIC").tag(ImageOutputFormat.heic.rawValue)
-                }
-                Toggle(s.mediaResizeToggle, isOn: Binding(
-                    get: { maxDimension > 0 },
-                    set: { maxDimension = $0 ? 2048 : 0 }
-                ))
-                if maxDimension > 0 {
-                    Stepper(value: $maxDimension,
-                            in: ImageCompressionOptions.maxDimensionRange,
-                            step: 256) {
-                        Text(String(format: s.mediaPixelsFormat, maxDimension))
-                            .monospacedDigit()
+            if MediaTool.from(tool) == .image {
+                Section(s.mediaImageSection) {
+                    MediaPresetBar(key: DefaultsKey.mediaImagePreset, tool: .image)
+                    Picker(s.mediaFormatLabel, selection: $format) {
+                        Text(s.mediaFormatOriginal).tag(ImageOutputFormat.original.rawValue)
+                        Text("JPEG").tag(ImageOutputFormat.jpeg.rawValue)
+                        Text("PNG").tag(ImageOutputFormat.png.rawValue)
+                        Text("HEIC").tag(ImageOutputFormat.heic.rawValue)
                     }
+                    Toggle(s.mediaResizeToggle, isOn: Binding(
+                        get: { maxDimension > 0 },
+                        set: { maxDimension = $0 ? 2048 : 0 }
+                    ))
+                    if maxDimension > 0 {
+                        Stepper(value: $maxDimension,
+                                in: ImageCompressionOptions.maxDimensionRange,
+                                step: 256) {
+                            Text(String(format: s.mediaPixelsFormat, maxDimension))
+                                .monospacedDigit()
+                        }
+                    }
+                    Picker(s.mediaMetadataLabel, selection: $metadata) {
+                        Text(s.mediaMetadataRemoveLocation).tag(ImageMetadataPolicy.removeLocation.rawValue)
+                        Text(s.mediaMetadataKeep).tag(ImageMetadataPolicy.keep.rawValue)
+                        Text(s.mediaMetadataRemoveAll).tag(ImageMetadataPolicy.removeAll.rawValue)
+                    }
+                    MediaOutputPicker()
                 }
-                Picker(s.mediaMetadataLabel, selection: $metadata) {
-                    Text(s.mediaMetadataRemoveLocation).tag(ImageMetadataPolicy.removeLocation.rawValue)
-                    Text(s.mediaMetadataKeep).tag(ImageMetadataPolicy.keep.rawValue)
-                    Text(s.mediaMetadataRemoveAll).tag(ImageMetadataPolicy.removeAll.rawValue)
+            } else {
+                Section(s.mediaVideoSection) {
+                    MediaVideoOptions()
+                    MediaOutputPicker()
                 }
-                MediaOutputPicker()
             }
 
             Section {
@@ -69,12 +79,13 @@ struct MediaSettings: View {
     }
 }
 
-/// The menu panel's Media card: the same engine and saved options, with the
-/// level, the output and the drop zone in reach. Format, size and metadata
-/// stay on the Settings page.
+/// The menu panel's Media card: the tool bar, the drop zone and the options
+/// most often changed. Image format, size and metadata stay on the Settings
+/// page; both read the same saved values.
 struct PanelMediaView: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var media = MediaService.shared
+    @AppStorage(DefaultsKey.mediaTool) private var tool = MediaTool.image.rawValue
 
     var body: some View {
         let s = l10n.s
@@ -89,8 +100,13 @@ struct PanelMediaView: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
+            MediaToolBar()
             MediaDropZone(compact: true)
-            MediaPresetBar()
+            if MediaTool.from(tool) == .image {
+                MediaPresetBar(key: DefaultsKey.mediaImagePreset, tool: .image)
+            } else {
+                MediaVideoOptions()
+            }
             MediaOutputPicker()
             MediaProgressRow()
             if MediaResultsList.hasContent(media) {
@@ -109,10 +125,33 @@ struct PanelMediaView: View {
     }
 }
 
+/// Image | Video, the sub-bar both screens share.
+struct MediaToolBar: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var media = MediaService.shared
+    @AppStorage(DefaultsKey.mediaTool) private var tool = MediaTool.image.rawValue
+
+    var body: some View {
+        Picker("", selection: $tool) {
+            Text(l10n.s.mediaToolImage).tag(MediaTool.image.rawValue)
+            Text(l10n.s.mediaToolVideo).tag(MediaTool.video.rawValue)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .disabled(media.isRunning)
+    }
+}
+
 /// Low, Medium and High as a segmented bar, with what the level means under it.
 struct MediaPresetBar: View {
+    let tool: MediaTool
     @ObservedObject private var l10n = L10n.shared
-    @AppStorage(DefaultsKey.mediaImagePreset) private var preset = CompressionPreset.defaultPreset.rawValue
+    @AppStorage private var preset: String
+
+    init(key: String, tool: MediaTool) {
+        self.tool = tool
+        _preset = AppStorage(wrappedValue: CompressionPreset.defaultPreset.rawValue, key)
+    }
 
     var body: some View {
         let s = l10n.s
@@ -130,17 +169,73 @@ struct MediaPresetBar: View {
             Text(caption(s))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func caption(_ s: Strings) -> String {
-        let level: String
-        switch CompressionPreset.from(preset) {
-        case .low: level = s.mediaPresetLowCaption
-        case .medium: level = s.mediaPresetMediumCaption
-        case .high: level = s.mediaPresetHighCaption
+        let level = CompressionPreset.from(preset)
+        switch tool {
+        case .image:
+            let text: String
+            switch level {
+            case .low: text = s.mediaPresetLowCaption
+            case .medium: text = s.mediaPresetMediumCaption
+            case .high: text = s.mediaPresetHighCaption
+            }
+            return "\(text) \(s.mediaPresetCaption)"
+        case .video:
+            switch level {
+            case .low: return s.mediaVideoLowCaption
+            case .medium: return s.mediaVideoMediumCaption
+            case .high: return s.mediaVideoHighCaption
+            }
         }
-        return "\(level) \(s.mediaPresetCaption)"
+    }
+}
+
+/// Resolution | File size, then the level bar or the target size.
+struct MediaVideoOptions: View {
+    @ObservedObject private var l10n = L10n.shared
+    @AppStorage(DefaultsKey.mediaVideoSizing) private var sizing = VideoSizingMode.resolution.rawValue
+    @AppStorage(DefaultsKey.mediaVideoTargetMegabytes) private var megabytes = VideoCompressionSupport.defaultTargetMegabytes
+
+    var body: some View {
+        let s = l10n.s
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(s.mediaSizingLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Picker(s.mediaSizingLabel, selection: $sizing) {
+                    Text(s.mediaSizingResolution).tag(VideoSizingMode.resolution.rawValue)
+                    Text(s.mediaSizingFileSize).tag(VideoSizingMode.fileSize.rawValue)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            if VideoSizingMode.from(sizing) == .resolution {
+                MediaPresetBar(key: DefaultsKey.mediaVideoPreset, tool: .video)
+            } else {
+                Stepper(value: $megabytes, in: VideoCompressionSupport.targetMegabytesRange) {
+                    HStack {
+                        Text(s.mediaTargetSizeLabel)
+                        Spacer()
+                        Text(String(format: s.mediaMegabytesFormat,
+                                    VideoCompressionSupport.sanitizedTargetMegabytes(megabytes)))
+                            .monospacedDigit()
+                    }
+                }
+                Text(s.mediaTargetSizeCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(s.mediaVideoPrivacyNote)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -168,19 +263,22 @@ struct MediaOutputPicker: View {
     }
 }
 
-/// Click to choose or drop files. Starts the job straight away.
+/// Click to choose or drop files of the current tool. Starts the job at once.
 struct MediaDropZone: View {
     let compact: Bool
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var media = MediaService.shared
+    @AppStorage(DefaultsKey.mediaTool) private var tool = MediaTool.image.rawValue
     @State private var dropTargeted = false
+
+    private var currentTool: MediaTool { MediaTool.from(tool) }
 
     var body: some View {
         VStack(spacing: compact ? 3 : 6) {
-            Image(systemName: "photo.badge.plus")
+            Image(systemName: currentTool == .image ? "photo.badge.plus" : "film.stack")
                 .font(.system(size: compact ? 18 : 26))
                 .foregroundStyle(.secondary)
-            Text(l10n.s.mediaDropHint)
+            Text(currentTool == .image ? l10n.s.mediaDropHint : l10n.s.mediaVideoDropHint)
                 .font(compact ? .caption : .callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -192,7 +290,7 @@ struct MediaDropZone: View {
                 .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary.opacity(0.5))
         )
         .contentShape(Rectangle())
-        .onTapGesture { chooseImages() }
+        .onTapGesture { choose() }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             loadDropped(providers)
             return true
@@ -200,10 +298,10 @@ struct MediaDropZone: View {
         .disabled(media.isRunning)
     }
 
-    private func chooseImages() {
+    private func choose() {
         guard !media.isRunning else { return }
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
+        panel.allowedContentTypes = currentTool == .image ? [.image] : [.movie]
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         let response = compact
@@ -232,7 +330,12 @@ struct MediaDropZone: View {
 
     private func start(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
-        media.compressImages(urls, options: MediaImageSettings.options, output: MediaImageSettings.output)
+        switch currentTool {
+        case .image:
+            media.compressImages(urls, options: MediaImageSettings.options, output: MediaImageSettings.output)
+        case .video:
+            media.compressVideos(urls, sizing: MediaImageSettings.videoSizing, output: MediaImageSettings.output)
+        }
     }
 }
 
@@ -243,10 +346,17 @@ struct MediaProgressRow: View {
     var body: some View {
         if media.isRunning {
             HStack {
-                ProgressView(value: Double(media.completed), total: Double(max(media.total, 1)))
+                ProgressView(value: Double(media.completed) + media.fileProgress,
+                             total: Double(max(media.total, 1)))
                 Text(String(format: l10n.s.mediaRunningFormat, min(media.completed + 1, media.total), media.total))
                     .font(.caption)
                     .monospacedDigit()
+                if media.fileProgress > 0 {
+                    Text(String(format: l10n.s.mediaFileProgressFormat, Int(media.fileProgress * 100)))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
                 Button(l10n.s.mediaCancel) { media.cancel() }
                     .controlSize(.small)
             }
@@ -325,13 +435,18 @@ struct MediaResultsList: View {
         }
     }
 
-    private func detail(_ result: MediaService.ImageResult, _ s: Strings) -> String {
+    private func detail(_ result: MediaService.ItemResult, _ s: Strings) -> String {
         switch result.failure {
-        case .compression(.unreadable): return s.mediaErrorUnreadable
-        case .compression(.unsupported): return s.mediaErrorUnsupported
-        case .compression(.tooLarge): return s.mediaErrorTooLarge
-        case .compression(.encodeFailed): return s.mediaErrorEncode
-        case .compression(.locationRemained): return s.mediaErrorLocation
+        case .image(.unreadable): return s.mediaErrorUnreadable
+        case .image(.unsupported): return s.mediaErrorUnsupported
+        case .image(.tooLarge): return s.mediaErrorTooLarge
+        case .image(.encodeFailed): return s.mediaErrorEncode
+        case .image(.locationRemained): return s.mediaErrorLocation
+        case .video(.noVideoTrack): return s.mediaErrorNoVideo
+        case .video(.unsupported): return s.mediaErrorVideoUnsupported
+        case .video(.targetTooSmall): return s.mediaErrorTargetTooSmall
+        case .video(.cancelled): return s.mediaCancelled
+        case .video(.failed): return s.mediaErrorVideoFailed
         case .write: return s.mediaErrorWrite
         case nil: break
         }
