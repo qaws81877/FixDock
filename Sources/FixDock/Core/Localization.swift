@@ -551,6 +551,10 @@ struct Strings {
     let screenshotToolKeyReserved: String
     let screenshotToolKeyTaken: String
     let screenshotToolKeyRemove: String
+    // Screen recorder (7.7 A+B): add strings below this line.
+    // These two lines keep the blocks apart so the A+B and C
+    // branches merge without touching each other.
+    // Screen recorder editor (7.7 C): add strings below this line.
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1058,6 +1062,10 @@ struct Strings {
         screenshotToolKeyReserved: "The editor uses this key itself.",
         screenshotToolKeyTaken: "%@ already uses this key.",
         screenshotToolKeyRemove: "Remove its own key",
+        // Screen recorder (7.7 A+B): add strings below this line.
+        // These two lines keep the blocks apart so the A+B and C
+        // branches merge without touching each other.
+        // Screen recorder editor (7.7 C): add strings below this line.
         versionFormat: "Version %@"
     )
 }

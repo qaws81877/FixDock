@@ -503,6 +503,10 @@ extension Strings {
         screenshotToolKeyReserved: "편집기가 이 키를 직접 씁니다.",
         screenshotToolKeyTaken: "%@ 도구가 이미 이 키를 씁니다.",
         screenshotToolKeyRemove: "전용 키 지우기",
+        // Screen recorder (7.7 A+B): add strings below this line.
+        // These two lines keep the blocks apart so the A+B and C
+        // branches merge without touching each other.
+        // Screen recorder editor (7.7 C): add strings below this line.
         versionFormat: "버전 %@"
     )
 }
