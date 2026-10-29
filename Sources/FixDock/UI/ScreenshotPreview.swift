@@ -19,14 +19,14 @@ final class ScreenshotPreviewModel: ObservableObject {
 
 /// The small window after a capture: the thumbnail with close, QR (when a
 /// code is found), Copy text, Share and Pin on it, then Trash, Save, Copy and
-/// Edit (later). The thumbnail can be dragged into Finder or another app. A
-/// file is written only by Save or a drop; closing, Esc and Trash leave
-/// nothing on disk. Save, Copy, Pin, a share target and a drop close the
-/// preview, as upstream. QR and Copy text keep it open, since closing would
-/// drop an unsaved capture. Adapted from the upstream quick preview, without
-/// its upload link, notch and editor.
+/// Edit. The thumbnail can be dragged into Finder or another app; a click on
+/// it opens the editor. A file is written only by Save or a drop; closing,
+/// Esc and Trash leave nothing on disk. Save, Copy, Pin, Edit, a share target
+/// and a drop close the preview, as upstream. QR and Copy text keep it open,
+/// since closing would drop an unsaved capture. Adapted from the upstream
+/// quick preview, without its upload link and notch.
 final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegate {
-    enum Action { case save, copy, pin, discard }
+    enum Action { case save, copy, pin, edit, discard }
 
     private let image: CGImage
     private let png: Data
@@ -65,6 +65,7 @@ final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegat
             dragSource: { [weak self] in self?.makeDragWriter() },
             dragEnded: { [weak self] dropped in self?.dragEnded(dropped) },
             dragBegan: { [weak self] in self?.dragging = true; self?.closeWork?.cancel() },
+            clicked: { [weak self] in self?.run(.edit) },
             run: { [weak self] action in self?.run(action) },
             share: { [weak self] in self?.share() },
             showCode: { [weak self] in self?.showCode() },
@@ -251,6 +252,7 @@ final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegat
             switch key {
             case kVK_Escape: self.close()
             case kVK_Delete, kVK_ForwardDelete: self.run(.discard)
+            case kVK_Return, kVK_ANSI_KeypadEnter, kVK_ANSI_E: self.run(.edit)
             default: return event
             }
             return nil
@@ -356,6 +358,7 @@ private struct DragSourceView: NSViewRepresentable {
     let image: CGImage
     let began: () -> Void
     let ended: (Bool) -> Void
+    let clicked: () -> Void
 
     func makeNSView(context: Context) -> DragSourceNSView {
         let view = DragSourceNSView()
@@ -372,6 +375,7 @@ private struct DragSourceView: NSViewRepresentable {
         view.image = image
         view.began = began
         view.ended = ended
+        view.clicked = clicked
     }
 }
 
@@ -380,6 +384,7 @@ private final class DragSourceNSView: NSView, NSDraggingSource {
     var image: CGImage?
     var began: (() -> Void)?
     var ended: ((Bool) -> Void)?
+    var clicked: (() -> Void)?
     private var downAt: CGPoint?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -406,8 +411,12 @@ private final class DragSourceNSView: NSView, NSDraggingSource {
         beginDraggingSession(with: [item], event: event, source: self)
     }
 
+    /// A drag clears `downAt` once it starts, so a press still recorded here
+    /// never became a drag: it is a click.
     override func mouseUp(with event: NSEvent) {
+        let wasClick = downAt != nil
         downAt = nil
+        if wasClick { clicked?() }
     }
 
     func draggingSession(_ session: NSDraggingSession,
@@ -438,6 +447,7 @@ private struct ScreenshotPreviewView: View {
     let dragSource: () -> NSPasteboardWriting?
     let dragEnded: (Bool) -> Void
     let dragBegan: () -> Void
+    let clicked: () -> Void
     let run: (ScreenshotPreviewController.Action) -> Void
     let share: () -> Void
     let showCode: () -> Void
@@ -458,7 +468,8 @@ private struct ScreenshotPreviewView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1))
-                .overlay(DragSourceView(writer: dragSource, image: image, began: dragBegan, ended: dragEnded)
+                .overlay(DragSourceView(writer: dragSource, image: image, began: dragBegan, ended: dragEnded,
+                                        clicked: clicked)
                     .help(s.screenshotPreviewDragHint))
                 .overlay(alignment: .topLeading) {
                     circleButton("xmark", s.screenshotPreviewClose + "  (⎋)", action: dismiss)
@@ -503,10 +514,9 @@ private struct ScreenshotPreviewView: View {
                     run(.copy)
                 }
                 Spacer(minLength: 4)
-                Button(s.screenshotPreviewEdit) {}
+                Button(s.screenshotPreviewEdit) { run(.edit) }
                     .buttonStyle(.borderedProminent)
-                    .disabled(true)
-                    .help(s.screenshotPreviewEditLater)
+                    .help(s.screenshotPreviewEdit + "  (⏎)")
             }
             .controlSize(.small)
         }

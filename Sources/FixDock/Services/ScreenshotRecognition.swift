@@ -5,9 +5,9 @@
 import CoreGraphics
 import Vision
 
-/// Offline Vision reads of a capture for the preview: matrix codes (QR and
-/// relatives) and text. Nothing leaves the Mac. Adapted from the upstream
-/// barcode detector and screen text service.
+/// Offline Vision reads of a capture for the preview and the editor: matrix
+/// codes (QR and relatives), text, and words with their boxes. Nothing leaves
+/// the Mac. Adapted from the upstream barcode detector and screen text service.
 enum ScreenshotRecognition {
     /// What a scanned code holds, and a web link only when a single code is
     /// a plain http or https address.
@@ -43,6 +43,61 @@ enum ScreenshotRecognition {
             lines = recognizedLines(source, level: .fast, detectLanguage: false, languages: languages)
         }
         return ScreenshotSupport.joinedReadingOrder(lines)
+    }
+
+    /// Every word with its box in image pixels (top-left origin), for text
+    /// selection on the editor canvas. Read band by band so a tall scrolling
+    /// capture is never shrunk below legibility; a band Vision fails on adds
+    /// nothing. Adapted from the upstream editor's recognition.
+    static func readWords(_ image: CGImage, languages: [String]) -> [ScreenshotSupport.RecognizedWord] {
+        let width = CGFloat(image.width)
+        let tiles = ScreenshotSupport.recognitionTiles(width: image.width, height: image.height)
+        var reads: [[ScreenshotSupport.BandWord]?] = []
+        var lineOffset = 0
+        for band in tiles {
+            guard let tile = image.cropping(to: band.rect) else {
+                reads.append(nil)
+                continue
+            }
+            let tileY = band.rect.minY
+            let tileHeight = band.rect.height
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.automaticallyDetectsLanguage = true
+            if let supported = try? request.supportedRecognitionLanguages() {
+                let available = languages.filter { supported.contains($0) }
+                if !available.isEmpty { request.recognitionLanguages = available }
+            }
+            guard (try? VNImageRequestHandler(cgImage: tile, options: [:]).perform([request])) != nil else {
+                reads.append(nil)
+                continue
+            }
+            // Vision boxes are normalized with a bottom-left origin.
+            func imageRect(_ box: CGRect) -> CGRect {
+                CGRect(x: box.minX * width, y: tileY + (1 - box.maxY) * tileHeight,
+                       width: box.width * width, height: box.height * tileHeight)
+            }
+            let observations = request.results ?? []
+            var read: [ScreenshotSupport.BandWord] = []
+            for (line, observation) in observations.enumerated() {
+                guard let candidate = observation.topCandidates(1).first else { continue }
+                let lineBox = imageRect(observation.boundingBox)
+                let text = candidate.string
+                var searchStart = text.startIndex
+                for raw in text.split(separator: " ") {
+                    let word = String(raw)
+                    guard let range = text.range(of: word, range: searchStart..<text.endIndex) else { continue }
+                    searchStart = range.upperBound
+                    let box = (try? candidate.boundingBox(for: range))?.boundingBox
+                    read.append(ScreenshotSupport.BandWord(text: word, rect: box.map(imageRect),
+                                                           lineBox: lineBox, line: lineOffset + line))
+                }
+            }
+            reads.append(read)
+            lineOffset += observations.count
+        }
+        return ScreenshotSupport.mergedRecognition(reads, tiles: tiles).words
     }
 
     /// The app's language first, so Korean text reads as Korean.

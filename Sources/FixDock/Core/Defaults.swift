@@ -65,6 +65,12 @@ enum DefaultsKey {
     static let screenshotPreviewPosition = "screenshotPreviewPosition"
     /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
     static let screenshotLastRegions = "screenshotLastRegions"
+    /// The editor's last tool, colour, line width and text size, so the next
+    /// capture opens with them. Read through the sanitizers, never registered.
+    static let screenshotEditorTool = "screenshotEditorTool"
+    static let screenshotEditorColor = "screenshotEditorColor"
+    static let screenshotEditorStroke = "screenshotEditorStroke"
+    static let screenshotEditorTextSize = "screenshotEditorTextSize"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
