@@ -9,7 +9,9 @@ import CoreGraphics
 ///
 /// Quit Protection confirms a press by posting a copy of the hardware key
 /// down, which starts with the hardware source's process id of 0, so the
-/// copy carries this marker in its user data instead.
+/// copy carries this marker in its user data instead. Text Snippets types
+/// through a source carrying its own marker.
 enum OwnKeyEvent {
     static let quitProtectionMarker: Int64 = 0x464958444F434B51 // "FIXDOCKQ"
+    static let textSnippetMarker: Int64 = 0x464958444F434B53 // "FIXDOCKS"
 }

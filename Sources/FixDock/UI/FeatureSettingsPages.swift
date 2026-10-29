@@ -38,8 +38,9 @@ extension AppFeature {
             return page { QuitProtectionSettings() }
         case .cleaningMode:
             return page { CleaningModeSettings() }
-        case .textSnippets,
-             .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
+        case .textSnippets:
+            return page { TextSnippetsSettings() }
+        case .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return nil
         }
     }
