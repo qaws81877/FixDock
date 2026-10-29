@@ -78,9 +78,29 @@ enum BackdropPickerAssets {
 /// gradient builder and the margin, corner and blur sliders. Everything
 /// applies live; the save button keeps a custom look in the presets row.
 /// Adapted from upstream's `ScreenshotBackdropPopover`.
-struct ScreenshotBackdropPopover: View {
-    @ObservedObject var decor: ScreenshotEditorDecor
+/// What the picker needs from whichever editor shows it, as upstream: the
+/// screenshot editor's decor and the recorder editor's model keep the same
+/// `BackdropStyle` and the same saved list.
+protocol BackdropEditing: ObservableObject {
+    var backdropStyle: ScreenshotSupport.BackdropStyle { get set }
+    var backdropPresets: [ScreenshotSupport.BackdropStyle] { get }
+    var showsBackdrop: Bool { get }
+    func saveCurrentBackdropAsPreset()
+    func removeBackdropPreset(at index: Int)
+}
+
+extension ScreenshotEditorDecor: BackdropEditing {}
+
+struct ScreenshotBackdropPopover<Model: BackdropEditing>: View {
+    @ObservedObject var decor: Model
     @ObservedObject private var l10n = L10n.shared
+    /// The recorder editor has its own margin and corner sliders.
+    let showsAdjustments: Bool
+
+    init(decor: Model, showsAdjustments: Bool = true) {
+        self.decor = decor
+        self.showsAdjustments = showsAdjustments
+    }
 
     @State private var wallpapers: [URL] = []
     @State private var customIsGradient = false
@@ -98,8 +118,10 @@ struct ScreenshotBackdropPopover: View {
             swatchGrid
             Divider()
             customSection
-            Divider()
-            slidersSection
+            if showsAdjustments {
+                Divider()
+                slidersSection
+            }
         }
         .padding(14)
         .frame(width: 292)
