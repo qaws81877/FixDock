@@ -77,7 +77,9 @@ struct MenuPanelView: View {
             PanelURLCleanerView(onClose: { appDelegate()?.closePopover() })
         case .quitWindowProtection:
             PanelQuitProtectionRow()
-        case .cleaningMode, .textSnippets,
+        case .cleaningMode:
+            PanelCleaningModeRow()
+        case .textSnippets,
              .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: feature.symbolName)
@@ -129,5 +131,32 @@ private struct PanelQuitProtectionRow: View {
         if service.isWaitingForAccessibility { return strings.quitProtectionNeedsAccessibility }
         if service.isRunning { return strings.quitProtectionActiveNow }
         return strings.featureQuitProtectionSummary
+    }
+}
+
+/// Starts the lock from the panel. The panel closes first so, if the
+/// Accessibility prompt has to show, it is not stranded under the open panel.
+private struct PanelCleaningModeRow: View {
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = l10n.s
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: AppFeature.cleaningMode.symbolName)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(AppFeature.cleaningMode.title(strings))
+                    .font(.system(size: 12, weight: .medium))
+                Text(strings.cleaningModePanelCaption)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button(strings.cleaningModeStartNow) {
+                appDelegate()?.closePopover()
+                CleaningModeManager.shared.activate()
+            }
+            .controlSize(.small)
+        }
     }
 }

@@ -13,7 +13,7 @@ import Foundation
 /// saved availability key still means the same thing when the module returns.
 /// `airdropAutoZip` is new and has no upstream module.
 ///
-/// `urlCleaner` and `quitWindowProtection` have modules. The others still only
+/// `urlCleaner`, `quitWindowProtection` and `cleaningMode` have modules. The others still only
 /// remember a choice: installing them does not load a service.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
@@ -28,13 +28,13 @@ enum AppFeature: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// True once this build contains the service and its binding.
-    var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection }
+    var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode }
 
     /// Grants the module cannot run without. Installing asks for any missing.
     var requiredPermissions: [PermissionKind] {
         switch self {
-        case .quitWindowProtection: return [.accessibility]
-        case .urlCleaner, .cleaningMode, .textSnippets, .airdropAutoZip,
+        case .quitWindowProtection, .cleaningMode: return [.accessibility]
+        case .urlCleaner, .textSnippets, .airdropAutoZip,
              .cleaner, .screenshot, .screenRecorder:
             return []
         }

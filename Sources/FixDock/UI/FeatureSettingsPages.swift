@@ -36,7 +36,9 @@ extension AppFeature {
             return page { URLCleanerSettings() }
         case .quitWindowProtection:
             return page { QuitProtectionSettings() }
-        case .cleaningMode, .textSnippets,
+        case .cleaningMode:
+            return page { CleaningModeSettings() }
+        case .textSnippets,
              .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return nil
         }

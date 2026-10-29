@@ -8,7 +8,8 @@ import Combine
 /// Bridges the feature catalog to live services.
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
-/// anything that is not installed. URL cleaner and quit protection are wired.
+/// anything that is not installed. URL cleaner, quit protection and cleaning
+/// mode are wired.
 /// The other catalog entries still only store the availability key.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
@@ -69,5 +70,6 @@ final class FeatureRuntime: ObservableObject {
     private static let bindings: [AppFeature: () -> Void] = [
         .urlCleaner: { URLCleanerService.shared.syncWithPreferences() },
         .quitWindowProtection: { QuitProtectionService.shared.syncWithPreferences() },
+        .cleaningMode: { CleaningModeManager.shared.syncWithPreferences() },
     ]
 }

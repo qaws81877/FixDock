@@ -239,8 +239,11 @@ def main():
         count = catalog.count(f"case .{name}:")
         if count < 3:
             errors += fail(f"{name} is missing a symbol, title, or summary switch ({count})")
-    if "var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection }" not in catalog:
-        errors += fail("only the URL cleaner and quit protection should have a service in this step")
+    if (
+        "var hasService: Bool { self == .urlCleaner || self == .quitWindowProtection"
+        " || self == .cleaningMode }" not in catalog
+    ):
+        errors += fail("only the URL cleaner, quit protection and cleaning mode should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
