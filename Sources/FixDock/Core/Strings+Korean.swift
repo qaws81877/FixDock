@@ -377,6 +377,16 @@ extension Strings {
         screenshotKeyHelpMove: "드래그 중에 누르고 있으면 영역 이동",
         screenshotWindowLimit: "창은 그림자 없이 창만 캡처됩니다. 창에 붙은 시트와 대화상자는 포함되지 않습니다.",
         shortcutConflict: "다른 FixDock 단축키가 이미 그 조합을 씁니다.",
+        screenshotShowPreview: "캡처 후 미리보기 표시",
+        screenshotPreviewSavesOnly: "복사는 자동입니다. 파일은 미리보기에서 저장을 누를 때만 저장되고, 닫으면 저장되지 않습니다.",
+        screenshotPreviewClose: "저장하지 않고 닫기",
+        screenshotPreviewShare: "공유",
+        screenshotPreviewPinLater: "고정 (다음 업데이트)",
+        screenshotPreviewDiscard: "버리기",
+        screenshotPreviewSave: "저장",
+        screenshotPreviewCopy: "복사",
+        screenshotPreviewEdit: "편집",
+        screenshotPreviewEditLater: "편집기는 다음 업데이트에서 제공됩니다.",
         versionFormat: "버전 %@"
     )
 }

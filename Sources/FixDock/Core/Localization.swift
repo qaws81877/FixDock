@@ -425,6 +425,16 @@ struct Strings {
     let screenshotKeyHelpMove: String
     let screenshotWindowLimit: String
     let shortcutConflict: String
+    let screenshotShowPreview: String
+    let screenshotPreviewSavesOnly: String
+    let screenshotPreviewClose: String
+    let screenshotPreviewShare: String
+    let screenshotPreviewPinLater: String
+    let screenshotPreviewDiscard: String
+    let screenshotPreviewSave: String
+    let screenshotPreviewCopy: String
+    let screenshotPreviewEdit: String
+    let screenshotPreviewEditLater: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -806,6 +816,16 @@ struct Strings {
         screenshotKeyHelpMove: "Hold while dragging to move the area",
         screenshotWindowLimit: "A window is captured on its own, without its shadow. Sheets and dialogs attached to it are not included.",
         shortcutConflict: "Another FixDock shortcut already uses that combination.",
+        screenshotShowPreview: "Show a preview after a capture",
+        screenshotPreviewSavesOnly: "The copy is automatic. A file is saved only when you press Save in the preview; closing it saves nothing.",
+        screenshotPreviewClose: "Close without saving",
+        screenshotPreviewShare: "Share",
+        screenshotPreviewPinLater: "Pin (later update)",
+        screenshotPreviewDiscard: "Discard",
+        screenshotPreviewSave: "Save",
+        screenshotPreviewCopy: "Copy",
+        screenshotPreviewEdit: "Edit",
+        screenshotPreviewEditLater: "The editor comes in a later update.",
         versionFormat: "Version %@"
     )
 }
