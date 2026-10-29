@@ -60,6 +60,9 @@ enum DefaultsKey {
     static let screenshotCopyToClipboard = "screenshotCopyToClipboard"
     /// After a capture, a preview offers Save; the file is written only then.
     static let screenshotShowPreview = "screenshotShowPreview"
+    /// Seconds before an untouched preview closes; 0 keeps it open.
+    static let screenshotPreviewCloseSeconds = "screenshotPreviewCloseSeconds"
+    static let screenshotPreviewPosition = "screenshotPreviewPosition"
     /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
     static let screenshotLastRegions = "screenshotLastRegions"
 
@@ -86,6 +89,8 @@ enum Defaults {
             DefaultsKey.screenshotSaveToFile: true,
             DefaultsKey.screenshotCopyToClipboard: true,
             DefaultsKey.screenshotShowPreview: true,
+            DefaultsKey.screenshotPreviewCloseSeconds: 0,
+            DefaultsKey.screenshotPreviewPosition: ScreenshotSupport.PreviewPosition.bottomRight.rawValue,
         ])
     }
 }

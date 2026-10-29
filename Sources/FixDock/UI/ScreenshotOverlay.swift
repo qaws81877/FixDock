@@ -25,7 +25,8 @@ final class ScreenshotOverlayOptions: ObservableObject {
 final class ScreenshotOverlayController {
     enum Result {
         case cancelled
-        case image(CGImage)
+        /// `anchor` is the captured area in Cocoa screen points.
+        case image(CGImage, anchor: CGRect)
         /// A region for scrolling capture, in the display's own points.
         case scrolling(displayID: CGDirectDisplayID, localRect: CGRect)
         case failed
@@ -85,10 +86,12 @@ final class ScreenshotOverlayController {
 
     fileprivate func pickWindow(_ window: ScreenshotSupport.PickableWindow) {
         guard !finished else { return }
+        let mainHeight = NSScreen.screens.first?.frame.height ?? 0
+        let anchor = ScreenshotSupport.flipped(window.frame, mainScreenHeight: mainHeight)
         closePanels()
         Task { @MainActor in
             let image = await ScreenshotCaptureEngine.captureWindow(window.id)
-            self.finish(image.map(Result.image) ?? .failed)
+            self.finish(image.map { Result.image($0, anchor: anchor) } ?? .failed)
         }
     }
 
@@ -103,12 +106,12 @@ final class ScreenshotOverlayController {
             finish(.failed)
             return
         }
-        finish(.image(image))
+        finish(.image(image, anchor: panel.screenRect(for: localRect)))
     }
 
     fileprivate func pickWholeDisplay(_ panel: ScreenshotOverlayPanel) {
         guard !finished else { return }
-        finish(.image(panel.frozenImage))
+        finish(.image(panel.frozenImage, anchor: panel.screenFrame))
     }
 
     // MARK: - Keys
@@ -210,16 +213,7 @@ final class ScreenshotOverlayController {
             return
         }
         guard let panel = panelUnderMouse(), let hex = panel.overlayView.colorUnderPointer() else { return }
-        GeneralPasteboardAccess.shared.async {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.declareAppSource()
-            pasteboard.setString(hex, forType: .string)
-            let changeCount = pasteboard.changeCount
-            DispatchQueue.main.async {
-                URLCleanerService.shared.ignoreChanges(upTo: changeCount)
-            }
-        }
+        ScreenshotService.copyText(hex)
         showNotice(String(format: L10n.shared.s.screenshotColorCopied, hex))
     }
 
@@ -371,6 +365,12 @@ final class ScreenshotOverlayPanel: OverlayPanel {
     }
 
     override var canBecomeKey: Bool { true }
+
+    /// A rect in this display's flipped local points, in Cocoa screen points.
+    func screenRect(for localRect: CGRect) -> CGRect {
+        CGRect(x: screenFrame.minX + localRect.minX, y: screenFrame.maxY - localRect.maxY,
+               width: localRect.width, height: localRect.height)
+    }
 
     /// The pointer in the overlay view's flipped coordinates.
     var mouseLocationInView: CGPoint {
