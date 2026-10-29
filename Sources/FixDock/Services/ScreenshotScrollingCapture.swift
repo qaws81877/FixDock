@@ -42,6 +42,12 @@ final class ScreenshotScrollingSession: ObservableObject {
         self.screenFrame = screen.frame
     }
 
+    /// The region in Cocoa screen points.
+    var screenRect: CGRect {
+        CGRect(x: screenFrame.minX + localRect.minX, y: screenFrame.maxY - localRect.maxY,
+               width: localRect.width, height: localRect.height)
+    }
+
     func start() {
         showWindows()
         task = Task { [weak self] in await self?.run() }

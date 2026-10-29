@@ -82,7 +82,7 @@ final class ScreenshotService: ObservableObject {
                 self.fail(L10n.shared.s.screenshotCaptureFailed)
                 return
             }
-            self.deliver(image)
+            self.deliver(image, anchor: screen?.frame)
         }
     }
 
@@ -113,8 +113,8 @@ final class ScreenshotService: ObservableObject {
         switch result {
         case .cancelled:
             break
-        case .image(let image):
-            deliver(image)
+        case .image(let image, let anchor):
+            deliver(image, anchor: anchor)
         case .scrolling(let displayID, let localRect):
             startScrolling(displayID: displayID, localRect: localRect)
         case .failed:
@@ -134,7 +134,7 @@ final class ScreenshotService: ObservableObject {
             self.isCapturing = false
             switch result {
             case .image(let image, _):
-                self.deliver(image)
+                self.deliver(image, anchor: session.screenRect)
             case .cancelled:
                 break
             case .failed:
@@ -147,7 +147,9 @@ final class ScreenshotService: ObservableObject {
 
     // MARK: - Output
 
-    func deliver(_ image: CGImage) {
+    /// `anchor` is the captured area in Cocoa screen points: where the
+    /// automatic preview sits, and the scale a pin is drawn at.
+    func deliver(_ image: CGImage, anchor: CGRect? = nil) {
         let defaults = UserDefaults.standard
         let save = defaults.bool(forKey: DefaultsKey.screenshotSaveToFile)
         let copy = defaults.bool(forKey: DefaultsKey.screenshotCopyToClipboard)
@@ -156,7 +158,7 @@ final class ScreenshotService: ObservableObject {
             return
         }
         if defaults.bool(forKey: DefaultsKey.screenshotShowPreview) {
-            showPreview(image, png: png, copy: copy)
+            showPreview(image, png: png, copy: copy, anchor: anchor)
             return
         }
         var outcome: Outcome = .copied
@@ -180,14 +182,14 @@ final class ScreenshotService: ObservableObject {
     /// With the preview on, only the copy is automatic. The file is written
     /// when Save is pressed there; closing the preview keeps nothing on disk.
     /// A new capture replaces a preview still on screen.
-    private func showPreview(_ image: CGImage, png: Data, copy: Bool) {
+    private func showPreview(_ image: CGImage, png: Data, copy: Bool, anchor: CGRect?) {
         preview?.close()
         if copy {
             copyToClipboard(image, png: png)
             lastOutcome = .copied
         }
         let controller = ScreenshotPreviewController(
-            image: image, copied: copy,
+            image: image, png: png, anchor: anchor, copied: copy,
             perform: { [weak self] action in
                 guard let self else { return false }
                 switch action {
@@ -203,6 +205,11 @@ final class ScreenshotService: ObservableObject {
                 case .copy:
                     self.copyToClipboard(image, png: png)
                     self.lastOutcome = .copied
+                    return true
+                case .pin:
+                    let scale = anchor.map { $0.width > 0 ? CGFloat(image.width) / $0.width : 2 }
+                        ?? (NSScreen.main?.backingScaleFactor ?? 2)
+                    ScreenshotPinController.shared.pin(image: image, scale: max(1, scale))
                     return true
                 case .discard:
                     // Nothing was written: Save closes the preview, so a
@@ -253,6 +260,30 @@ final class ScreenshotService: ObservableObject {
         }
         ScreenshotSupport.markAsScreenCapture(url)
         return .success(url)
+    }
+
+    /// The image on the clipboard, for a pin's Copy.
+    func copyImage(_ image: CGImage) {
+        guard let png = Self.pngData(image) else {
+            NSSound.beep()
+            return
+        }
+        copyToClipboard(image, png: png)
+    }
+
+    /// Text on the clipboard (a QR payload, recognized text, a colour), marked
+    /// as FixDock's so the URL cleaner leaves it alone.
+    static func copyText(_ text: String) {
+        GeneralPasteboardAccess.shared.async {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.declareAppSource()
+            pasteboard.setString(text, forType: .string)
+            let changeCount = pasteboard.changeCount
+            DispatchQueue.main.async {
+                URLCleanerService.shared.ignoreChanges(upTo: changeCount)
+            }
+        }
     }
 
     /// Image data only, no file URL, so the URL cleaner never sees a path and

@@ -177,6 +177,101 @@ enum ScreenshotSupport {
         String(format: "#%02X%02X%02X", red, green, blue)
     }
 
+    // MARK: - Preview
+
+    /// Where the preview sits. `automatic` is beside the captured area.
+    enum PreviewPosition: String, CaseIterable, Identifiable {
+        case automatic
+        case bottomRight
+        case bottomLeft
+        case topRight
+        case topLeft
+
+        var id: String { rawValue }
+    }
+
+    /// Seconds before an untouched preview closes; 0 keeps it open.
+    static let previewCloseChoices = [0, 5, 10, 30]
+
+    /// The preview's frame in Cocoa screen points. A corner sits inside the
+    /// visible frame; automatic sits beside the captured area, else beside
+    /// the pointer. Adapted from upstream.
+    static func previewFrame(size: CGSize, anchor: CGRect?, pointer: CGPoint,
+                             visibleFrame: CGRect, position: PreviewPosition) -> CGRect {
+        let inset: CGFloat = 16
+        let usable = visibleFrame.insetBy(dx: inset, dy: inset)
+        let right = max(usable.minX, usable.maxX - size.width)
+        let top = max(usable.minY, usable.maxY - size.height)
+        switch position {
+        case .bottomRight: return CGRect(origin: CGPoint(x: right, y: usable.minY), size: size)
+        case .bottomLeft: return CGRect(origin: CGPoint(x: usable.minX, y: usable.minY), size: size)
+        case .topRight: return CGRect(origin: CGPoint(x: right, y: top), size: size)
+        case .topLeft: return CGRect(origin: CGPoint(x: usable.minX, y: top), size: size)
+        case .automatic:
+            break
+        }
+        let area = anchor ?? CGRect(origin: pointer, size: .zero)
+        let gap: CGFloat = 14
+        var x = area.maxX + gap
+        if x + size.width > usable.maxX { x = area.minX - size.width - gap }
+        if x < usable.minX || x + size.width > usable.maxX { x = pointer.x + gap }
+        var y = area.midY - size.height / 2
+        if y < usable.minY || y + size.height > usable.maxY {
+            let below = area.minY - size.height - gap
+            let above = area.maxY + gap
+            if below >= usable.minY {
+                y = below
+            } else if above + size.height <= usable.maxY {
+                y = above
+            } else {
+                y = pointer.y - size.height / 2
+            }
+        }
+        x = min(max(x, usable.minX), right)
+        y = min(max(y, usable.minY), top)
+        return CGRect(origin: CGPoint(x: x, y: y), size: size)
+    }
+
+    // MARK: - Recognized text and codes
+
+    /// One recognized line or code with its normalized position (bottom-left
+    /// origin, as Vision reports it).
+    struct RecognizedItem {
+        let text: String
+        let x: Double
+        let y: Double
+    }
+
+    /// Lines in reading order: top to bottom, left to right within a visual
+    /// row. Empty lines are dropped. Adapted from upstream.
+    static func joinedReadingOrder(_ items: [RecognizedItem]) -> String {
+        items
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .sorted {
+                // Vision's y grows upward; rows are bucketed so small
+                // baseline wobbles do not shuffle words of one line.
+                let rowA = (1 - $0.y) * 50
+                let rowB = (1 - $1.y) * 50
+                if abs(rowA - rowB) >= 0.5 { return rowA < rowB }
+                return $0.x < $1.x
+            }
+            .map(\.text)
+            .joined(separator: "\n")
+    }
+
+    /// A scanned payload as a web link for the Open button: http and https
+    /// only, so a code can never launch another URL scheme. Adapted from
+    /// upstream.
+    static func openableURL(from payload: String) -> URL? {
+        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(where: { $0.isWhitespace }),
+              let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = url.host, !host.isEmpty
+        else { return nil }
+        return url
+    }
+
     // MARK: - Scrolling capture
 
     /// One frame reduced to a grey value per sampled column for every pixel

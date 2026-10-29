@@ -429,12 +429,35 @@ struct Strings {
     let screenshotPreviewSavesOnly: String
     let screenshotPreviewClose: String
     let screenshotPreviewShare: String
-    let screenshotPreviewPinLater: String
     let screenshotPreviewDiscard: String
     let screenshotPreviewSave: String
     let screenshotPreviewCopy: String
     let screenshotPreviewEdit: String
     let screenshotPreviewEditLater: String
+    let screenshotPreviewPin: String
+    let screenshotPreviewQR: String
+    let screenshotPreviewCopyText: String
+    let screenshotPreviewTextCopied: String
+    let screenshotPreviewNoText: String
+    let screenshotPreviewDragHint: String
+    let screenshotPreviewPositionTitle: String
+    let screenshotPreviewPositionAutomatic: String
+    let screenshotPreviewPositionBottomRight: String
+    let screenshotPreviewPositionBottomLeft: String
+    let screenshotPreviewPositionTopRight: String
+    let screenshotPreviewPositionTopLeft: String
+    let screenshotPreviewCloseTitle: String
+    let screenshotPreviewCloseNever: String
+    let screenshotPreviewCloseAfter: String
+    let screenshotPreviewCloseWarning: String
+    let screenshotQRTitle: String
+    let screenshotQRCopy: String
+    let screenshotQROpen: String
+    let screenshotPinSaveAs: String
+    let screenshotPinOpacity: String
+    let screenshotPinClickThrough: String
+    let screenshotPinClose: String
+    let screenshotPinCloseAll: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -820,12 +843,35 @@ struct Strings {
         screenshotPreviewSavesOnly: "The copy is automatic. A file is saved only when you press Save in the preview; closing it saves nothing.",
         screenshotPreviewClose: "Close without saving",
         screenshotPreviewShare: "Share",
-        screenshotPreviewPinLater: "Pin (later update)",
         screenshotPreviewDiscard: "Discard",
         screenshotPreviewSave: "Save",
         screenshotPreviewCopy: "Copy",
         screenshotPreviewEdit: "Edit",
         screenshotPreviewEditLater: "The editor comes in a later update.",
+        screenshotPreviewPin: "Pin above other windows",
+        screenshotPreviewQR: "Show the QR code's content",
+        screenshotPreviewCopyText: "Copy the text in the capture",
+        screenshotPreviewTextCopied: "Text copied",
+        screenshotPreviewNoText: "No text found",
+        screenshotPreviewDragHint: "Drag into Finder or another app",
+        screenshotPreviewPositionTitle: "Preview position",
+        screenshotPreviewPositionAutomatic: "Beside the capture",
+        screenshotPreviewPositionBottomRight: "Bottom right",
+        screenshotPreviewPositionBottomLeft: "Bottom left",
+        screenshotPreviewPositionTopRight: "Top right",
+        screenshotPreviewPositionTopLeft: "Top left",
+        screenshotPreviewCloseTitle: "Close the preview",
+        screenshotPreviewCloseNever: "Never",
+        screenshotPreviewCloseAfter: "After %ld seconds",
+        screenshotPreviewCloseWarning: "A preview that closes by itself saves no file; the capture stays only on the clipboard. Hovering over it keeps it open.",
+        screenshotQRTitle: "QR code",
+        screenshotQRCopy: "Copy",
+        screenshotQROpen: "Open link",
+        screenshotPinSaveAs: "Save As…",
+        screenshotPinOpacity: "Opacity",
+        screenshotPinClickThrough: "Click through (Option-click to undo)",
+        screenshotPinClose: "Close",
+        screenshotPinCloseAll: "Close all pins",
         versionFormat: "Version %@"
     )
 }

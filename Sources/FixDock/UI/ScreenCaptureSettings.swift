@@ -52,6 +52,9 @@ private struct ScreenshotSettingsTab: View {
     @AppStorage(DefaultsKey.screenshotCopyToClipboard) private var copyToClipboard = true
     @AppStorage(DefaultsKey.screenshotSaveFolder) private var saveFolder = ""
     @AppStorage(DefaultsKey.screenshotShowPreview) private var showPreview = true
+    @AppStorage(DefaultsKey.screenshotPreviewCloseSeconds) private var closeSeconds = 0
+    @AppStorage(DefaultsKey.screenshotPreviewPosition) private var position =
+        ScreenshotSupport.PreviewPosition.bottomRight.rawValue
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -77,6 +80,23 @@ private struct ScreenshotSettingsTab: View {
                     Text(s.screenshotPreviewSavesOnly)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Picker(s.screenshotPreviewPositionTitle, selection: $position) {
+                        ForEach(ScreenshotSupport.PreviewPosition.allCases) { choice in
+                            Text(positionTitle(choice)).tag(choice.rawValue)
+                        }
+                    }
+                    Picker(s.screenshotPreviewCloseTitle, selection: $closeSeconds) {
+                        ForEach(ScreenshotSupport.previewCloseChoices, id: \.self) { seconds in
+                            Text(seconds == 0 ? s.screenshotPreviewCloseNever
+                                 : String(format: s.screenshotPreviewCloseAfter, seconds))
+                                .tag(seconds)
+                        }
+                    }
+                    if closeSeconds > 0 {
+                        Text(s.screenshotPreviewCloseWarning)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 } else {
                     Toggle(s.screenshotSaveToFile, isOn: $saveToFile)
                 }
@@ -120,6 +140,16 @@ private struct ScreenshotSettingsTab: View {
         }
         .formStyle(.grouped)
         .onAppear { permissions.refresh() }
+    }
+
+    private func positionTitle(_ position: ScreenshotSupport.PreviewPosition) -> String {
+        switch position {
+        case .automatic: return s.screenshotPreviewPositionAutomatic
+        case .bottomRight: return s.screenshotPreviewPositionBottomRight
+        case .bottomLeft: return s.screenshotPreviewPositionBottomLeft
+        case .topRight: return s.screenshotPreviewPositionTopRight
+        case .topLeft: return s.screenshotPreviewPositionTopLeft
+        }
     }
 
     private var keyRows: [(String, String)] {
