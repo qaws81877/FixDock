@@ -4,8 +4,8 @@
 
 import SwiftUI
 
-/// The feature catalog as a list. Settings shows install buttons. Onboarding
-/// shows the same rows without them.
+/// The feature catalog as a list. Settings and onboarding both show install
+/// buttons when `showsInstallButtons` is true.
 struct FeatureHubList: View {
     var showsInstallButtons: Bool
     @ObservedObject private var l10n = L10n.shared
@@ -39,7 +39,7 @@ struct FeatureHubList: View {
                 }
             }
             ForEach(FeatureGroup.allCases) { group in
-                let features = AppFeature.allCases.filter { $0.group == group }
+                let features = group.features
                 if !features.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         sectionTitle(group.title(strings))
@@ -85,8 +85,8 @@ struct FeatureRow: View {
                 Button(feature.isAvailable ? strings.featuresRemove : strings.featuresInstall) {
                     let turningOn = !feature.isAvailable
                     runtime.setAvailable([feature], turningOn)
-                    if turningOn, feature == .urlCleaner {
-                        SettingsNavigation.shared.page = .urlCleaner
+                    if turningOn, let page = feature.settingsPage {
+                        SettingsNavigator.shared.open(.feature(page))
                     }
                 }
                 .controlSize(.small)

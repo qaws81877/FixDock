@@ -97,11 +97,16 @@ enum AppFeature: String, CaseIterable, Identifiable {
     }
 }
 
-/// Hub sections, in display order.
+/// Hub sections and Settings sidebar categories, in display order.
 enum FeatureGroup: String, CaseIterable, Identifiable {
     case files, keyboard, tools
 
     var id: String { rawValue }
+
+    /// Members in catalog declaration order. Shared by the hub and sidebar.
+    var features: [AppFeature] {
+        AppFeature.allCases.filter { $0.group == self }
+    }
 
     func title(_ strings: Strings) -> String {
         switch self {

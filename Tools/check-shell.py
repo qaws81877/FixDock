@@ -242,6 +242,58 @@ def main():
     if "var hasService: Bool { self == .urlCleaner }" not in catalog:
         errors += fail("only the URL cleaner should have a service in this step")
 
+    sources_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in swift_files
+    )
+    if re.search(r"\bSettingsPage\b", sources_text):
+        errors += fail("SettingsPage must not be reintroduced")
+    if re.search(r"\bSettingsNavigation\b", sources_text):
+        errors += fail("SettingsNavigation must not be reintroduced")
+
+    settings_pages = ROOT / "Sources/FixDock/UI/FeatureSettingsPages.swift"
+    if not settings_pages.exists():
+        errors += fail("FeatureSettingsPages.swift is missing")
+    else:
+        pages_text = settings_pages.read_text(encoding="utf-8")
+        if "default:" in pages_text.split("var settingsPage", 1)[-1].split(
+            "private func page", 1
+        )[0]:
+            errors += fail("settingsPage switch must not use default:")
+        switch_body = pages_text.split("var settingsPage", 1)[-1].split(
+            "private func page", 1
+        )[0]
+        for name in FEATURE_ORDER:
+            if f".{name}" not in switch_body:
+                errors += fail(f"settingsPage switch is missing .{name}")
+
+    for path in swift_files:
+        relative = str(path.relative_to(ROOT))
+        if relative.endswith("FeatureRuntime.swift"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        # Availability writes belong only in FeatureRuntime.
+        if re.search(
+            r"UserDefaults\.standard\.set\([^,\n]+,\s*forKey:\s*(?:feature\.)?availabilityKey",
+            text,
+        ):
+            errors += fail(f"{relative} writes availability outside FeatureRuntime")
+
+    settings_view = (ROOT / "Sources/FixDock/UI/SettingsView.swift").read_text(
+        encoding="utf-8"
+    )
+    # Sidebar List must not use .id( — revision identity belongs on the hub.
+    if "List(selection:" in settings_view:
+        after_list = settings_view.split("List(selection:", 1)[1]
+        sidebar_block = after_list.split("Divider()", 1)[0]
+        if re.search(r"\.id\s*\(", sidebar_block):
+            errors += fail("Settings sidebar List must not use .id(")
+
+    hub = (ROOT / "Sources/FixDock/UI/FeatureHubView.swift").read_text(encoding="utf-8")
+    if re.search(r"==\s*\.urlCleaner", hub):
+        errors += fail("FeatureHubView must not hard-code == .urlCleaner navigation")
+    if "SettingsNavigator.shared.open" not in hub or "settingsPage" not in hub:
+        errors += fail("FeatureHubView should navigate via settingsPage + open")
+
     lproj = sorted(p.name for p in (ROOT / "Resources").glob("*.lproj"))
     if lproj != ["en.lproj", "ko.lproj"]:
         errors += fail(f"localizations are {lproj}, expected en and ko only")

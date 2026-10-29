@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         LaunchAtLogin.repairAtStartup()
         Permissions.shared.refresh()
         FeatureRuntime.shared.syncAtLaunch()
+        SettingsNavigator.shared.syncAtLaunch()
         if !UserDefaults.standard.bool(forKey: DefaultsKey.onboardingComplete) {
             showOnboarding()
         }
@@ -55,12 +56,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             popover.performClose(nil)
             return
         }
+        MenuPanelExpansion.shared.resetToDefaults()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate()
     }
 
     func openSettings() {
         popover?.performClose(nil)
+        SettingsNavigator.shared.resetExpansion()
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
         window.title = L10n.shared.s.settingsTitle
