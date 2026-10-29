@@ -170,6 +170,23 @@ struct Strings {
     let quitProtectionOptionKey: String
     let quitProtectionControlKey: String
     let permissionNeededNow: String
+    let cleaningModeStartNow: String
+    let cleaningModePanelCaption: String
+    let cleaningModeUnlockCaption: String
+    let cleaningModeNeedsAccessibility: String
+    let cleaningModeOverlayTitle: String
+    let cleaningModeOverlaySubtitle: String
+    let cleaningModeOverlayUnlock: String
+    let cleaningModeOverlayMouseHint: String
+    let cleaningModeKeepScreenVisibleToggle: String
+    let cleaningModeKeepScreenVisibleCaption: String
+    let cleaningModeClickPolicyTitle: String
+    let cleaningModeClickPolicyAllow: String
+    let cleaningModeClickPolicyHold: String
+    let cleaningModeClickPolicyBlock: String
+    let cleaningModeClickPolicyCaption: String
+    let cleaningModeOverlayHoldUnlock: String
+    let cleaningModeOverlayAutoUnlockHint: String
     let shortcutTitle: String
     let shortcutCaption: String
     let shortcutRecord: String
@@ -251,7 +268,7 @@ struct Strings {
         launchAtLoginNeedsApplications: "Move FixDock to /Applications, then turn this on again.",
         launchAtLoginNeedsApproval: "macOS is waiting for approval. Turn FixDock on in System Settings → General → Login Items.",
         relaunch: "Relaunch FixDock",
-        featuresIntro: "URL cleaner and quit and close protection run in this build. Installing another tool only remembers it for a later build. Quit and close protection asks for Accessibility.",
+        featuresIntro: "Tools marked Not in this build only remember the choice for a later build. Keyboard tools ask for Accessibility when you install them.",
         featuresInstall: "Install",
         featuresRemove: "Remove",
         featuresInstallAll: "Install all",
@@ -266,7 +283,7 @@ struct Strings {
         featureQuitProtectionName: "Quit and close protection",
         featureQuitProtectionSummary: "Ask before a shortcut quits an app or closes a window.",
         featureCleaningModeName: "Cleaning mode",
-        featureCleaningModeSummary: "Hide the desktop while you show a Mac to a customer.",
+        featureCleaningModeSummary: "Locks the keyboard while you clean the screen or keyboard.",
         featureSnippetsName: "Text snippets",
         featureSnippetsSummary: "Expand a short abbreviation into text you type often.",
         featureAirDropName: "AirDrop auto-zip",
@@ -340,6 +357,23 @@ struct Strings {
         quitProtectionOptionKey: "Option",
         quitProtectionControlKey: "Control",
         permissionNeededNow: "An installed tool uses this.",
+        cleaningModeStartNow: "Lock keyboard now",
+        cleaningModePanelCaption: "Locks the keyboard so you can clean safely.",
+        cleaningModeUnlockCaption: "Press Escape 5 times to end it. The setting below decides what the mouse can do.",
+        cleaningModeNeedsAccessibility: "Cleaning mode needs Accessibility to lock the keyboard.",
+        cleaningModeOverlayTitle: "Keyboard locked for cleaning",
+        cleaningModeOverlaySubtitle: "Press Escape 5 times to unlock",
+        cleaningModeOverlayUnlock: "Unlock",
+        cleaningModeOverlayMouseHint: "Your mouse and trackpad still work",
+        cleaningModeKeepScreenVisibleToggle: "Keep screen visible",
+        cleaningModeKeepScreenVisibleCaption: "Shows a discreet indicator in the corner of the screen instead of blacking out content.",
+        cleaningModeClickPolicyTitle: "Clicks while locked",
+        cleaningModeClickPolicyAllow: "Allow clicks; click Unlock to end",
+        cleaningModeClickPolicyHold: "Allow clicks; hold Unlock for 2 seconds",
+        cleaningModeClickPolicyBlock: "Block clicks; unlock by itself after 3 minutes",
+        cleaningModeClickPolicyCaption: "Escape 5 times unlocks in every mode. With clicks blocked the pointer still moves, but nothing on screen can be clicked.",
+        cleaningModeOverlayHoldUnlock: "Hold to unlock",
+        cleaningModeOverlayAutoUnlockHint: "Clicks are blocked. The lock ends by itself after 3 minutes.",
         shortcutTitle: "Open the panel",
         shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
@@ -347,9 +381,9 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "Quit and close protection needs Accessibility. Nothing else in this build needs a permission. Later tools will ask for more.",
+        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection and cleaning mode. Nothing else in this build needs a permission. Later tools will ask for more.",
         permissionAccessibility: "Accessibility",
-        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W. Later keyboard tools will too.",
+        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W. Cleaning mode uses it to lock the keyboard.",
         permissionScreenRecording: "Screen Recording",
         permissionScreenRecordingDetail: "Later screenshot and recording tools need this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
@@ -371,7 +405,7 @@ struct Strings {
         onboardingFeaturesTitle: "Tools, later",
         onboardingFeaturesBody: "These eight are the planned tools, in the order they are added. URL cleaner works now. Choosing another one only saves the choice.",
         onboardingPermissionsTitle: "Permissions",
-        onboardingPermissionsBody: "Only quit and close protection reads the keyboard, and only ⌘Q and ⌘W. Nothing reads the screen or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
+        onboardingPermissionsBody: "Only the keyboard tools touch the keyboard: quit and close protection watches ⌘Q and ⌘W, and cleaning mode blocks keys only while it is on. Nothing reads the screen or your files. When a tool needs a permission, FixDock asks then and shows a small guide beside System Settings.",
         onboardingFinishTitle: "The icon is in the menu bar",
         onboardingFinishBody: "Click it for the panel. Control-Option-Command-F opens it from anywhere. Right-click the icon for Settings and Quit.",
         onboardingContinue: "Continue",
