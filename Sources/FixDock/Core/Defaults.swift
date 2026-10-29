@@ -50,6 +50,16 @@ enum DefaultsKey {
     static let mediaImageFormat = "mediaImageFormat"
     static let mediaImageMaxDimension = "mediaImageMaxDimension"
     static let mediaImageMetadata = "mediaImageMetadata"
+    static let screenshotOverlayShortcut = "screenshotOverlayShortcut"
+    static let screenshotOverlayShortcutEnabled = "screenshotOverlayShortcutEnabled"
+    static let screenshotFullScreenShortcut = "screenshotFullScreenShortcut"
+    static let screenshotFullScreenShortcutEnabled = "screenshotFullScreenShortcutEnabled"
+    /// Folder path for saved captures; empty means the Desktop.
+    static let screenshotSaveFolder = "screenshotSaveFolder"
+    static let screenshotSaveToFile = "screenshotSaveToFile"
+    static let screenshotCopyToClipboard = "screenshotCopyToClipboard"
+    /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
+    static let screenshotLastRegions = "screenshotLastRegions"
 
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
@@ -69,6 +79,10 @@ enum Defaults {
             DefaultsKey.quitProtectionCloseHoldDurationMs: QuitProtectionSupport.defaultHoldDurationMilliseconds,
             DefaultsKey.quitProtectionQuitDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
             DefaultsKey.quitProtectionCloseDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
+            DefaultsKey.screenshotOverlayShortcutEnabled: true,
+            DefaultsKey.screenshotFullScreenShortcutEnabled: true,
+            DefaultsKey.screenshotSaveToFile: true,
+            DefaultsKey.screenshotCopyToClipboard: true,
         ])
     }
 }

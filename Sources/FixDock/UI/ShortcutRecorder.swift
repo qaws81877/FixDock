@@ -6,12 +6,19 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Listens for one key combination and stores it as the panel shortcut.
+/// Listens for one key combination and stores it for one shortcut role.
+/// A combination another FixDock shortcut already uses is refused.
 final class ShortcutRecorderModel: ObservableObject {
     @Published var recording = false
-    @Published var shortcut = GlobalShortcut.saved(for: DefaultsKey.panelShortcut,
-                                                   fallback: .panelDefault)
+    @Published var shortcut: GlobalShortcut
+    @Published var conflict = false
+    let role: HotkeyRole
     private var monitor: Any?
+
+    init(role: HotkeyRole = .panel) {
+        self.role = role
+        shortcut = role.saved
+    }
 
     func toggle() {
         recording ? cancel() : start()
@@ -19,6 +26,7 @@ final class ShortcutRecorderModel: ObservableObject {
 
     func start() {
         recording = true
+        conflict = false
         HotkeyManager.shared.setSuspended(true)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -29,7 +37,7 @@ final class ShortcutRecorderModel: ObservableObject {
                 return nil
             }
             if GlobalShortcut.clearsShortcut(keyCode: keyCode, modifiers: modifiers) {
-                self.commit(.panelDefault)
+                self.commit(self.role.fallback)
                 return nil
             }
             let candidate = GlobalShortcut(keyCode: keyCode, modifiers: modifiers)
@@ -40,17 +48,22 @@ final class ShortcutRecorderModel: ObservableObject {
     }
 
     func cancel() {
+        guard recording else { return }
         stopMonitoring()
         recording = false
-        HotkeyManager.shared.sync()
+        HotkeyManager.shared.setSuspended(false)
     }
 
     private func commit(_ shortcut: GlobalShortcut) {
-        self.shortcut = shortcut
-        UserDefaults.standard.set(shortcut.storageValue, forKey: DefaultsKey.panelShortcut)
         stopMonitoring()
         recording = false
-        HotkeyManager.shared.sync()
+        if HotkeyManager.shared.role(using: shortcut, except: role) != nil {
+            conflict = true
+        } else {
+            self.shortcut = shortcut
+            UserDefaults.standard.set(shortcut.storageValue, forKey: role.storageKey)
+        }
+        HotkeyManager.shared.setSuspended(false)
     }
 
     private func stopMonitoring() {
@@ -81,17 +94,67 @@ struct ShortcutRecorder: View {
                     model.toggle()
                 }
             }
-            if model.recording {
-                Text("\(strings.shortcutRecording) \(strings.shortcutEscapeHint) \(strings.shortcutDeleteHint)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if hotkeys.registrationFailed, !model.recording {
-                Text(strings.shortcutFailed)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+            ShortcutRecorderNotes(model: model)
         }
         .onDisappear { model.cancel() }
+    }
+}
+
+/// A capture shortcut's row: its switch, the keys and the record button.
+struct ShortcutRecorderRow: View {
+    let title: String
+    let enabledKey: String
+    @StateObject private var model: ShortcutRecorderModel
+    @ObservedObject private var l10n = L10n.shared
+    @AppStorage private var enabled: Bool
+
+    init(role: HotkeyRole, title: String, enabledKey: String) {
+        self.title = title
+        self.enabledKey = enabledKey
+        _model = StateObject(wrappedValue: ShortcutRecorderModel(role: role))
+        _enabled = AppStorage(wrappedValue: true, enabledKey)
+    }
+
+    var body: some View {
+        let strings = l10n.s
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Toggle(title, isOn: $enabled)
+                    .onChange(of: enabled) { _, _ in HotkeyManager.shared.sync() }
+                Spacer(minLength: 0)
+                ShortcutCaps(keys: model.shortcut.keyCaps)
+                    .opacity(enabled ? 1 : 0.4)
+                Button(model.recording ? strings.shortcutRecording : strings.shortcutRecord) {
+                    model.toggle()
+                }
+                .disabled(!enabled)
+            }
+            ShortcutRecorderNotes(model: model)
+        }
+        .onDisappear { model.cancel() }
+    }
+}
+
+/// Hints while recording, then a refused or failed combination.
+private struct ShortcutRecorderNotes: View {
+    @ObservedObject var model: ShortcutRecorderModel
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var hotkeys = HotkeyManager.shared
+
+    var body: some View {
+        let strings = l10n.s
+        if model.recording {
+            Text("\(strings.shortcutRecording) \(strings.shortcutEscapeHint) \(strings.shortcutDeleteHint)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if model.conflict {
+            Text(strings.shortcutConflict)
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else if hotkeys.failedRoles.contains(model.role) {
+            Text(strings.shortcutFailed)
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
     }
 }

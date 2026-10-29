@@ -30,7 +30,7 @@ enum SettingsDestination: Hashable {
     func title(_ strings: Strings) -> String {
         switch self {
         case .shell(let page): return page.title(strings)
-        case .feature(let page): return page.feature.title(strings)
+        case .feature(let page): return page.feature.pageTitle(strings)
         }
     }
 }
