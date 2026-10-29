@@ -34,7 +34,9 @@ extension AppFeature {
         switch self {
         case .urlCleaner:
             return page { URLCleanerSettings() }
-        case .quitWindowProtection, .cleaningMode, .textSnippets,
+        case .quitWindowProtection:
+            return page { QuitProtectionSettings() }
+        case .cleaningMode, .textSnippets,
              .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return nil
         }

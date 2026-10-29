@@ -172,9 +172,11 @@ private struct GeneralSettingsPage: View {
 private struct PermissionsSettingsPage: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
+    @ObservedObject private var runtime = FeatureRuntime.shared
 
     var body: some View {
         let strings = l10n.s
+        let needed = Set(runtime.installedFeatures.flatMap(\.requiredPermissions))
         VStack(alignment: .leading, spacing: 12) {
             Text(strings.permissionsIntro)
                 .font(.callout)
@@ -187,7 +189,7 @@ private struct PermissionsSettingsPage: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(strings.permissionNotNeededYet)
+                    Text(needed.contains(kind) ? strings.permissionNeededNow : strings.permissionNotNeededYet)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                     if permissions.isGranted(kind) {
