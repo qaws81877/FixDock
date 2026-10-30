@@ -25,8 +25,12 @@ Git:
 - Merge PRs with a merge commit only, never squash or rebase. `main` must
   keep the upstream import merge `7336fd32` reachable.
 - A new `git worktree` has none of the local files. Copy `CLAUDE.md`,
-  `rules/`, `.claude/` and the `docs/` the task needs into it, and bring
-  changed docs back before removing the worktree.
+  `.claude/` and the `docs/` the task needs into it (`rules/` is tracked),
+  and bring changed docs back before removing the worktree.
+- Stages built in parallel branch from one commit that already holds the
+  shared contract: the shared files, a stub for the seam between them,
+  and string block markers before `versionFormat` (one per branch, with
+  lines between) so each branch adds strings in its own block.
 
 Clipboard:
 
@@ -51,3 +55,6 @@ Platform quirks:
   with `onTapGesture` rows.
 - `standardizedFileURL` and `resolvingSymlinksInPath` drop a `/private`
   prefix. Compare real paths with `realpath(3)`, never with those.
+- `AVAssetWriter.cancelWriting()` deletes its output file. Point a writer
+  only at an app-owned folder or a staged sibling it created, never
+  straight at a file in the person's folder.

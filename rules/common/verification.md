@@ -5,7 +5,10 @@ There is no test target (`Tests/` is forbidden by `Tools/check-shell.py`).
 Gates, in order, before calling a change done:
 
 1. `python3 Tools/check-shell.py` (the only thing CI runs).
-2. `swift build` with no warnings.
+2. No warnings. `swift build` is incremental and its intermediates live
+   under `.build/out/Intermediates.noindex`, so a clean-looking rebuild can
+   compile nothing. The proof is a full typecheck with `build.sh`'s flags:
+   `swiftc -typecheck -swift-version 5 -target arm64-apple-macosx14.0 -sdk <build.sh SDK> <its compat flags> <every Sources/FixDock file>`.
 3. `./build.sh`, then launch `build/stage/FixDock.app` for anything the owner
    will try in the app.
 
