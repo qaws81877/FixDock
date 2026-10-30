@@ -119,14 +119,23 @@ enum Relauncher {
         // Invariant, fail-closed: nothing stays at the install path `own` unless
         // it passed the identity check at `own`, where App Management protects
         // it; whichever copy is not there sits in a folder this user can write.
-        func restoreOrEvict(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
+        // `installedPassed` means the bytes at `own` already passed there, so
+        // when the old copy cannot come back they stay installed: only bytes
+        // that failed at `own` are ever moved out.
+        func restoreOrEvict(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending,
+                            installedPassed: Bool) -> Int32 {
             let oldLooksIntact = pin.checkSameIdentity(at: URL(fileURLWithPath: staged, isDirectory: true)) == errSecSuccess
                 && version(of: staged) == oldVersion
-            if oldLooksIntact, swap(own, staged) == 0,
+            let swappedBack = oldLooksIntact && swap(own, staged) == 0
+            if swappedBack,
                pin.checkSameIdentity(at: URL(fileURLWithPath: own, isDirectory: true)) == errSecSuccess,
                version(of: own) == oldVersion {
                 report(ending, reason)
                 _ = open(own)
+                return 1
+            }
+            if !swappedBack, installedPassed {
+                report(.launchedUnconfirmed, reason)
                 return 1
             }
             let out = attempt.directory.appendingPathComponent("rejected-\(UUID().uuidString).app").path
@@ -146,11 +155,11 @@ enum Relauncher {
                 report(.confirmed, nil)
                 return 0
             }
-            return restoreOrEvict(reason, restored: .rolledBack)
+            return restoreOrEvict(reason, restored: .rolledBack, installedPassed: true)
         }
 
         guard mayReplace(oldVersion, pin: pin, with: own) else {
-            return restoreOrEvict(.stagedRejected, restored: .notSwapped)
+            return restoreOrEvict(.stagedRejected, restored: .notSwapped, installedPassed: false)
         }
 
         let executable = executablePath(of: own)
