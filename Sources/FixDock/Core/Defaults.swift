@@ -11,6 +11,11 @@ enum DefaultsKey {
     static let onboardingComplete = "onboardingComplete"
     static let launchAtLoginWanted = "launchAtLoginWanted"
     static let panelShortcut = "panelShortcut"
+    /// Menu bar panel layout: each card's row order (comma-joined tool ids)
+    /// and the rows hidden from the panel (one set for both cards).
+    static let panelQuickActionsOrder = "panelQuickActionsOrder"
+    static let panelOnOffOrder = "panelOnOffOrder"
+    static let panelHiddenRows = "panelHiddenRows"
     static let urlCleanerEnabled = "urlCleanerEnabled"
     static let urlCleanerCustomParameters = "urlCleanerCustomParameters"
     static let urlCleanerSiteParameters = "urlCleanerSiteParameters"
@@ -121,6 +126,11 @@ enum Defaults {
         UserDefaults.standard.register(defaults: [
             DefaultsKey.onboardingComplete: false,
             DefaultsKey.launchAtLoginWanted: false,
+            // Empty: the default order, nothing hidden. Read through
+            // PanelLayout, which sanitizes whatever is stored.
+            DefaultsKey.panelQuickActionsOrder: "",
+            DefaultsKey.panelOnOffOrder: "",
+            DefaultsKey.panelHiddenRows: "",
             // The service reads these with bool(forKey:) and double(forKey:),
             // which see registered values but not @AppStorage defaults. The
             // two Enabled keys stay unregistered so enableOnFirstInstall can

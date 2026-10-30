@@ -66,29 +66,3 @@ struct AirDropStatusLine: View {
         }
     }
 }
-
-/// The menu panel row: the switch and the status.
-struct PanelAirDropRow: View {
-    @ObservedObject private var l10n = L10n.shared
-    @ObservedObject private var service = AirDropAutoZipService.shared
-    @AppStorage(DefaultsKey.airdropAutoZipEnabled) private var enabled = false
-
-    var body: some View {
-        let s = l10n.s
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: AppFeature.airdropAutoZip.symbolName)
-                    .frame(width: 16)
-                Text(AppFeature.airdropAutoZip.title(s))
-                    .font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 0)
-                Toggle("", isOn: $enabled)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .onChange(of: enabled) { _, _ in service.syncWithPreferences() }
-            }
-            AirDropStatusLine()
-        }
-    }
-}

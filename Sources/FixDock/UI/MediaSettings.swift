@@ -79,27 +79,29 @@ struct MediaSettings: View {
     }
 }
 
-/// The menu panel's Media card: the tool bar, the drop zone and the options
-/// most often changed. Image format, size and metadata stay on the Settings
-/// page; both read the same saved values.
+/// The menu panel's Media sub-view: the tool bar, the drop zone and the
+/// options most often changed. Image format, size and metadata stay on the
+/// Settings page; both read the same saved values. While it is up the panel
+/// stays open through clicks in other apps, so a file can be dragged in.
 struct PanelMediaView: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var media = MediaService.shared
     @AppStorage(DefaultsKey.mediaTool) private var tool = MediaTool.image.rawValue
+    var onBack: () -> Void
 
     var body: some View {
         let s = l10n.s
+        VStack(alignment: .leading, spacing: 10) {
+            PanelSubviewHeader(title: AppFeature.mediaTools.title(s),
+                               systemImage: AppFeature.mediaTools.symbolName,
+                               note: s.mediaLocalNote,
+                               back: onBack)
+            content(s)
+        }
+    }
+
+    private func content(_ s: Strings) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: AppFeature.mediaTools.symbolName)
-                    .frame(width: 16)
-                Text(AppFeature.mediaTools.title(s))
-                    .font(.system(size: 12, weight: .semibold))
-                Spacer(minLength: 0)
-                Text(s.mediaLocalNote)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
             MediaToolBar()
             MediaDropZone(compact: true)
             if MediaTool.from(tool) == .image {
@@ -121,7 +123,7 @@ struct PanelMediaView: View {
             .buttonStyle(.link)
             .font(.caption)
         }
-        .settingsCard()
+        .panelCard()
     }
 }
 

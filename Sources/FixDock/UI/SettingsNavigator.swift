@@ -162,35 +162,3 @@ final class SettingsNavigator: ObservableObject {
         return result
     }
 }
-
-/// Collapse owner for the menu panel installed list. Separate from
-/// `SettingsNavigator` — surfaces do not share collapse state.
-final class MenuPanelExpansion: ObservableObject {
-    static let shared = MenuPanelExpansion()
-
-    @Published private var collapsed: Set<FeatureGroup> = []
-
-    private init() {}
-
-    /// Panel open hook. Same default as settings: all expanded.
-    func resetToDefaults() {
-        collapsed = []
-    }
-
-    func isExpanded(_ group: FeatureGroup) -> Bool {
-        !collapsed.contains(group)
-    }
-
-    func expansion(of group: FeatureGroup) -> Binding<Bool> {
-        Binding(
-            get: { self.isExpanded(group) },
-            set: { expanded in
-                if expanded {
-                    self.collapsed.remove(group)
-                } else {
-                    self.collapsed.insert(group)
-                }
-            }
-        )
-    }
-}

@@ -708,6 +708,18 @@ struct Strings {
     let recorderEditorSettingsGIFSizeMedium: String
     let recorderEditorSettingsGIFSizeLarge: String
     let recorderEditorSettingsGIFFrameRateLabel: String
+    // Menu bar panel redesign.
+    let panelQuickActionsTitle: String
+    let panelOnOffTitle: String
+    let panelEditCard: String
+    let panelEditDone: String
+    let panelResetCard: String
+    let panelHideItem: String
+    let panelShowItem: String
+    let panelHiddenItem: String
+    let panelDragHint: String
+    let panelBack: String
+    let panelPermissionMissingFormat: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1372,6 +1384,17 @@ struct Strings {
         recorderEditorSettingsGIFSizeMedium: "Medium",
         recorderEditorSettingsGIFSizeLarge: "Large",
         recorderEditorSettingsGIFFrameRateLabel: "GIF smoothness",
+        panelQuickActionsTitle: "Quick actions",
+        panelOnOffTitle: "On and off",
+        panelEditCard: "Edit this card",
+        panelEditDone: "Done",
+        panelResetCard: "Reset order and shown rows",
+        panelHideItem: "Hide from the panel",
+        panelShowItem: "Show in the panel",
+        panelHiddenItem: "Hidden",
+        panelDragHint: "Drag to reorder",
+        panelBack: "Back",
+        panelPermissionMissingFormat: "Needs %@",
         versionFormat: "Version %@"
     )
 }

@@ -291,31 +291,3 @@ struct CleanerItemRow: View {
         }
     }
 }
-
-/// The panel row opens the page; the review needs the room.
-struct PanelCleanerRow: View {
-    @ObservedObject private var l10n = L10n.shared
-
-    var body: some View {
-        let s = l10n.s
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: AppFeature.cleaner.symbolName)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(AppFeature.cleaner.title(s))
-                    .font(.system(size: 12, weight: .medium))
-                Text(AppFeature.cleaner.summary(s))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Button(s.cleanerOpenButton) {
-                if let page = AppFeature.cleaner.settingsPage {
-                    SettingsNavigator.shared.open(.feature(page))
-                }
-                appDelegate()?.openSettings()
-            }
-            .controlSize(.small)
-        }
-    }
-}

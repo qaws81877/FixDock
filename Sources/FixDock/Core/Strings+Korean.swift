@@ -660,6 +660,17 @@ extension Strings {
         recorderEditorSettingsGIFSizeMedium: "중간",
         recorderEditorSettingsGIFSizeLarge: "크게",
         recorderEditorSettingsGIFFrameRateLabel: "GIF 부드러운 정도",
+        panelQuickActionsTitle: "빠른 실행",
+        panelOnOffTitle: "켜고 끄기",
+        panelEditCard: "이 카드 편집",
+        panelEditDone: "완료",
+        panelResetCard: "순서와 표시 초기화",
+        panelHideItem: "패널에서 숨기기",
+        panelShowItem: "패널에 표시",
+        panelHiddenItem: "숨김",
+        panelDragHint: "끌어서 순서 바꾸기",
+        panelBack: "뒤로",
+        panelPermissionMissingFormat: "%@ 권한 필요",
         versionFormat: "버전 %@"
     )
 }

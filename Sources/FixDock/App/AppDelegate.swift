@@ -3,6 +3,7 @@
 // Copyright (C) 2026 FixDock contributors
 
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 func appDelegate() -> AppDelegate? {
@@ -15,6 +16,10 @@ func appDelegate() -> AppDelegate? {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    /// Installed while the panel is shown, removed in `popoverDidClose`.
+    private var popoverOutsideClickMonitor: Any?
+    private var popoverKeyMonitor: Any?
+    private var popoverResignObserver: NSObjectProtocol?
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
 
@@ -44,8 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         false
     }
 
+    /// Closes the panel whatever it is showing. `close()` rather than
+    /// `performClose`: the panel decides its own closing (application-
+    /// defined), and a close the app asks for must not be refused.
     func closePopover() {
-        popover?.performClose(nil)
+        guard let popover, popover.isShown else { return }
+        popover.close()
     }
 
     /// Runs a modal (an open panel) started from the menu panel: the panel
@@ -63,7 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         MediaService.shared.setVisible(true, on: .panel)
     }
 
+    /// A closed popover keeps its SwiftUI views, so nothing in the panel sees
+    /// `onDisappear`; everything tied to the panel being up ends here.
     func popoverDidClose(_ notification: Notification) {
+        removePopoverMonitors()
         MediaService.shared.setVisible(false, on: .panel)
     }
 
@@ -72,16 +84,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         let popover = self.popover ?? makePopover()
         self.popover = popover
         if popover.isShown {
-            popover.performClose(nil)
+            popover.close()
             return
         }
-        MenuPanelExpansion.shared.resetToDefaults()
+        // The panel measures itself against this while the popover lays
+        // out, so it has to be known before the content is asked its size.
+        PanelInteractionState.shared.anchorScreen = button.window?.screen ?? NSScreen.withMenuBar
+        Permissions.shared.refresh()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        guard popover.isShown else { return }
+        if let window = popover.contentViewController?.view.window {
+            // Keep the panel next to full-screen apps and on any Space.
+            window.collectionBehavior.insert([.fullScreenAuxiliary, .canJoinAllSpaces])
+            window.makeKey()
+        }
         NSApp.activate()
+        installPopoverMonitors()
+    }
+
+    // MARK: - Panel closing (application-defined, as upstream)
+
+    /// A click in another app or on the desktop closes the panel, and so
+    /// does switching to another app, unless a sub-view keeps it open (a
+    /// file dragged from Finder onto the media drop zone starts with a
+    /// click there). Escape in the panel closes it in every case.
+    private func installPopoverMonitors() {
+        removePopoverMonitors()
+        // A global monitor only sees events delivered to other apps.
+        popoverOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            guard let self else { return }
+            if let frame = self.statusItem?.button?.window?.frame,
+               NSMouseInRect(NSEvent.mouseLocation, frame, false) { return }
+            self.closePopoverUnlessKeptOpen()
+        }
+        popoverKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            return self.handlePopoverKeyDown(event)
+        }
+        popoverResignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.closePopoverUnlessKeptOpen()
+        }
+    }
+
+    private func removePopoverMonitors() {
+        if let monitor = popoverOutsideClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            popoverOutsideClickMonitor = nil
+        }
+        if let monitor = popoverKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            popoverKeyMonitor = nil
+        }
+        if let observer = popoverResignObserver {
+            NotificationCenter.default.removeObserver(observer)
+            popoverResignObserver = nil
+        }
+    }
+
+    private func closePopoverUnlessKeptOpen() {
+        guard popover?.isShown == true,
+              !PanelInteractionState.shared.preventsPopoverDismissal else { return }
+        closePopover()
+    }
+
+    private func handlePopoverKeyDown(_ event: NSEvent) -> NSEvent? {
+        guard let popover, popover.isShown, event.keyCode == UInt16(kVK_Escape),
+              let window = popover.contentViewController?.view.window,
+              // Escape in another window (Settings, a picker's menu) stays there.
+              event.window === window else { return event }
+        // While an input method is composing, Escape belongs to it and drops
+        // the candidate; the panel closes on the next one.
+        if (window.firstResponder as? NSTextView)?.hasMarkedText() == true { return event }
+        closePopover()
+        return nil
     }
 
     func openSettings() {
-        popover?.performClose(nil)
+        closePopover()
         SettingsNavigator.shared.resetExpansion()
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
@@ -189,18 +272,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         AppInfo.isDeveloperBuild ? "\(AppInfo.name) (Developer)" : L10n.shared.s.statusTooltip
     }
 
+    /// Application-defined, not transient: the panel closes on the outside
+    /// clicks the monitors above decide on, so a sub-view can keep it open.
+    /// Its size follows SwiftUI's, which `MenuPanelView` caps to the screen.
     private func makePopover() -> NSPopover {
         let popover = NSPopover()
-        popover.behavior = .transient
+        popover.behavior = .applicationDefined
         popover.delegate = self
         popover.animates = true
-        popover.contentSize = NSSize(width: 320, height: 560)
-        popover.contentViewController = NSHostingController(rootView: MenuPanelView())
+        let host = NSHostingController(rootView: MenuPanelView())
+        host.sizingOptions = .preferredContentSize
+        popover.contentViewController = host
         return popover
     }
 
     private func showContextMenu() {
-        popover?.performClose(nil)
+        closePopover()
         let strings = L10n.shared.s
         let menu = NSMenu()
         let settings = NSMenuItem(title: strings.menuSettings,
