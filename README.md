@@ -1,25 +1,28 @@
 # FixDock
 
-Menu bar shell for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
+Menu bar tools for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
 
-This build is the shell plus the first tool, the URL cleaner. It also has the menu bar icon, settings, the feature catalog, onboarding, the permission guide, shared controls, and one global shortcut. The other planned tools are names in the catalog only.
+FixDock has nine tools. You install the ones you want from Settings › Features; nothing runs until it is installed.
 
 ## English
 
 FixDock is a lightweight macOS 14+ menu bar app for someone who repairs Macs. It is free, it is not sold, and it does not phone home. There is no account, no analytics, and no update check.
 
-The planned tools, in the order they will be added:
+The tools:
 
-1. URL cleaner
-2. Quit and close protection
-3. Cleaning mode
-4. Text snippets
-5. AirDrop auto-zip (new; not in the original project)
-6. Cleaner
-7. Screenshot
-8. Screen recorder
+1. URL cleaner: removes tracking parameters from copied links.
+2. Quit and close protection: holds Command-Q and Command-W until you confirm.
+3. Cleaning mode: locks the keyboard while you wipe it.
+4. Text snippets: expands a typed trigger into saved text.
+5. Media: compresses images and videos.
+6. AirDrop auto-zip: compresses and zips photos received by AirDrop (new; not in the original project).
+7. Cleaner: reviews and removes caches, logs, leftovers and backups.
+8. Screenshot: capture overlay, full screen, scrolling capture, preview, pin and editor.
+9. Screen recorder: records a region, window or display with sound, plus an editor (trim, zoom, overlays, MP4 and GIF).
 
-URL cleaner is included. Installing it turns on clipboard cleaning the first time, and it can be switched off. Cleaning stays on this Mac. The other names in Settings only save a choice. The app does not ask for a permission for the URL cleaner. You can open the permission guide from Settings to see how a later tool will ask.
+Permissions are asked only when a tool needs them: Accessibility for quit protection, cleaning mode and text snippets; Full Disk Access for the cleaner; Screen Recording for screenshot and the recorder. The recorder asks for the microphone, system audio and Accessibility only when you turn those options on. Everything stays on this Mac.
+
+Global shortcuts: Control-Option-Command-F opens the panel. While Screenshot is installed, Control-Option-Command-4 opens the capture overlay (press 2 there to record) and Control-Option-Command-3 captures the full screen.
 
 ### License
 
@@ -29,7 +32,7 @@ The Vorssaint name, logo, and signing identity are not used. See [TRADEMARKS.md]
 
 ### Build and run
 
-The build has not been verified here. This checkout was prepared on Linux, which cannot compile a macOS Swift app. On a Mac with Xcode Command Line Tools:
+Build on a Mac with Xcode Command Line Tools:
 
 ```bash
 xcode-select --install
@@ -81,20 +84,23 @@ A personal Homebrew tap is planned. The tap is not created yet.
 
 FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정, 분석, 업데이트 확인이 없습니다.
 
-이 빌드는 껍데기에 첫 도구인 링크 정리가 들어 있습니다. 메뉴 막대 아이콘, 설정, 기능 목록, 처음 실행 안내, 권한 안내, 공통 화면, 전역 단축키도 있습니다. 나머지 예정 도구는 목록의 이름만 있습니다.
+도구는 9개입니다. 설정 › 기능에서 원하는 도구만 설치합니다. 설치하기 전에는 아무것도 동작하지 않습니다.
 
-나중에 이 순서로 넣을 도구:
+도구:
 
-1. 링크 정리
-2. 종료·닫기 보호
-3. 화면 정리 모드
-4. 상용구
-5. AirDrop 자동 압축 (원본에는 없는 새 기능)
-6. Mac 정리
-7. 스크린샷
-8. 화면 녹화
+1. 링크 정리: 복사한 링크에서 추적 매개변수를 지웁니다.
+2. 종료·닫기 보호: Command-Q와 Command-W를 확인할 때까지 붙잡습니다.
+3. 청소 모드: 키보드를 닦는 동안 입력을 잠급니다.
+4. 상용구: 입력한 단축어를 저장한 글로 바꿉니다.
+5. 미디어: 이미지와 영상을 압축합니다.
+6. AirDrop 자동 압축: AirDrop으로 받은 사진을 압축해 zip으로 묶습니다 (원본에는 없는 새 기능).
+7. Mac 정리: 캐시, 로그, 남은 파일, 백업을 살펴보고 지웁니다.
+8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 미리보기, 고정, 편집기.
+9. 화면 녹화: 영역·창·디스플레이를 소리와 함께 녹화하고, 편집기(자르기, 확대, 오버레이, MP4·GIF)로 다듬습니다.
 
-링크 정리는 들어 있습니다. 처음 설치하면 클립보드 정리가 켜지고, 끌 수 있습니다. 정리는 이 Mac 안에서만 합니다. 나머지 이름은 선택만 저장합니다. 링크 정리는 권한을 요구하지 않습니다. 설정에서 권한 안내를 미리 열어볼 수 있습니다.
+권한은 도구가 필요할 때만 요청합니다. 종료·닫기 보호, 청소 모드, 상용구는 손쉬운 사용, Mac 정리는 전체 디스크 접근, 스크린샷과 화면 녹화는 화면 기록 권한을 씁니다. 화면 녹화는 마이크, 시스템 소리, 손쉬운 사용을 해당 옵션을 켤 때만 요청합니다. 모든 처리는 이 Mac 안에서만 합니다.
+
+전역 단축키: Control-Option-Command-F는 패널을 엽니다. 스크린샷을 설치하면 Control-Option-Command-4는 캡처 오버레이를 열고(여기서 2를 누르면 녹화), Control-Option-Command-3은 전체 화면을 캡처합니다.
 
 ### 라이선스
 
@@ -104,7 +110,7 @@ Vorssaint 이름, 로고, 서명 신원은 쓰지 않습니다. [TRADEMARKS.md](
 
 ### 빌드와 실행
 
-이 빌드는 여기서 검증하지 않았습니다. Linux에서는 macOS Swift 앱을 컴파일할 수 없습니다. Xcode Command Line Tools가 있는 Mac에서:
+Xcode Command Line Tools가 있는 Mac에서 빌드합니다:
 
 ```bash
 xcode-select --install
