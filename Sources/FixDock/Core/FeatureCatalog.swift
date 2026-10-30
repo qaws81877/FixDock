@@ -91,7 +91,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .cleaningMode: return "bubbles.and.sparkles"
         case .textSnippets: return "text.append"
         case .mediaTools: return "photo.on.rectangle.angled"
-        case .airdropAutoZip: return "airdrop"
+        case .airdropAutoZip: return "dot.radiowaves.up.forward"
         case .cleaner: return "sparkles"
         case .screenshot: return "camera.viewfinder"
         case .screenRecorder: return "record.circle"
