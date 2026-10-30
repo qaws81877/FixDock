@@ -178,22 +178,21 @@ enum UpdatePolicy {
                               confirmed: Bool, running: SemanticVersion?,
                               now: Date) -> LaunchOutcome {
         guard let record else { return .nothingPending }
-        // The helper moved unapproved bytes out of the install path; whatever
-        // runs now is never confirmed as the update.
-        if let ending = report?.ending, ending == .restoreFailed || ending == .evictionFailed {
-            return .finished(.restoreFailed(record.to))
+        // A report that says the update is not installed outranks whichever
+        // version runs: a copy of `to` running now did not get there through
+        // this attempt, so it is never confirmed as the update.
+        if let report {
+            switch report.ending {
+            case .restoreFailed, .evictionFailed: return .finished(.restoreFailed(record.to))
+            case .rolledBack: return .finished(.rolledBack(record.to))
+            case .notSwapped: return .finished(.notApplied(record.to, report.reason))
+            case .confirmed, .launchedUnconfirmed: break
+            }
         }
         if running == record.to {
             return confirmed ? .finished(nil) : .confirm(record.token, record.to)
         }
-        guard running == record.from else { return .finished(nil) }
-        if let report {
-            switch report.ending {
-            case .rolledBack: return .finished(.rolledBack(record.to))
-            case .notSwapped: return .finished(.notApplied(record.to, report.reason))
-            case .confirmed, .launchedUnconfirmed, .restoreFailed, .evictionFailed: return .finished(nil)
-            }
-        }
+        guard running == record.from, report == nil else { return .finished(nil) }
         return now.timeIntervalSince(record.createdAt) < attemptLifetime
             ? .helperMayBeRunning : .finished(.notApplied(record.to, nil))
     }
