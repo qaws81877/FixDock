@@ -38,6 +38,7 @@ FORBIDDEN = [
     "Vorssaint Utils Signing",
     "vorssaint-signing",
     "hello@" + "vorssaint.com",
+    "3D485" + "NHW29",
 ]
 URL_SCAN_ROOTS = [
     "Sources",
@@ -52,6 +53,7 @@ URL_SCAN_ROOTS = [
     "CONTRIBUTING.md",
     "SECURITY.md",
     "SUPPORT.md",
+    "PRIVACY.md",
     "Tools/uninstall.sh",
 ]
 HEADER = (
@@ -298,6 +300,47 @@ def main():
         errors += fail("FeatureHubView must not hard-code == .urlCleaner navigation")
     if "SettingsNavigator.shared.open" not in hub or "settingsPage" not in hub:
         errors += fail("FeatureHubView should navigate via settingsPage + open")
+
+    # Self-update: each risky capability lives in exactly one file.
+    def files_with(needle):
+        return sorted(
+            str(path.relative_to(ROOT / "Sources/FixDock"))
+            for path in swift_files
+            if needle in path.read_text(encoding="utf-8")
+        )
+
+    for needle, allowed in (
+        ("URLSession", ["Services/UpdateTransport.swift"]),
+        ("RENAME_SWAP", ["Services/Relauncher.swift"]),
+        ("FIXDOCK_LOCAL_FEED", ["Services/UpdateTransport.swift"]),
+        ("483JM5VB4A", ["Core/AppInfo.swift"]),
+    ):
+        found = files_with(needle)
+        if found != allowed:
+            errors += fail(f"{needle} must appear only in {allowed}, found in {found}")
+    for path in swift_files:
+        if path.name.startswith("Update") and path.name != "UpdateWorkspace.swift":
+            if "removeItem" in path.read_text(encoding="utf-8"):
+                errors += fail(f"{path.name}: removals under Updates belong only in UpdateWorkspace")
+
+    sources = ROOT / "Sources/FixDock"
+    policy_imports = re.findall(r"^import (\w+)", (sources / "Core/UpdatePolicy.swift").read_text(encoding="utf-8"), re.M)
+    if policy_imports != ["Foundation"]:
+        errors += fail(f"UpdatePolicy.swift must import only Foundation, imports {policy_imports}")
+    relauncher = (sources / "Services/Relauncher.swift").read_text(encoding="utf-8")
+    relauncher_imports = re.findall(r"^import (\w+)", relauncher, re.M)
+    if relauncher_imports != ["Darwin", "Foundation", "Security"] or re.search(
+        r"\bNS(App|Application|Workspace|RunningApplication)\b", relauncher
+    ):
+        errors += fail("Relauncher.swift (the helper) must not use AppKit")
+    statements = [
+        line for line in (sources / "main.swift").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith(("//", "import "))
+    ]
+    if not statements or not statements[0].startswith("Relauncher.runIfHelper("):
+        errors += fail("the first statement of main.swift must be Relauncher.runIfHelper")
+    if "FIXDOCK_LOCAL_FEED" not in (ROOT / "build.sh").read_text(encoding="utf-8"):
+        errors += fail("build.sh should own the local-feed compile flag")
 
     lproj = sorted(p.name for p in (ROOT / "Resources").glob("*.lproj"))
     if lproj != ["en.lproj", "ko.lproj"]:
