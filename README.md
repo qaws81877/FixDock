@@ -64,7 +64,7 @@ The script builds Apple Silicon (`arm64`) only, same as upstream. It signs ad-ho
 FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
 ```
 
-Do not use the upstream signing identity. There is no notarization step and no update feed.
+With an identity the app is signed with the hardened runtime and a secure timestamp, so it can be notarized. `./Tools/notarize.sh` notarizes and staples `build/stage/FixDock.app` and writes `build/release/FixDock-<version>.zip`; it needs a notarytool keychain profile you store once in your own Terminal (see the script's header). Do not use the upstream signing identity. There is no update feed.
 
 Remove FixDock without touching a Vorssaint install:
 
@@ -142,7 +142,7 @@ Apple Silicon (`arm64`)만 빌드합니다. 서명은 ad-hoc입니다. 본인 �
 FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
 ```
 
-업스트림 서명 신원은 쓰지 마세요. 공증과 업데이트 피드는 없습니다.
+신원을 주면 hardened runtime과 보안 타임스탬프로 서명해서 공증할 수 있습니다. `./Tools/notarize.sh`가 `build/stage/FixDock.app`을 공증·스테이플하고 `build/release/FixDock-<버전>.zip`을 만듭니다. notarytool 키체인 프로필이 필요하며, 본인 터미널에서 한 번 저장합니다(스크립트 머리말 참고). 업스트림 서명 신원은 쓰지 마세요. 업데이트 피드는 없습니다.
 
 Vorssaint 설치는 건드리지 않고 FixDock만 지우려면:
 

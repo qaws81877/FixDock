@@ -3,9 +3,11 @@
 # Copyright (C) 2026 Vorssaint
 # Copyright (C) 2026 FixDock contributors
 #
-# Builds FixDock, assembles the .app bundle, and signs it ad-hoc.
+# Builds FixDock, assembles the .app bundle, and signs it: ad-hoc, or with
+# FIXDOCK_CODESIGN_IDENTITY using the hardened runtime and a secure timestamp
+# so the result can be notarized (Tools/notarize.sh).
 # Adapted from vorssaint-utils build.sh. The fan helper, Now Playing adapter,
-# notarization, update feed, and the upstream signing identity are not used.
+# update feed, and the upstream signing identity are not used.
 #
 #   ./build.sh            -> build/stage/FixDock.app
 #   ./build.sh --install  -> /Applications/FixDock.app
@@ -137,7 +139,7 @@ ENTITLEMENTS="Resources/FixDock.entitlements"
 if [[ -n "${FIXDOCK_CODESIGN_IDENTITY:-}" ]]; then
     echo "▸ Signing with $FIXDOCK_CODESIGN_IDENTITY"
     /usr/bin/codesign --force --sign "$FIXDOCK_CODESIGN_IDENTITY" \
-        --entitlements "$ENTITLEMENTS" "$STAGE"
+        --options runtime --timestamp --entitlements "$ENTITLEMENTS" "$STAGE"
 else
     echo "▸ Signing ad-hoc"
     /usr/bin/codesign --force --sign - --entitlements "$ENTITLEMENTS" "$STAGE"
@@ -168,7 +170,8 @@ if (( INSTALL )); then
     xattr -cr "/Applications/$APP_NAME.app" 2>/dev/null || true
     if [[ -n "${FIXDOCK_CODESIGN_IDENTITY:-}" ]]; then
         /usr/bin/codesign --force --sign "$FIXDOCK_CODESIGN_IDENTITY" \
-            --entitlements "$ENTITLEMENTS" "/Applications/$APP_NAME.app"
+            --options runtime --timestamp --entitlements "$ENTITLEMENTS" \
+            "/Applications/$APP_NAME.app"
     else
         /usr/bin/codesign --force --sign - --entitlements "$ENTITLEMENTS" \
             "/Applications/$APP_NAME.app"
