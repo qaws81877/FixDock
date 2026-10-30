@@ -34,6 +34,13 @@ Proof:
   `xcrun swiftc -swift-version 5 -o <out> <Sources files> <stubs>.swift <dir>/main.swift`.
   Top-level statements are allowed only in a file named `main.swift`. Stub
   `AppFeature`, `Permissions` or `DefaultsKey` instead of pulling in the app.
+- Self-update has three harnesses, all on scratch data: the pure policy
+  (`Core/UpdatePolicy.swift` alone); the verifier and transport on the real
+  release zip, tampered zips and a local feed (`Tools/make-local-feed.sh`,
+  a build with the local-feed compile flag); and the helper protocol on
+  developer bundles copied to scratch (swap, rollback, guards, sweep
+  protection, plain relaunch). A real update needs a notarized test release
+  and the owner.
 - Pixel checks in a harness: a `CGContext`'s memory starts at the image's
   top row, and `CGImage.cropping(to:)` counts y from the top too.
 - Behaviour on the Mac (permissions, menu bar, AirDrop, Finder, real files)

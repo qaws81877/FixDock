@@ -10,5 +10,6 @@ Must:
 
 Must not:
 
-- Add a source directory, a module, a dependency or a network call.
+- Add a source directory, a module, a dependency or a network call (the
+  update check is the only one).
 - Leave a string in one language only.

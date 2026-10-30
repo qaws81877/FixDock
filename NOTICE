@@ -52,7 +52,11 @@ Modifications in this tree, relative to that upstream commit:
   included.
 - Signing in build.sh is ad-hoc unless FIXDOCK_CODESIGN_IDENTITY is set
   to an identity you control. The upstream signing setup is not included.
-- No telemetry, analytics, crash reporting, or update check.
+- No telemetry, analytics, or crash reporting. The one network use is
+  FixDock's own update check, described in PRIVACY.md.
+- 2026-10-31: Added FixDock's own update check, download and install,
+  against FixDock's own GitHub releases. The upstream update feed is
+  still not used.
 
 Third-party bundled assets and fonts:
 
