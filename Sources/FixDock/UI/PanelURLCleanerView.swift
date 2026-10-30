@@ -18,7 +18,8 @@ struct PanelURLCleanerView: View {
     @State private var input = ""
     @State private var copied: String?
 
-    var onClose: () -> Void
+    /// Back to the panel's cards.
+    var onBack: () -> Void
     /// Worked out from the field on every render, so Copy always takes the
     /// link that is in the field now under the rules in force now.
     private var result: URLCleaning.Result? {
@@ -35,19 +36,9 @@ struct PanelURLCleanerView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Label(s.featureURLCleanerName, systemImage: "link")
-                .font(.system(size: 12, weight: .semibold))
-            Spacer()
-            Button(action: onClose) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22, height: 22)
-            }
-            .buttonStyle(.plain)
-            .help(s.guideClose)
-        }
+        PanelSubviewHeader(title: s.featureURLCleanerName,
+                           systemImage: AppFeature.urlCleaner.symbolName,
+                           back: onBack)
     }
 
     private var autoCleanToggle: some View {

@@ -31,9 +31,30 @@ extension View {
         modifier(SettingsCardModifier())
     }
 
-    /// The menu panel uses the same card as settings.
-    func panelCard() -> some View {
-        settingsCard()
+    /// The rounded card of the menu panel, as upstream. A card holding a
+    /// list of rows is not padded: each row brings its own insets, so hover
+    /// highlights and separators reach the card's edges.
+    func panelCard(padded: Bool = true) -> some View {
+        modifier(PanelCardModifier(padded: padded))
+    }
+}
+
+private struct PanelCardModifier: ViewModifier {
+    var padded: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .padding(padded ? 10 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(PanelSurface.cardFill(for: colorScheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(PanelSurface.border(for: colorScheme), lineWidth: 0.7)
+            )
     }
 }
 

@@ -69,7 +69,9 @@ final class ScreenshotService: ObservableObject {
     }
 
     /// The overlay: region, window or whole display, with the bottom bar.
-    func openOverlay() {
+    /// `initialTool` lets the panel's recorder row open it on the recording
+    /// tool; keys 1 and 2 still switch tools as before.
+    func openOverlay(initialTool: ScreenCaptureTool = .screenshot) {
         guard prepareToCapture() else { return }
         isCapturing = true
         Task { @MainActor [weak self] in
@@ -86,6 +88,7 @@ final class ScreenshotService: ObservableObject {
                                                          windows: ScreenshotCaptureEngine.pickableWindows())
             controller.onFinish = { [weak self] result in self?.finishOverlay(result) }
             self.overlay = controller
+            if initialTool != .screenshot { controller.select(initialTool) }
             controller.present()
         }
     }

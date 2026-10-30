@@ -278,19 +278,21 @@ final class ScreenRecorderService: ObservableObject {
     @Published private(set) var elapsedSeconds = 0
     /// The last saved movie, or the last failure, for the panel row.
     @Published private(set) var lastMessage: String?
-    private var session: RecorderSession?
+    // The fields `captureState` reads announce their changes, so the panel
+    // row redraws for a countdown, a start and a stop.
+    private var session: RecorderSession? { willSet { objectWillChange.send() } }
     private var indicator: RecorderIndicator?
     private var preview: ScreenRecorderPreviewController?
     private var elapsedTimer: Timer?
-    private var countdown: DispatchWorkItem?
+    private var countdown: DispatchWorkItem? { willSet { objectWillChange.send() } }
     private var countdownRemaining = 0
     private var pendingStartGeneration = 0
-    private var isAwaitingMicrophone = false
-    private var isPreparingRecording = false
+    private var isAwaitingMicrophone = false { willSet { objectWillChange.send() } }
+    private var isPreparingRecording = false { willSet { objectWillChange.send() } }
     private var sleepActivity: NSObjectProtocol?
     /// Set while a stop is being finalized, so a second press of the shortcut
     /// cannot start a recording on top of one still closing its file.
-    private var isFinishing = false
+    private var isFinishing = false { willSet { objectWillChange.send() } }
     /// Set while the disk is being asked how much room is left, so a slow
     /// answer cannot pile the next second's question on top of it.
     private var isCheckingDisk = false
