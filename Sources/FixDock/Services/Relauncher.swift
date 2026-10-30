@@ -8,7 +8,7 @@ import Security
 
 /// The one way FixDock restarts itself. The app spawns its own executable with
 /// `helperFlag` (detached, so it leaves the app's session) and quits;
-/// main.swift hands that process here before Defaults or NSApplication exist.
+/// main.swift hands that process here before Defaults or AppKit start.
 ///
 ///     plain:   wait for the app to exit, then open the bundle
 ///     update:  wait for the app to exit, RENAME_SWAP(target, staged), open,
@@ -116,19 +116,18 @@ enum Relauncher {
             return 1
         }
 
-        // `own` now holds the new version and `staged` the old one. The only
-        // swap back (D2). The old copy now sits in a folder any process of
-        // this user can write, so it goes back only if it is still the same
-        // identity and version; otherwise nothing is opened and the next
-        // launch shows restoreFailed with the release page.
-        func rollBack(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
-            if workspace.isConfirmed(attempt) {
-                report(.confirmed, nil)
-                return 0
+        // `own` now holds the new version and `staged` the old one. Rejected
+        // or failed bytes never stay installed: both entry points below swap
+        // back unconditionally through `restore`, the only swap back (D2). The
+        // old copy sat in a folder any process of this user can write, so it is
+        // opened only if it is still the old identity and version.
+        func restore(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
+            guard swap(own, staged) == 0 else {
+                report(.rollbackFailed, reason)
+                return 1
             }
-            guard pin.checkSameIdentity(at: URL(fileURLWithPath: staged, isDirectory: true)) == errSecSuccess,
-                  version(of: staged) == oldVersion,
-                  swap(own, staged) == 0
+            guard pin.checkSameIdentity(at: URL(fileURLWithPath: own, isDirectory: true)) == errSecSuccess,
+                  version(of: own) == oldVersion
             else {
                 report(.rollbackFailed, reason)
                 return 1
@@ -138,14 +137,29 @@ enum Relauncher {
             return 1
         }
 
+        /// The installed bytes failed the post-swap check. `confirmed` is never read.
+        func rejectInstalled(_ reason: HelperReport.Reason) -> Int32 {
+            restore(reason, restored: .notSwapped)
+        }
+
+        /// The installed bytes passed, but the new version is gone or never
+        /// started; a marker it wrote first still counts as success.
+        func rollBackUnconfirmedLaunch(_ reason: HelperReport.Reason) -> Int32 {
+            if workspace.isConfirmed(attempt) {
+                report(.confirmed, nil)
+                return 0
+            }
+            return restore(reason, restored: .rolledBack)
+        }
+
         // The check that counts: the bytes now at the installed path, where App
         // Management guards them, so they cannot change after this.
         guard mayReplace(oldVersion, pin: pin, with: own) else {
-            return rollBack(.stagedRejected, restored: .notSwapped)
+            return rejectInstalled(.stagedRejected)
         }
 
         let executable = executablePath(of: own)
-        if processes(running: executable).isEmpty, !open(own) { return rollBack(.launchFailed, restored: .rolledBack) }
+        if processes(running: executable).isEmpty, !open(own) { return rollBackUnconfirmedLaunch(.launchFailed) }
         var seenAlive = false
         let deadline = Date().addingTimeInterval(UpdatePolicy.launchConfirmDeadline)
         while Date() < deadline {
@@ -154,7 +168,7 @@ enum Relauncher {
                 return 0
             }
             let alive = !processes(running: executable).isEmpty
-            if seenAlive, !alive { return rollBack(.newVersionExited, restored: .rolledBack) }
+            if seenAlive, !alive { return rollBackUnconfirmedLaunch(.newVersionExited) }
             seenAlive = seenAlive || alive
             usleep(250_000)
         }
@@ -162,7 +176,7 @@ enum Relauncher {
             report(.confirmed, nil)
             return 0
         }
-        if processes(running: executable).isEmpty { return rollBack(.newVersionExited, restored: .rolledBack) }
+        if processes(running: executable).isEmpty { return rollBackUnconfirmedLaunch(.newVersionExited) }
         report(.launchedUnconfirmed, nil)
         return 0
     }
