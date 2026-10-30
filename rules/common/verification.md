@@ -17,7 +17,9 @@ Gates, in order, before calling a change done:
   the gate; describe it in words.
 
 - `swift build` does not refresh the app that is running. Before any live
-  test, run `./build.sh`, quit FixDock and open the new bundle.
+  test, run `./build.sh`, quit FixDock and open the new bundle. A
+  `./build.sh --dev` bundle alone is not enough: the owner checks
+  `build/stage/FixDock.app`, so rebuild and relaunch that one too.
 - An agent shell may not have `FIXDOCK_CODESIGN_IDENTITY`. Pass it on the
   command line, for example `FIXDOCK_CODESIGN_IDENTITY="<SHA-1>" ./build.sh`.
   Do not edit shell profiles. An ad-hoc build resets Accessibility and other
