@@ -25,6 +25,7 @@ FEATURE_ORDER = [
 ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
     "https://github.com/qaws81877/FixDock",
+    "https://github.com/qaws81877/FixDock.git",
     "https://github.com/qaws81877/homebrew-tap",
     "https://api.github.com/repos/qaws81877/FixDock/releases/latest",
     "https://www.gnu.org/licenses/gpl-3.0.en.html",
@@ -367,8 +368,9 @@ def main():
                 if needle in text:
                     errors += fail(f"{path.relative_to(ROOT)} contains {needle}")
             for url in re.findall(r"https://[^\s)>\"]+", text):
-                url = url.rstrip(".,")
-                if not any(url == allowed or url.startswith(allowed) for allowed in ALLOWED_URLS):
+                url = url.rstrip(".,`")
+                if not any(url == allowed or url.startswith(tuple(allowed + end for end in "/?#"))
+                           for allowed in ALLOWED_URLS):
                     errors += fail(f"{path.relative_to(ROOT)} has URL {url}")
 
     if errors:
