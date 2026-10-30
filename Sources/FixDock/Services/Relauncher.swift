@@ -19,6 +19,10 @@ import Security
 /// quit. It does check the staged signature and version once more right before
 /// the swap, because any process of this user can write the stage and start
 /// this same-team helper, which App Management lets change the installed app.
+/// Known limit, with no user-space fix: a process of this user can SIGSTOP the
+/// helper after the stage check, swap the stage, and SIGKILL it after the
+/// rename, so the install-path invariant in `runUpdate` does not hold against a
+/// process that controls this user's processes.
 /// It uses no AppKit, so it never registers as a running app;
 /// it launches through /usr/bin/open and watches processes through libproc.
 /// RENAME_SWAP is atomic, so the installed path is never missing, and the same
