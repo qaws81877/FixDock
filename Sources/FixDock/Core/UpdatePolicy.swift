@@ -603,10 +603,14 @@ struct UpdateStatus: Equatable {
         }
     }
 
-    /// The status item dot.
+    /// The status item dot: an offer that is not the quiet version, and every
+    /// install step.
     var wantsAttention: Bool {
-        if case .available(let offer, _) = phase { return offer.version != quietVersion }
-        return false
+        switch phase {
+        case .available(let offer, _): return offer.version != quietVersion
+        case .installing: return true
+        default: return false
+        }
     }
 
     private var route: InstallRoute {
