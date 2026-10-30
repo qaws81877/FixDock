@@ -12,9 +12,9 @@ struct SettingsView: View {
     var body: some View {
         let strings = l10n.s
         HStack(spacing: 0) {
-            // No List(selection:): on macOS 27 it hid the category headers.
-            // Rows navigate via open(_:) and draw their own highlight.
-            List {
+            // Category headers are untagged rows, not Section headers: on
+            // macOS 27, List(selection:) hid Section headers.
+            List(selection: navigator.selection) {
                 ForEach(navigator.sections) { section in
                     sidebarSection(section, strings)
                 }
@@ -77,15 +77,8 @@ struct SettingsView: View {
     @ViewBuilder
     private func destinationRows(_ destinations: [SettingsDestination], _ strings: Strings) -> some View {
         ForEach(destinations, id: \.self) { destination in
-            Text(destination.title(strings))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture { navigator.open(destination) }
-                .listRowBackground(
-                    navigator.destination == destination
-                        ? Color.accentColor.opacity(0.18)
-                        : Color.clear
-                )
+            Label(destination.title(strings), systemImage: destination.symbolName)
+                .tag(destination)
         }
     }
 
