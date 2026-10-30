@@ -216,9 +216,14 @@ private struct AboutSettingsPage: View {
     var body: some View {
         let strings = l10n.s
         VStack(alignment: .leading, spacing: 10) {
-            Text(AppInfo.name).font(.title2.weight(.semibold))
-            Text(String(format: strings.versionFormat, AppInfo.version))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                AppIconImage(size: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(AppInfo.name).font(.title2.weight(.semibold))
+                    Text(String(format: strings.versionFormat, AppInfo.version))
+                        .foregroundStyle(.secondary)
+                }
+            }
             Text(strings.aboutFork)
                 .fixedSize(horizontal: false, vertical: true)
             Text(strings.aboutLicense)

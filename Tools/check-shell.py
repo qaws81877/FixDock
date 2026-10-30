@@ -52,7 +52,6 @@ URL_SCAN_ROOTS = [
     "SECURITY.md",
     "SUPPORT.md",
     "Tools/uninstall.sh",
-    "Tools/make-placeholder-icon.py",
 ]
 HEADER = (
     "SPDX-License-Identifier: GPL-3.0-or-later",

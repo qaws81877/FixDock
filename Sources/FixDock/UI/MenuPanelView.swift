@@ -167,12 +167,15 @@ struct MenuPanelView: View {
     // MARK: - Header and footer
 
     private func header(_ strings: Strings) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(AppInfo.name)
-                .font(.system(size: 16, weight: .semibold))
-            Text(String(format: strings.versionFormat, AppInfo.version))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 10) {
+            AppIconImage(size: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(AppInfo.name)
+                    .font(.system(size: 16, weight: .semibold))
+                Text(String(format: strings.versionFormat, AppInfo.version))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

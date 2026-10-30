@@ -251,13 +251,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            let image = NSImage(systemSymbolName: "wrench.and.screwdriver",
-                                accessibilityDescription: AppInfo.name)
-                ?? NSImage(systemSymbolName: "wrench.fill",
+            let image = FixDockMark.templateImage(size: 18)
+                ?? NSImage(systemSymbolName: "wrench.and.screwdriver",
                            accessibilityDescription: AppInfo.name)
             if let image {
                 image.isTemplate = true
                 image.size = NSSize(width: 18, height: 18)
+                image.accessibilityDescription = AppInfo.name
                 button.image = image
             }
             button.toolTip = statusTooltip
