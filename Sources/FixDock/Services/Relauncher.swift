@@ -116,46 +116,37 @@ enum Relauncher {
             return 1
         }
 
-        // `own` now holds the new version and `staged` the old one. Rejected
-        // or failed bytes never stay installed: both entry points below swap
-        // back unconditionally through `restore`, the only swap back (D2). The
-        // old copy sat in a folder any process of this user can write, so it is
-        // opened only if it is still the old identity and version.
-        func restore(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
-            guard swap(own, staged) == 0 else {
-                report(.rollbackFailed, reason)
+        // Invariant, fail-closed: nothing stays at the install path `own` unless
+        // it passed the identity check at `own`, where App Management protects
+        // it; whichever copy is not there sits in a folder this user can write.
+        func restoreOrEvict(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
+            let oldLooksIntact = pin.checkSameIdentity(at: URL(fileURLWithPath: staged, isDirectory: true)) == errSecSuccess
+                && version(of: staged) == oldVersion
+            if oldLooksIntact, swap(own, staged) == 0,
+               pin.checkSameIdentity(at: URL(fileURLWithPath: own, isDirectory: true)) == errSecSuccess,
+               version(of: own) == oldVersion {
+                report(ending, reason)
+                _ = open(own)
                 return 1
             }
-            guard pin.checkSameIdentity(at: URL(fileURLWithPath: own, isDirectory: true)) == errSecSuccess,
-                  version(of: own) == oldVersion
-            else {
-                report(.rollbackFailed, reason)
-                return 1
+            for index in 1...100 {
+                let out = attempt.directory.appendingPathComponent("rejected-\(index).app").path
+                if renamex_np(own, out, UInt32(RENAME_EXCL)) == 0 || errno != EEXIST { break }
             }
-            report(ending, reason)
-            _ = open(own)
+            report(.restoreFailed, reason)
             return 1
         }
 
-        /// The installed bytes failed the post-swap check. `confirmed` is never read.
-        func rejectInstalled(_ reason: HelperReport.Reason) -> Int32 {
-            restore(reason, restored: .notSwapped)
-        }
-
-        /// The installed bytes passed, but the new version is gone or never
-        /// started; a marker it wrote first still counts as success.
         func rollBackUnconfirmedLaunch(_ reason: HelperReport.Reason) -> Int32 {
             if workspace.isConfirmed(attempt) {
                 report(.confirmed, nil)
                 return 0
             }
-            return restore(reason, restored: .rolledBack)
+            return restoreOrEvict(reason, restored: .rolledBack)
         }
 
-        // The check that counts: the bytes now at the installed path, where App
-        // Management guards them, so they cannot change after this.
         guard mayReplace(oldVersion, pin: pin, with: own) else {
-            return rejectInstalled(.stagedRejected)
+            return restoreOrEvict(.stagedRejected, restored: .notSwapped)
         }
 
         let executable = executablePath(of: own)

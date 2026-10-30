@@ -178,9 +178,9 @@ enum UpdatePolicy {
                               confirmed: Bool, running: SemanticVersion?,
                               now: Date) -> LaunchOutcome {
         guard let record else { return .nothingPending }
-        // A failed swap back leaves the new bytes installed without the
-        // helper's approval; they are never confirmed as an update.
-        if report?.ending == .rollbackFailed { return .finished(.restoreFailed(record.to)) }
+        // The helper moved unapproved bytes out of the install path; whatever
+        // runs now is never confirmed as the update.
+        if report?.ending == .restoreFailed { return .finished(.restoreFailed(record.to)) }
         if running == record.to {
             return confirmed ? .finished(nil) : .confirm(record.token, record.to)
         }
@@ -189,7 +189,7 @@ enum UpdatePolicy {
             switch report.ending {
             case .rolledBack: return .finished(.rolledBack(record.to))
             case .notSwapped: return .finished(.notApplied(record.to, report.reason))
-            case .confirmed, .launchedUnconfirmed, .rollbackFailed: return .finished(nil)
+            case .confirmed, .launchedUnconfirmed, .restoreFailed: return .finished(nil)
             }
         }
         return now.timeIntervalSince(record.createdAt) < attemptLifetime
@@ -432,7 +432,7 @@ struct HandoffRecord: Codable, Equatable {
 /// Written by the helper, once, before it opens any app.
 struct HelperReport: Codable, Equatable {
     enum Ending: String, Codable {
-        case confirmed, launchedUnconfirmed, rolledBack, notSwapped, rollbackFailed
+        case confirmed, launchedUnconfirmed, rolledBack, notSwapped, restoreFailed
     }
     enum Reason: String, Codable {
         case appDidNotQuit, recordRejected, stagedRejected, swapFailed, launchFailed, newVersionExited
