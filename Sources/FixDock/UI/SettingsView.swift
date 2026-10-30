@@ -222,7 +222,6 @@ private struct AboutSettingsPage: View {
             Text(strings.aboutLicense)
                 .fixedSize(horizontal: false, vertical: true)
             Text(strings.aboutNoTelemetry)
-            Text(strings.aboutNoUpdates)
             HStack {
                 Button(strings.aboutRepositoryButton) {
                     NSWorkspace.shared.open(AppInfo.repositoryURL)

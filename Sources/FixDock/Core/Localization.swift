@@ -372,7 +372,6 @@ struct Strings {
     let aboutFork: String
     let aboutLicense: String
     let aboutNoTelemetry: String
-    let aboutNoUpdates: String
     let aboutUpstreamButton: String
     let aboutRepositoryButton: String
     let screenCapturePageTitle: String
@@ -715,6 +714,52 @@ struct Strings {
     let panelDragHint: String
     let panelBack: String
     let panelPermissionMissingFormat: String
+    let updatesTitle: String
+    let updateAutomaticToggle: String
+    let updateShowNotesToggle: String
+    let updateCheckNow: String
+    let updateCheckingStatus: String
+    let updateUpToDateStatus: String
+    let updateAvailableFormat: String
+    let updateInstallButton: String
+    let updateOpenReleasePage: String
+    let updateDownloadingFormat: String
+    let updateDownloadingStatus: String
+    let updateVerifyingStatus: String
+    let updateRestartingStatus: String
+    let updateCheckFailedFormat: String
+    let updateInstallFailedFormat: String
+    let updateLastCheckedFormat: String
+    let updateInertCaption: String
+    let updateManualTranslocated: String
+    let updateManualOutsideApplications: String
+    let updateManualNotWritable: String
+    let updateManualOtherVolume: String
+    let updateBannerTitle: String
+    let updateBannerAction: String
+    let updatePreviewTitleFormat: String
+    let updatePreviewCurrentFormat: String
+    let updatePreviewSkipNotes: String
+    let updatePreviewCancel: String
+    let menuCheckForUpdates: String
+    let updateUpdatedNoticeFormat: String
+    let updateRolledBackNoticeFormat: String
+    let updateNotAppliedNoticeFormat: String
+    let updateRestoreFailedNotice: String
+    let updateFailureUnreachable: String
+    let updateFailureRateLimited: String
+    let updateFailureServer: String
+    let updateFailureUnreadable: String
+    let updateFailureReleaseIncomplete: String
+    let updateFailureBusyRecording: String
+    let updateFailureBusyMedia: String
+    let updateFailureBusyCleaning: String
+    let updateFailureDownload: String
+    let updateFailureDigest: String
+    let updateFailureArchive: String
+    let updateFailureSignature: String
+    let updateFailureDisk: String
+    let updateFailureHandoff: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1028,7 +1073,7 @@ struct Strings {
         guideStartOver: "Start over",
         guideClose: "Close",
         onboardingWelcomeTitle: "FixDock",
-        onboardingWelcomeBody: "A menu bar app for a repair bench. Install only the tools you want from Settings › Features; each asks for a permission only when it needs one. Control-Option-Command-F opens the panel. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and does not phone home.",
+        onboardingWelcomeBody: "A menu bar app for a repair bench. Install only the tools you want from Settings › Features; each asks for a permission only when it needs one. Control-Option-Command-F opens the panel. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and sends no analytics. Its only network use is checking GitHub for FixDock updates, which you can turn off in Settings › About.",
         onboardingLanguageTitle: "Language",
         onboardingFeaturesTitle: "Tools",
         onboardingFeaturesBody: "Install the tools you want now, or later in Settings › Features. A tool does nothing until it is installed.",
@@ -1040,10 +1085,9 @@ struct Strings {
         onboardingBack: "Back",
         onboardingSkip: "Skip",
         onboardingGetStarted: "Get started",
-        aboutFork: "FixDock is a modified unofficial fork of vorssaint-utils. The original is GPL-3.0-or-later. Copyright (C) 2026 Vorssaint and the vorssaint-utils contributors. This build removes the original name, icon, signing identity, and update feed. It is not an official release.",
+        aboutFork: "FixDock is a modified unofficial fork of vorssaint-utils. The original is GPL-3.0-or-later. Copyright (C) 2026 Vorssaint and the vorssaint-utils contributors. This build removes the original name, icon, signing identity, and update feed, and checks FixDock's own releases for updates. It is not an official release.",
         aboutLicense: "License: GNU General Public License v3.0 or later. See the LICENSE and NOTICE files.",
-        aboutNoTelemetry: "No account, no analytics, and no network calls.",
-        aboutNoUpdates: "This build does not check for updates.",
+        aboutNoTelemetry: "No account and no analytics. The only network use is the update check below.",
         aboutUpstreamButton: "Original project",
         aboutRepositoryButton: "FixDock source",
         screenCapturePageTitle: "Screen capture",
@@ -1385,6 +1429,52 @@ struct Strings {
         panelDragHint: "Drag to reorder",
         panelBack: "Back",
         panelPermissionMissingFormat: "Needs %@",
+        updatesTitle: "Updates",
+        updateAutomaticToggle: "Check for updates automatically",
+        updateShowNotesToggle: "Show release notes before updating",
+        updateCheckNow: "Check now",
+        updateCheckingStatus: "Checking…",
+        updateUpToDateStatus: "You're on the latest version.",
+        updateAvailableFormat: "Update available: v%@",
+        updateInstallButton: "Download and install",
+        updateOpenReleasePage: "Open release page",
+        updateDownloadingFormat: "Downloading update… %d%%",
+        updateDownloadingStatus: "Downloading update…",
+        updateVerifyingStatus: "Checking the download…",
+        updateRestartingStatus: "Installing and restarting…",
+        updateCheckFailedFormat: "Couldn't check: %@",
+        updateInstallFailedFormat: "Couldn't install: %@",
+        updateLastCheckedFormat: "Last checked: %@",
+        updateInertCaption: "This build doesn't update itself.",
+        updateManualTranslocated: "Move FixDock to /Applications to update it here.",
+        updateManualOutsideApplications: "FixDock updates itself only in /Applications.",
+        updateManualNotWritable: "You can't change this copy. Download the update from the release page.",
+        updateManualOtherVolume: "This copy is on another disk. Download the update from the release page.",
+        updateBannerTitle: "Update available",
+        updateBannerAction: "Update",
+        updatePreviewTitleFormat: "FixDock v%@ is available",
+        updatePreviewCurrentFormat: "You have v%@.",
+        updatePreviewSkipNotes: "Don't show release notes before updating",
+        updatePreviewCancel: "Cancel",
+        menuCheckForUpdates: "Check for Updates…",
+        updateUpdatedNoticeFormat: "Updated to v%@.",
+        updateRolledBackNoticeFormat: "v%1$@ didn't start, so v%2$@ was kept.",
+        updateNotAppliedNoticeFormat: "The update to v%@ wasn't applied.",
+        updateRestoreFailedNotice: "The update failed and the previous copy couldn't be put back. Download FixDock from the release page.",
+        updateFailureUnreachable: "GitHub can't be reached.",
+        updateFailureRateLimited: "GitHub asked to wait. Try again later.",
+        updateFailureServer: "GitHub answered with an error.",
+        updateFailureUnreadable: "The release information couldn't be read.",
+        updateFailureReleaseIncomplete: "The newest release isn't complete yet.",
+        updateFailureBusyRecording: "Finish the recording first.",
+        updateFailureBusyMedia: "Wait for the media job to finish.",
+        updateFailureBusyCleaning: "Turn off cleaning mode first.",
+        updateFailureDownload: "The download didn't finish.",
+        updateFailureDigest: "The download doesn't match the release.",
+        updateFailureArchive: "The download isn't the FixDock release that was offered.",
+        updateFailureSignature: "The new version isn't signed by FixDock's developer and notarized by Apple.",
+        updateFailureDisk: "The download couldn't be saved.",
+        updateFailureHandoff: "The installer couldn't start.",
         versionFormat: "Version %@"
     )
 }
