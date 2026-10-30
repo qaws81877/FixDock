@@ -100,7 +100,12 @@ enum Relauncher {
             report(.notSwapped, .appDidNotQuit)
             return 1
         }
-        guard stagedMayReplace(own, with: staged) else {
+        // The pin comes from the installed (old) bundle, read once here and
+        // kept, so the staged side never supplies its own requirement.
+        guard let pin = SigningIdentity.ofBundle(at: URL(fileURLWithPath: own, isDirectory: true)),
+              let installed = version(of: own),
+              mayReplace(installed, pin: pin, with: staged)
+        else {
             report(.notSwapped, .stagedRejected)
             _ = open(own)
             return 1
@@ -108,6 +113,18 @@ enum Relauncher {
         guard swap(own, staged) == 0 else {
             report(.notSwapped, .swapFailed)
             _ = open(own)
+            return 1
+        }
+        // The check that counts: the bytes now at the installed path, where App
+        // Management guards them, so they cannot change after this.
+        guard mayReplace(installed, pin: pin, with: own) else {
+            if swap(own, staged) == 0 {
+                report(.notSwapped, .stagedRejected)
+                _ = open(own)
+            } else {
+                report(.rollbackFailed, .stagedRejected)
+                _ = open(staged)
+            }
             return 1
         }
 
@@ -151,17 +168,19 @@ enum Relauncher {
         return 0
     }
 
-    /// Immediately before the swap: the staged copy satisfies the installed
-    /// copy's own designated requirement plus notarization (the verifier's
-    /// check, shared), and its version is strictly newer, so a genuine older
-    /// build cannot be swapped in.
-    private static func stagedMayReplace(_ own: String, with staged: String) -> Bool {
-        guard let pin = SigningIdentity.ofBundle(at: URL(fileURLWithPath: own, isDirectory: true)),
-              pin.checkReplacement(at: URL(fileURLWithPath: staged, isDirectory: true)) == errSecSuccess,
-              let installed = SemanticVersion(infoPlist(of: own)?["CFBundleShortVersionString"] as? String),
-              let incoming = SemanticVersion(infoPlist(of: staged)?["CFBundleShortVersionString"] as? String)
+    /// `candidate` satisfies the old copy's designated requirement plus
+    /// notarization (the verifier's check, shared) and is strictly newer, so a
+    /// genuine older build cannot be swapped in either.
+    private static func mayReplace(_ installed: SemanticVersion, pin: SigningIdentity,
+                                   with candidate: String) -> Bool {
+        guard pin.checkReplacement(at: URL(fileURLWithPath: candidate, isDirectory: true)) == errSecSuccess,
+              let incoming = version(of: candidate)
         else { return false }
         return incoming > installed
+    }
+
+    private static func version(of bundlePath: String) -> SemanticVersion? {
+        SemanticVersion(infoPlist(of: bundlePath)?["CFBundleShortVersionString"] as? String)
     }
 
     /// kill(pid, 0) fails with ESRCH once the process is gone.
