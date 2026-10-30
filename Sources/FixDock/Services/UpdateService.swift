@@ -205,10 +205,12 @@ final class UpdateService: ObservableObject {
         case .helperMayBeRunning:
             break
         case .finished(let notice):
-            send(.previousAttempt(notice))
-            if case .rolledBack(let version)? = notice {
-                UserDefaults.standard.set(version.description, forKey: DefaultsKey.updateQuietVersion)
-                send(.quieted(version))
+            if workspace.firstNotice(of: attempt) {
+                send(.previousAttempt(notice))
+                if case .rolledBack(let version)? = notice {
+                    UserDefaults.standard.set(version.description, forKey: DefaultsKey.updateQuietVersion)
+                    send(.quieted(version))
+                }
             }
             sweep()
         }

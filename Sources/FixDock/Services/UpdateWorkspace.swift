@@ -15,6 +15,8 @@ import Foundation
 ///         handoff.plist                            the old app writes it before the helper starts
 ///         report.plist                             the helper writes it at its end
 ///         confirmed                                the new app creates it, empty
+///         noticed                                  the app creates it, empty, when it shows the outcome
+///         rejected-<UUID>.app                      what the helper moved out of the install path
 ///
 /// One writer per file, merged at the read boundary by
 /// `UpdatePolicy.launchOutcome`. The root comes from the running bundle id,
@@ -53,6 +55,7 @@ struct UpdateWorkspace {
         var handoffFile: URL { directory.appendingPathComponent("handoff.plist") }
         var reportFile: URL { directory.appendingPathComponent("report.plist") }
         var confirmFile: URL { directory.appendingPathComponent("confirmed") }
+        var noticeFile: URL { directory.appendingPathComponent("noticed") }
     }
 
     /// Creates the root if needed and a fresh attempt folder. EEXIST is an
@@ -104,6 +107,18 @@ struct UpdateWorkspace {
         if descriptor >= 0 { close(descriptor) }
     }
 
+    /// True the first time for an attempt, so its notice shows once even when
+    /// the sweep keeps the attempt. Any failure other than an existing marker
+    /// also returns true: showing a notice twice beats hiding a failed restore.
+    func firstNotice(of attempt: Attempt) -> Bool {
+        let descriptor = open(attempt.noticeFile.path, O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW, 0o600)
+        if descriptor >= 0 {
+            close(descriptor)
+            return true
+        }
+        return errno != EEXIST
+    }
+
     func isConfirmed(_ attempt: Attempt) -> Bool {
         var info = stat()
         return lstat(attempt.confirmFile.path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFREG
@@ -124,10 +139,15 @@ struct UpdateWorkspace {
               let target = Self.realPath(installTarget)
         else { return }
         let protected = [me, target]
-        for attempt in attempts() {
-            guard UpdatePolicy.attemptIsFinished(record: readHandoff(in: attempt),
+        // Read before the loop: a confirmed attempt may itself be removed in it.
+        let all = attempts().map { ($0, readHandoff(in: $0)) }
+        let confirmedAt = all.compactMap { attempt, record in isConfirmed(attempt) ? record?.createdAt : nil }
+        for (attempt, record) in all {
+            let laterConfirmed = record.map { record in confirmedAt.contains { $0 > record.createdAt } } ?? false
+            guard UpdatePolicy.attemptIsFinished(record: record,
                                                  report: readReport(in: attempt),
                                                  confirmed: isConfirmed(attempt),
+                                                 laterAttemptConfirmed: laterConfirmed,
                                                  running: running,
                                                  isActive: attempt.token == active,
                                                  now: now),

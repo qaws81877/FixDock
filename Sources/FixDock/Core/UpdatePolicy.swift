@@ -26,6 +26,9 @@ enum UpdatePolicy {
     /// more than this in the future is stale too, so a clock set back cannot
     /// keep an attempt waiting for a helper forever.
     static let attemptLifetime: TimeInterval = 5 * 60
+    /// How long an attempt whose restore failed keeps the copies moved aside
+    /// into it, unless a later attempt was confirmed.
+    static let movedAsideLifetime: TimeInterval = 30 * 24 * 60 * 60
     /// Tools/notarize.sh output.
     static let releaseBundleName = "FixDock.app"
     static let releaseExecutableName = "FixDock"
@@ -206,11 +209,18 @@ enum UpdatePolicy {
     /// The one rule for "this attempt is over", shared by every sweep. An
     /// attempt that never reached the handoff and is not the active one, or one
     /// whose outcome is finished. `.confirm` and `.helperMayBeRunning` keep it.
+    /// A restoreFailed or evictionFailed attempt holds the copies the helper
+    /// moved aside, which may be the person's only FixDock, so it is kept for
+    /// `movedAsideLifetime` unless an attempt created after it was confirmed.
     static func attemptIsFinished(record: HandoffRecord?, report: HelperReport?,
-                                  confirmed: Bool, running: SemanticVersion?,
-                                  isActive: Bool, now: Date) -> Bool {
+                                  confirmed: Bool, laterAttemptConfirmed: Bool,
+                                  running: SemanticVersion?, isActive: Bool, now: Date) -> Bool {
         guard !isActive else { return false }
         guard let record else { return true }
+        if let ending = report?.ending, ending == .restoreFailed || ending == .evictionFailed,
+           !laterAttemptConfirmed, now.timeIntervalSince(record.createdAt) < movedAsideLifetime {
+            return false
+        }
         if case .finished = launchOutcome(record: record, report: report, confirmed: confirmed,
                                           running: running, now: now) { return true }
         return false
