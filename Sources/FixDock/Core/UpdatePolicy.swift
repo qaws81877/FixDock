@@ -236,8 +236,9 @@ enum UpdatePolicy {
 
 // MARK: - Versions and digests
 
-/// "X.Y.Z" in decimal and nothing else: FixDock has no beta channel, and a tag
-/// that is not plain SemVer is never an update.
+/// "X.Y.Z" in decimal and nothing else, no leading zeros ("0" alone is fine):
+/// FixDock has no beta channel, and a tag that is not plain SemVer is never an
+/// update.
 struct SemanticVersion: Comparable, Hashable, Codable, CustomStringConvertible {
     let major: Int
     let minor: Int
@@ -250,7 +251,7 @@ struct SemanticVersion: Comparable, Hashable, Codable, CustomStringConvertible {
         var numbers: [Int] = []
         for part in parts {
             guard (1...6).contains(part.count), part.allSatisfy({ $0.isASCII && $0.isNumber }),
-                  let number = Int(part)
+                  part.count == 1 || part.first != "0", let number = Int(part)
             else { return nil }
             numbers.append(number)
         }
