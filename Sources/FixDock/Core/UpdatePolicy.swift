@@ -22,7 +22,9 @@ enum UpdatePolicy {
     /// The new version must confirm within this long. After it, a version
     /// that is not running is rolled back; one that is running is left alone.
     static let launchConfirmDeadline: TimeInterval = 60
-    /// An attempt older than this cannot have a live helper.
+    /// An attempt older than this cannot have a live helper. A record dated
+    /// more than this in the future is stale too, so a clock set back cannot
+    /// keep an attempt waiting for a helper forever.
     static let attemptLifetime: TimeInterval = 5 * 60
     /// Tools/notarize.sh output.
     static let releaseBundleName = "FixDock.app"
@@ -193,8 +195,12 @@ enum UpdatePolicy {
             return confirmed ? .finished(nil) : .confirm(record.token, record.to)
         }
         guard running == record.from, report == nil else { return .finished(nil) }
-        return now.timeIntervalSince(record.createdAt) < attemptLifetime
-            ? .helperMayBeRunning : .finished(.notApplied(record.to, nil))
+        return isFresh(record, now: now) ? .helperMayBeRunning : .finished(.notApplied(record.to, nil))
+    }
+
+    private static func isFresh(_ record: HandoffRecord, now: Date) -> Bool {
+        let age = now.timeIntervalSince(record.createdAt)
+        return age >= -attemptLifetime && age < attemptLifetime
     }
 
     /// The one rule for "this attempt is over", shared by every sweep. An
