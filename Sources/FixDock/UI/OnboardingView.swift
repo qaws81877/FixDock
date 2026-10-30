@@ -19,6 +19,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 16) {
             switch step {
             case .welcome:
+                AppIconImage(size: 64)
                 Text(strings.onboardingWelcomeTitle)
                     .font(.title2.weight(.semibold))
                 Text(strings.onboardingWelcomeBody)
