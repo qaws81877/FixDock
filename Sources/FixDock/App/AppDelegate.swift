@@ -196,20 +196,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         window?.close()
     }
 
-    /// Waits until this process is gone, then opens the same bundle. Screen
-    /// Recording only applies to the new process.
+    /// Quits and comes back through `Relauncher`. Screen Recording only
+    /// applies to the new process.
     func relaunch() {
-        let path = Bundle.main.bundlePath
-        let pid = String(ProcessInfo.processInfo.processIdentifier)
-        let script = """
-        waited=0
-        while kill -0 "$1" 2>/dev/null && [ "$waited" -lt 100 ]; do
-          sleep 0.2
-          waited=$((waited + 1))
-        done
-        kill -0 "$1" 2>/dev/null || /usr/bin/open "$2"
-        """
-        _ = try? DetachedProcess.spawn("/bin/sh", ["-c", script, "fixdock-relaunch", pid, path])
+        Relauncher.relaunch()
         NSApp.terminate(nil)
     }
 
