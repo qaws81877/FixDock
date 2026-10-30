@@ -14,6 +14,7 @@ struct MenuPanelView: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var runtime = FeatureRuntime.shared
     @ObservedObject private var interaction = PanelInteractionState.shared
+    @ObservedObject private var updates = UpdateService.shared
     // Read in `body` so a reorder, hide or reset redraws the cards.
     @AppStorage(DefaultsKey.panelQuickActionsOrder) private var quickOrderRaw = ""
     @AppStorage(DefaultsKey.panelOnOffOrder) private var onOffOrderRaw = ""
@@ -29,6 +30,9 @@ struct MenuPanelView: View {
         _ = (runtime.revision, quickOrderRaw, onOffOrderRaw, hiddenRaw)
         let strings = l10n.s
         return VStack(alignment: .leading, spacing: 12) {
+            if updates.status.showsBanner {
+                UpdateBanner()
+            }
             header(strings)
             OverlayScrollView(measuredHeight: $measuredHeight) {
                 content(strings)
@@ -54,11 +58,16 @@ struct MenuPanelView: View {
 
     private var scrollHeight: CGFloat {
         PanelLayoutSupport.scrollHeight(measured: measuredHeight, estimated: estimatedHeight,
-                                        maxHeight: maxHeight)
+                                        maxHeight: maxHeight, chrome: chrome)
     }
 
     private var panelHeight: CGFloat {
-        PanelLayoutSupport.panelHeight(scrollHeight: scrollHeight, maxHeight: maxHeight)
+        PanelLayoutSupport.panelHeight(scrollHeight: scrollHeight, maxHeight: maxHeight, chrome: chrome)
+    }
+
+    private var chrome: CGFloat {
+        PanelLayoutSupport.chromeHeight
+            + (updates.status.showsBanner ? PanelLayoutSupport.updateBannerHeight : 0)
     }
 
     private var estimatedHeight: CGFloat {

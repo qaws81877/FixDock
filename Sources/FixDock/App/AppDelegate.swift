@@ -4,6 +4,7 @@
 
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import SwiftUI
 
 func appDelegate() -> AppDelegate? {
@@ -13,7 +14,8 @@ func appDelegate() -> AppDelegate? {
 /// Menu bar app lifecycle: status item, panel, settings, onboarding, and the
 /// global shortcut. Feature services are not started here; the catalog only
 /// records which tools a later build should load.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate,
+                         NSMenuItemValidation {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     /// Installed while the panel is shown, removed in `popoverDidClose`.
@@ -22,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var popoverResignObserver: NSObjectProtocol?
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var updateWindow: NSWindow?
+    private var updateAttention: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -43,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         if !UserDefaults.standard.bool(forKey: DefaultsKey.onboardingComplete) {
             showOnboarding()
         }
+        // Last: a just-installed version confirms here that it launched.
+        UpdateService.shared.start()
+        updateAttention = UpdateService.shared.$status
+            .map(\.wantsAttention)
+            .removeDuplicates()
+            .sink { [weak self] in self?.applyStatusImage(attention: $0) }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -100,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         }
         NSApp.activate()
         installPopoverMonitors()
+        UpdateService.shared.checkIfStale()
     }
 
     // MARK: - Panel closing (application-defined, as upstream)
@@ -213,6 +224,80 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         if window === settingsWindow {
             MediaService.shared.setVisible(false, on: .settings)
         }
+        if window === updateWindow {
+            updateWindow = nil
+        }
+    }
+
+    // MARK: - Updates
+
+    /// The one entry for the banner, the About button and the menu item: the
+    /// release page for a copy that cannot update in place, the preview window
+    /// when the person wants the notes first, else the install itself. While
+    /// an install runs, the preview window shows its progress.
+    func presentUpdate() {
+        switch UpdateService.shared.status.phase {
+        case .available(let offer, .releasePage):
+            closePopover()
+            NSWorkspace.shared.open(offer.releasePage)
+        case .available(let offer, .inPlace):
+            closePopover()
+            if UserDefaults.standard.bool(forKey: DefaultsKey.updateShowNotesBeforeInstall) {
+                showUpdatePreview(offer)
+            } else {
+                UpdateService.shared.install()
+            }
+        case .installing(let offer, _):
+            closePopover()
+            showUpdatePreview(offer)
+        default:
+            break
+        }
+    }
+
+    func showUpdatePreview(_ offer: UpdateOffer) {
+        updateWindow?.close()
+        let view = UpdatePreviewView(offer: offer) { [weak self] in self?.updateWindow?.close() }
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.styleMask = [.titled, .closable]
+        window.title = L10n.shared.s.updatesTitle
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.center()
+        updateWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// An offer in hand opens it; otherwise Settings › About shows the check.
+    @objc func checkForUpdatesFromMenu(_ sender: Any?) {
+        if case .available = UpdateService.shared.status.phase {
+            presentUpdate()
+            return
+        }
+        SettingsNavigator.shared.open(.shell(.about))
+        openSettings()
+        UpdateService.shared.checkNow()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(checkForUpdatesFromMenu(_:)) else { return true }
+        if case .installing = UpdateService.shared.status.phase { return false }
+        return true
+    }
+
+    private func applyStatusImage(attention: Bool) {
+        guard let button = statusItem?.button, let image = statusImage(attention: attention) else { return }
+        button.image = image
+    }
+
+    private var updateMenuItem: NSMenuItem? {
+        if case .inert = UpdateService.shared.status.mode { return nil }
+        let item = NSMenuItem(title: L10n.shared.s.menuCheckForUpdates,
+                              action: #selector(checkForUpdatesFromMenu(_:)),
+                              keyEquivalent: "")
+        item.target = self
+        return item
     }
 
     @objc private func languageChanged() {
@@ -241,13 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            let image = FixDockMark.templateImage(size: 18)
-                ?? NSImage(systemSymbolName: "wrench.and.screwdriver",
-                           accessibilityDescription: AppInfo.name)
-            if let image {
-                image.isTemplate = true
-                image.size = NSSize(width: 18, height: 18)
-                image.accessibilityDescription = AppInfo.name
+            if let image = statusImage(attention: false) {
                 button.image = image
             }
             button.toolTip = statusTooltip
@@ -256,6 +335,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+    }
+
+    /// The template mark, with a dot while an update waits.
+    private func statusImage(attention: Bool) -> NSImage? {
+        let image = (attention ? FixDockMark.attentionImage(size: 18) : FixDockMark.templateImage(size: 18))
+            ?? NSImage(systemSymbolName: "wrench.and.screwdriver", accessibilityDescription: AppInfo.name)
+        image?.isTemplate = true
+        image?.size = NSSize(width: 18, height: 18)
+        image?.accessibilityDescription = AppInfo.name
+        return image
     }
 
     private var statusTooltip: String {
@@ -285,6 +374,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
                                   keyEquivalent: "")
         settings.target = self
         menu.addItem(settings)
+        if let update = updateMenuItem { menu.addItem(update) }
         menu.addItem(.separator())
         let quit = menu.addItem(withTitle: strings.menuQuit,
                                 action: #selector(NSApplication.terminate(_:)),
@@ -308,6 +398,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
                                   keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
+        if let update = updateMenuItem { appMenu.addItem(update) }
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: strings.menuQuit,
                         action: #selector(NSApplication.terminate(_:)),
