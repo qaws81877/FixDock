@@ -45,6 +45,21 @@ struct SigningIdentity: Equatable {
     /// translocated on launch.
     var replacementRequirement: String { "(\(designatedRequirement)) and notarized" }
 
+    /// The one replacement check, shared by the verifier in the app and the
+    /// helper right before its swap, so the two cannot drift. errSecSuccess
+    /// or the failing status.
+    func checkReplacement(at bundle: URL) -> OSStatus {
+        var code: SecStaticCode?
+        let created = SecStaticCodeCreateWithPath(bundle as CFURL, [], &code)
+        guard created == errSecSuccess, let code else { return created }
+        var requirement: SecRequirement?
+        let parsed = SecRequirementCreateWithString(replacementRequirement as CFString, [], &requirement)
+        guard parsed == errSecSuccess, let requirement else { return parsed }
+        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode
+                               | kSecCSStrictValidate | kSecCSRestrictSymlinks)
+        return SecStaticCodeCheckValidityWithErrors(code, flags, requirement, nil)
+    }
+
     private static func read(_ code: SecStaticCode) -> SigningIdentity? {
         var requirement: SecRequirement?
         var text: CFString?
@@ -154,15 +169,7 @@ enum UpdateVerifier {
                              executable: plist?["CFBundleExecutable"] as? String),
             offer: offer, running: current, expectedBundleID: AppInfo.bundleID)
 
-        var code: SecStaticCode?
-        let created = SecStaticCodeCreateWithPath(attempt.stagedApp as CFURL, [], &code)
-        guard created == errSecSuccess, let code else { throw InstallFailure.signatureRejected(created) }
-        var requirement: SecRequirement?
-        let parsed = SecRequirementCreateWithString(signing.replacementRequirement as CFString, [], &requirement)
-        guard parsed == errSecSuccess, let requirement else { throw InstallFailure.signatureRejected(parsed) }
-        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode
-                               | kSecCSStrictValidate | kSecCSRestrictSymlinks)
-        let status = SecStaticCodeCheckValidityWithErrors(code, flags, requirement, nil)
+        let status = signing.checkReplacement(at: attempt.stagedApp)
         guard status == errSecSuccess else { throw InstallFailure.signatureRejected(status) }
 
         return VerifiedUpdate(offer: offer, attempt: attempt, running: running)

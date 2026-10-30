@@ -433,7 +433,7 @@ struct HelperReport: Codable, Equatable {
         case confirmed, launchedUnconfirmed, rolledBack, notSwapped, rollbackFailed
     }
     enum Reason: String, Codable {
-        case appDidNotQuit, recordRejected, swapFailed, launchFailed, newVersionExited
+        case appDidNotQuit, recordRejected, stagedRejected, swapFailed, launchFailed, newVersionExited
     }
     let token: UUID
     let ending: Ending
