@@ -25,8 +25,8 @@ import Security
 /// process that controls this user's processes.
 /// It uses no AppKit, so it never registers as a running app;
 /// it launches through /usr/bin/open and watches processes through libproc.
-/// RENAME_SWAP is atomic, so the installed path is never missing, and the same
-/// call restores exactly what was there.
+/// RENAME_SWAP is atomic and the same call restores exactly what was there;
+/// the installed path goes missing only when both copies fail their check.
 enum Relauncher {
     static let helperFlag = "--fixdock-relaunch-helper"
 

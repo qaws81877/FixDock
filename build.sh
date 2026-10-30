@@ -93,7 +93,7 @@ if [[ "$SDK" == "$PINNED_SDK" ]]; then
 fi
 
 TEST_VERSION="${FIXDOCK_VERSION:-}"
-if [[ -n "$TEST_VERSION" && ! "$TEST_VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+if [[ -n "$TEST_VERSION" && ! "$TEST_VERSION" =~ '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' ]]; then
     echo "FIXDOCK_VERSION must be X.Y.Z, got $TEST_VERSION" >&2
     exit 1
 fi
