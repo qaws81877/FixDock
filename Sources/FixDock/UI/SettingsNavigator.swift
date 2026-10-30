@@ -20,6 +20,18 @@ enum ShellPage: String, CaseIterable, Identifiable, Hashable {
         case .about: return strings.tabAbout
         }
     }
+
+    /// Symbols from the upstream settings sidebar (`SettingsDirectory`).
+    /// Upstream had no permissions page; `hand.raised` is its permission glyph.
+    var symbolName: String {
+        switch self {
+        case .general: return "gearshape"
+        case .features: return "square.grid.2x2"
+        case .shortcut: return "command"
+        case .permissions: return "hand.raised"
+        case .about: return "info.circle"
+        }
+    }
 }
 
 /// Everything the Settings right pane can show.
@@ -31,6 +43,13 @@ enum SettingsDestination: Hashable {
         switch self {
         case .shell(let page): return page.title(strings)
         case .feature(let page): return page.feature.pageTitle(strings)
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .shell(let page): return page.symbolName
+        case .feature(let page): return page.feature.symbolName
         }
     }
 }
@@ -77,6 +96,18 @@ final class SettingsNavigator: ObservableObject {
 
     private init() {
         sections = Self.buildSections()
+    }
+
+    /// For the sidebar `List(selection:)`. Ignores `nil` (click on empty
+    /// space or a category header).
+    var selection: Binding<SettingsDestination?> {
+        Binding(
+            get: { self.destination },
+            set: { newValue in
+                guard let newValue else { return }
+                self.open(newValue)
+            }
+        )
     }
 
     func isExpanded(_ group: FeatureGroup) -> Bool {
