@@ -25,6 +25,10 @@ Invariants:
   only gains entries (forks, bundled third-party assets with their license).
 - No Vorssaint name, logo, bundle id, signing identity or domain
   (`TRADEMARKS.md`).
+- App artwork is FixDock's own (GPL, stated in `NOTICE`). The committed
+  `Resources/AppIcon.png` and the template menu bar mark
+  `Resources/Icons/fixdock-mark.svg` are the sources; the owner chose not to
+  keep a generator script in the repo. Changing the logo needs the owner first.
 
 Not goals: App Store or sandboxing, an Intel build, a second module or
 source directory (`build.sh` compiles `Sources/FixDock/` only).
