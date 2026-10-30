@@ -145,11 +145,7 @@ enum UpdateVerifier {
         do { try ZipArchive.extract(archive, into: attempt.stageDirectory) } catch {
             throw InstallFailure.extractFailed
         }
-        var info = stat()
-        guard (try? FileManager.default.contentsOfDirectory(atPath: attempt.stageDirectory.path))
-                == [UpdatePolicy.releaseBundleName],
-              lstat(attempt.stagedApp.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR
-        else { throw InstallFailure.archiveRejected("top-level item") }
+        try checkExtractedStage(attempt)
 
         let plist = NSDictionary(contentsOf: attempt.stagedApp.appendingPathComponent("Contents/Info.plist"))
         try UpdatePolicy.checkStaged(
@@ -170,5 +166,29 @@ enum UpdateVerifier {
         guard status == errSecSuccess else { throw InstallFailure.signatureRejected(status) }
 
         return VerifiedUpdate(offer: offer, attempt: attempt, running: running)
+    }
+
+    /// The listing does not prove what ditto wrote, so the stage itself is
+    /// walked: exactly one FixDock.app directory, and below it only regular
+    /// files and directories (lstat, so no links) whose real path stays inside
+    /// the stage.
+    private static func checkExtractedStage(_ attempt: UpdateWorkspace.Attempt) throws {
+        let manager = FileManager.default
+        var info = stat()
+        guard (try? manager.contentsOfDirectory(atPath: attempt.stageDirectory.path))
+                == [UpdatePolicy.releaseBundleName],
+              lstat(attempt.stagedApp.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR,
+              let stage = UpdateWorkspace.realPath(attempt.stageDirectory.path),
+              let entries = manager.enumerator(atPath: attempt.stagedApp.path)
+        else { throw InstallFailure.archiveRejected("top-level item") }
+        for case let relative as String in entries {
+            let path = (attempt.stagedApp.path as NSString).appendingPathComponent(relative)
+            guard lstat(path, &info) == 0 else { throw InstallFailure.archiveRejected("unreadable entry") }
+            let kind = info.st_mode & S_IFMT
+            guard kind == S_IFREG || kind == S_IFDIR
+            else { throw InstallFailure.archiveRejected("link or special file") }
+            guard let real = UpdateWorkspace.realPath(path), real.hasPrefix(stage + "/")
+            else { throw InstallFailure.archiveRejected("path") }
+        }
     }
 }
