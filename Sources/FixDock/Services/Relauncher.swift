@@ -129,9 +129,13 @@ enum Relauncher {
                 _ = open(own)
                 return 1
             }
-            for index in 1...100 {
-                let out = attempt.directory.appendingPathComponent("rejected-\(index).app").path
-                if renamex_np(own, out, UInt32(RENAME_EXCL)) == 0 || errno != EEXIST { break }
+            let out = attempt.directory.appendingPathComponent("rejected-\(UUID().uuidString).app").path
+            var info = stat()
+            guard renamex_np(own, out, UInt32(RENAME_EXCL)) == 0,
+                  lstat(own, &info) == -1, errno == ENOENT
+            else {
+                report(.evictionFailed, reason)
+                return 1
             }
             report(.restoreFailed, reason)
             return 1
