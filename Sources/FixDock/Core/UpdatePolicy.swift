@@ -194,11 +194,12 @@ enum UpdatePolicy {
             case .confirmed, .launchedUnconfirmed: break
             }
         }
-        if running == record.to {
-            return confirmed ? .finished(nil) : .confirm(record.token, record.to)
-        }
+        if running == record.to, !confirmed { return .confirm(record.token, record.to) }
+        // Any process of this user can create the marker, so a marker without
+        // a report ends the attempt only once no helper can be alive.
+        if report == nil, isFresh(record, now: now) { return .helperMayBeRunning }
         guard running == record.from, report == nil else { return .finished(nil) }
-        return isFresh(record, now: now) ? .helperMayBeRunning : .finished(.notApplied(record.to, nil))
+        return .finished(.notApplied(record.to, nil))
     }
 
     private static func isFresh(_ record: HandoffRecord, now: Date) -> Bool {

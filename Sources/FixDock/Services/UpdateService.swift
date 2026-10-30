@@ -198,7 +198,7 @@ final class UpdateService: ObservableObject {
         case .nothingPending:
             sweep()
         case .confirm(_, let version):
-            workspace.confirmLaunch(of: attempt)
+            guard workspace.confirmLaunch(of: attempt, record: record, running: running.version) else { return }
             send(.previousAttempt(.updated(version)))
             // The helper is polling for the marker; give it time to report.
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.sweep() }

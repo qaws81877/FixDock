@@ -102,9 +102,15 @@ struct UpdateWorkspace {
         Self.readRegularFile(attempt.reportFile).flatMap { try? PropertyListDecoder().decode(HelperReport.self, from: $0) }
     }
 
-    func confirmLaunch(of attempt: Attempt) {
+    /// Creates the marker only when this process is the new version running
+    /// from the install target. A copy of the new version opened from
+    /// anywhere else is not the update, and its marker would stop the
+    /// helper's rollback. True when the marker exists afterwards.
+    func confirmLaunch(of attempt: Attempt, record: HandoffRecord, running: SemanticVersion?) -> Bool {
+        guard running == record.to, Self.runningBundlePath() == record.targetPath else { return false }
         let descriptor = open(attempt.confirmFile.path, O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW, 0o600)
         if descriptor >= 0 { close(descriptor) }
+        return isConfirmed(attempt)
     }
 
     /// True the first time for an attempt, so its notice shows once even when
