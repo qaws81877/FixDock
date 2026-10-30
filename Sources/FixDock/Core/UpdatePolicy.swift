@@ -178,6 +178,9 @@ enum UpdatePolicy {
                               confirmed: Bool, running: SemanticVersion?,
                               now: Date) -> LaunchOutcome {
         guard let record else { return .nothingPending }
+        // A failed swap back leaves the new bytes installed without the
+        // helper's approval; they are never confirmed as an update.
+        if report?.ending == .rollbackFailed { return .finished(.restoreFailed(record.to)) }
         if running == record.to {
             return confirmed ? .finished(nil) : .confirm(record.token, record.to)
         }
@@ -186,8 +189,7 @@ enum UpdatePolicy {
             switch report.ending {
             case .rolledBack: return .finished(.rolledBack(record.to))
             case .notSwapped: return .finished(.notApplied(record.to, report.reason))
-            case .rollbackFailed: return .finished(.restoreFailed(record.to))
-            case .confirmed, .launchedUnconfirmed: return .finished(nil)
+            case .confirmed, .launchedUnconfirmed, .rollbackFailed: return .finished(nil)
             }
         }
         return now.timeIntervalSince(record.createdAt) < attemptLifetime

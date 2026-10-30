@@ -46,14 +46,24 @@ struct SigningIdentity: Equatable {
     var replacementRequirement: String { "(\(designatedRequirement)) and notarized" }
 
     /// The one replacement check, shared by the verifier in the app and the
-    /// helper right before its swap, so the two cannot drift. errSecSuccess
-    /// or the failing status.
+    /// helper around its swap, so the two cannot drift. errSecSuccess or the
+    /// failing status.
     func checkReplacement(at bundle: URL) -> OSStatus {
+        Self.check(bundle, against: replacementRequirement)
+    }
+
+    /// The helper's check before it swaps the old copy back: the same identity,
+    /// without asking for notarization a locally signed copy may not have.
+    func checkSameIdentity(at bundle: URL) -> OSStatus {
+        Self.check(bundle, against: designatedRequirement)
+    }
+
+    private static func check(_ bundle: URL, against requirementText: String) -> OSStatus {
         var code: SecStaticCode?
         let created = SecStaticCodeCreateWithPath(bundle as CFURL, [], &code)
         guard created == errSecSuccess, let code else { return created }
         var requirement: SecRequirement?
-        let parsed = SecRequirementCreateWithString(replacementRequirement as CFString, [], &requirement)
+        let parsed = SecRequirementCreateWithString(requirementText as CFString, [], &requirement)
         guard parsed == errSecSuccess, let requirement else { return parsed }
         let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode
                                | kSecCSStrictValidate | kSecCSRestrictSymlinks)

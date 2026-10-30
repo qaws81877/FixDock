@@ -100,11 +100,11 @@ enum Relauncher {
             report(.notSwapped, .appDidNotQuit)
             return 1
         }
-        // The pin comes from the installed (old) bundle, read once here and
-        // kept, so the staged side never supplies its own requirement.
+        // The pin and the old version come from the installed bundle, read
+        // once here and kept, so neither side of the swap supplies its own.
         guard let pin = SigningIdentity.ofBundle(at: URL(fileURLWithPath: own, isDirectory: true)),
-              let installed = version(of: own),
-              mayReplace(installed, pin: pin, with: staged)
+              let oldVersion = version(of: own),
+              mayReplace(oldVersion, pin: pin, with: staged)
         else {
             report(.notSwapped, .stagedRejected)
             _ = open(own)
@@ -115,38 +115,37 @@ enum Relauncher {
             _ = open(own)
             return 1
         }
-        // The check that counts: the bytes now at the installed path, where App
-        // Management guards them, so they cannot change after this.
-        guard mayReplace(installed, pin: pin, with: own) else {
-            if swap(own, staged) == 0 {
-                report(.notSwapped, .stagedRejected)
-                _ = open(own)
-            } else {
-                report(.rollbackFailed, .stagedRejected)
-                _ = open(staged)
-            }
-            return 1
-        }
 
-        // `own` now holds the new version and `staged` the old one. Rollback
-        // (D2) runs only when the new version is gone without confirming.
-        func rollBack(_ reason: HelperReport.Reason) -> Int32 {
+        // `own` now holds the new version and `staged` the old one. The only
+        // swap back (D2). The old copy now sits in a folder any process of
+        // this user can write, so it goes back only if it is still the same
+        // identity and version; otherwise nothing is opened and the next
+        // launch shows restoreFailed with the release page.
+        func rollBack(_ reason: HelperReport.Reason, restored ending: HelperReport.Ending) -> Int32 {
             if workspace.isConfirmed(attempt) {
                 report(.confirmed, nil)
                 return 0
             }
-            if swap(own, staged) == 0 {
-                report(.rolledBack, reason)
-                _ = open(own)
-            } else {
+            guard pin.checkSameIdentity(at: URL(fileURLWithPath: staged, isDirectory: true)) == errSecSuccess,
+                  version(of: staged) == oldVersion,
+                  swap(own, staged) == 0
+            else {
                 report(.rollbackFailed, reason)
-                _ = open(staged)
+                return 1
             }
+            report(ending, reason)
+            _ = open(own)
             return 1
         }
 
+        // The check that counts: the bytes now at the installed path, where App
+        // Management guards them, so they cannot change after this.
+        guard mayReplace(oldVersion, pin: pin, with: own) else {
+            return rollBack(.stagedRejected, restored: .notSwapped)
+        }
+
         let executable = executablePath(of: own)
-        if processes(running: executable).isEmpty, !open(own) { return rollBack(.launchFailed) }
+        if processes(running: executable).isEmpty, !open(own) { return rollBack(.launchFailed, restored: .rolledBack) }
         var seenAlive = false
         let deadline = Date().addingTimeInterval(UpdatePolicy.launchConfirmDeadline)
         while Date() < deadline {
@@ -155,7 +154,7 @@ enum Relauncher {
                 return 0
             }
             let alive = !processes(running: executable).isEmpty
-            if seenAlive, !alive { return rollBack(.newVersionExited) }
+            if seenAlive, !alive { return rollBack(.newVersionExited, restored: .rolledBack) }
             seenAlive = seenAlive || alive
             usleep(250_000)
         }
@@ -163,7 +162,7 @@ enum Relauncher {
             report(.confirmed, nil)
             return 0
         }
-        if processes(running: executable).isEmpty { return rollBack(.newVersionExited) }
+        if processes(running: executable).isEmpty { return rollBack(.newVersionExited, restored: .rolledBack) }
         report(.launchedUnconfirmed, nil)
         return 0
     }
@@ -171,12 +170,12 @@ enum Relauncher {
     /// `candidate` satisfies the old copy's designated requirement plus
     /// notarization (the verifier's check, shared) and is strictly newer, so a
     /// genuine older build cannot be swapped in either.
-    private static func mayReplace(_ installed: SemanticVersion, pin: SigningIdentity,
+    private static func mayReplace(_ oldVersion: SemanticVersion, pin: SigningIdentity,
                                    with candidate: String) -> Bool {
         guard pin.checkReplacement(at: URL(fileURLWithPath: candidate, isDirectory: true)) == errSecSuccess,
               let incoming = version(of: candidate)
         else { return false }
-        return incoming > installed
+        return incoming > oldVersion
     }
 
     private static func version(of bundlePath: String) -> SemanticVersion? {
