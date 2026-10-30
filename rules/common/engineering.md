@@ -9,8 +9,8 @@ Change directly:
 Ask the owner first:
 
 - Anything that deletes, moves or overwrites user files, and the guard for it.
-- A new permission, a second global shortcut, a network call, or a new
-  bundled third-party asset (and its license).
+- A new permission, a second global shortcut, a network call other than
+  the update check, or a new bundled third-party asset (and its license).
 - Scope cuts from upstream that change what a tool does for the person.
 - Commits, pushes, PRs and merges, unless the owner asked for them.
 
@@ -55,6 +55,11 @@ Platform quirks:
   with `onTapGesture` rows.
 - `standardizedFileURL` and `resolvingSymlinksInPath` drop a `/private`
   prefix. Compare real paths with `realpath(3)`, never with those.
+- A bundle swapped in by rename(2) has no quarantine flag and never gets
+  Gatekeeper's first-launch check, so the updater checks the signature and
+  notarization itself. The installed app is swapped only by `Relauncher`
+  (`RENAME_SWAP`, pinned by `check-shell.py`), and removals under the update
+  workspace only by `UpdateWorkspace.sweep`.
 - `AVAssetWriter.cancelWriting()` deletes its output file. Point a writer
   only at an app-owned folder or a staged sibling it created, never
   straight at a file in the person's folder.

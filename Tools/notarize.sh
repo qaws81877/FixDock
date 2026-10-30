@@ -39,6 +39,11 @@ if ! print -r -- "$SIGNATURE" | grep -q "flags=.*runtime"; then
     exit 1
 fi
 
+if /usr/libexec/PlistBuddy -c 'Print :FixDockLocalFeedFolder' "$APP/Contents/Info.plist" >/dev/null 2>&1; then
+    echo "✗ $APP is an update test build (local feed). Rebuild without the test variables." >&2
+    exit 1
+fi
+
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 ZIP="$OUT_DIR/FixDock-$VERSION.zip"
 if [[ -e "$ZIP" ]]; then
@@ -65,5 +70,12 @@ xcrun stapler validate "$APP"
 
 mkdir -p "$OUT_DIR"
 /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+# The in-app updater accepts only a zip whose every entry is under FixDock.app/.
+if /usr/bin/zipinfo -1 "$ZIP" | grep -qv '^FixDock\.app/'; then
+    echo "✗ $ZIP has an entry outside FixDock.app/; the updater would refuse it." >&2
+    exit 1
+fi
 echo "✓ Notarized and stapled: $ZIP"
 shasum -a 256 "$ZIP"
+echo "Release: tag v$VERSION with the single asset FixDock-$VERSION.zip, created together in"
+echo "one gh release create call. The release notes are shown in the app before installing."

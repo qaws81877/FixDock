@@ -7,7 +7,8 @@
 # FIXDOCK_CODESIGN_IDENTITY using the hardened runtime and a secure timestamp
 # so the result can be notarized (Tools/notarize.sh).
 # Adapted from vorssaint-utils build.sh. The fan helper, Now Playing adapter,
-# update feed, and the upstream signing identity are not used.
+# the upstream update feed, and the upstream signing identity are not used;
+# FixDock checks its own GitHub releases (PRIVACY.md).
 #
 #   ./build.sh            -> build/stage/FixDock.app
 #   ./build.sh --install  -> /Applications/FixDock.app
@@ -15,6 +16,11 @@
 #
 # Requires Xcode Command Line Tools: xcode-select --install
 # Set FIXDOCK_CODESIGN_IDENTITY to sign with your own identity instead of ad-hoc.
+#
+# Update test builds only (never released; Tools/notarize.sh refuses them):
+#   FIXDOCK_VERSION=1.0.1        sets CFBundleShortVersionString
+#   FIXDOCK_LOCAL_FEED=<folder>  reads updates from a folder that
+#                                Tools/make-local-feed.sh wrote, not from GitHub
 # This script cannot run on Linux.
 
 set -euo pipefail
@@ -86,6 +92,27 @@ if [[ "$SDK" == "$PINNED_SDK" ]]; then
     SDK_COMPAT_FLAGS=(-Xfrontend -interface-compiler-version -Xfrontend 6.3.2)
 fi
 
+TEST_VERSION="${FIXDOCK_VERSION:-}"
+if [[ -n "$TEST_VERSION" && ! "$TEST_VERSION" =~ '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' ]]; then
+    echo "FIXDOCK_VERSION must be X.Y.Z, got $TEST_VERSION" >&2
+    exit 1
+fi
+LOCAL_FEED=""
+LOCAL_FEED_FLAGS=()
+if [[ -n "${FIXDOCK_LOCAL_FEED:-}" ]]; then
+    if [[ ! -f "$FIXDOCK_LOCAL_FEED/latest.json" ]]; then
+        echo "FIXDOCK_LOCAL_FEED must name a folder with latest.json (Tools/make-local-feed.sh)" >&2
+        exit 1
+    fi
+    LOCAL_FEED="$(cd "$FIXDOCK_LOCAL_FEED" && pwd -P)"
+    if [[ ! "$LOCAL_FEED" =~ '^[A-Za-z0-9._/-]+$' ]]; then
+        echo "FIXDOCK_LOCAL_FEED path may contain only letters, digits, . _ / -" >&2
+        exit 1
+    fi
+    LOCAL_FEED_FLAGS=(-D FIXDOCK_LOCAL_FEED)
+    echo "▸ TEST BUILD: updates come from $LOCAL_FEED, not GitHub. Never release this bundle."
+fi
+
 APP_SOURCES=()
 while IFS= read -r file; do
     APP_SOURCES+=("$file")
@@ -98,7 +125,7 @@ fi
 mkdir -p build
 echo "▸ Compiling ${#APP_SOURCES} files against $(basename "$SDK")…"
 swiftc "${OPTIMIZATION[@]}" -swift-version 5 \
-    -target arm64-apple-macosx14.0 -sdk "$SDK" "${SDK_COMPAT_FLAGS[@]}" \
+    -target arm64-apple-macosx14.0 -sdk "$SDK" "${SDK_COMPAT_FLAGS[@]}" "${LOCAL_FEED_FLAGS[@]}" \
     "${APP_SOURCES[@]}" -o "build/$EXECUTABLE"
 
 echo "▸ Assembling $APP_NAME.app…"
@@ -115,6 +142,12 @@ printf 'APPL????' > "$STAGE/Contents/PkgInfo"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$STAGE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$STAGE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $EXECUTABLE" "$STAGE/Contents/Info.plist"
+if [[ -n "$TEST_VERSION" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $TEST_VERSION" "$STAGE/Contents/Info.plist"
+fi
+if [[ -n "$LOCAL_FEED" ]]; then
+    /usr/libexec/PlistBuddy -c "Add :FixDockLocalFeedFolder string $LOCAL_FEED" "$STAGE/Contents/Info.plist"
+fi
 
 ICONSET="$STAGE_TMP/AppIcon.iconset"
 mkdir -p "$ICONSET"

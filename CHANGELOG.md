@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Updates: FixDock checks its own GitHub releases (about hourly, and when the panel opens) and can download, verify, install and restart into a new version from Settings › About, the panel banner or "Check for Updates…". A version that does not start is rolled back. Only the notarized release in /Applications installs in place; developer and self-built copies never check. Turn it off in Settings › About; what is sent is in PRIVACY.md.
+
 ## 1.0.0
 
 First public release. All nine tools are in; install the ones you want from Settings › Features.

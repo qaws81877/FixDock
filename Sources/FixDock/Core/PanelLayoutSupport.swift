@@ -85,6 +85,8 @@ enum PanelLayoutSupport {
     /// Outer padding (12 + 12), header (about 36), footer (about 34) and the
     /// two 12 pt gaps between them and the scrolling content.
     static let chromeHeight: CGFloat = 120
+    /// The update banner (fixed at 44 pt) and its 12 pt gap, while it shows.
+    static let updateBannerHeight: CGFloat = 56
     static let minimumScrollHeight: CGFloat = 80
     static let minimumPanelHeight: CGFloat = 200
 

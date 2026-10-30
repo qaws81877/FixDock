@@ -208,6 +208,13 @@ private struct AboutSettingsPage: View {
 
     var body: some View {
         let strings = l10n.s
+        VStack(alignment: .leading, spacing: 16) {
+            about(strings)
+            UpdatesSection()
+        }
+    }
+
+    private func about(_ strings: Strings) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 AppIconImage(size: 56)
@@ -222,7 +229,6 @@ private struct AboutSettingsPage: View {
             Text(strings.aboutLicense)
                 .fixedSize(horizontal: false, vertical: true)
             Text(strings.aboutNoTelemetry)
-            Text(strings.aboutNoUpdates)
             HStack {
                 Button(strings.aboutRepositoryButton) {
                     NSWorkspace.shared.open(AppInfo.repositoryURL)

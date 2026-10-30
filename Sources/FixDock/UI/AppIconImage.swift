@@ -30,4 +30,24 @@ enum FixDockMark {
         image.size = NSSize(width: size, height: size)
         return image
     }
+
+    /// The mark with a dot at the top right, still a template so it follows
+    /// the menu bar's appearance. A ring around the dot is cleared so the dot
+    /// reads apart from the mark.
+    static func attentionImage(size: CGFloat) -> NSImage? {
+        guard let mark = templateImage(size: size) else { return nil }
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+            mark.draw(in: rect)
+            let dot = size * 0.32
+            let dotRect = NSRect(x: rect.maxX - dot, y: rect.maxY - dot, width: dot, height: dot)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dotRect.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: dotRect).fill()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
 }

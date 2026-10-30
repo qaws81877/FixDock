@@ -5,8 +5,8 @@
 import Darwin
 import Foundation
 
-/// Starts a process that has to outlive this app. The relaunch helper waits
-/// for this process to go away before it opens the bundle again.
+/// Starts a process that has to outlive this app: `Relauncher`'s helper, which
+/// waits for this process to go away before it opens the bundle again.
 ///
 /// `nohup` is not enough: it only makes the child ignore SIGHUP. The child
 /// stays in this app's session, so whatever tears that session down takes the

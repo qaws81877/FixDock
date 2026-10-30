@@ -20,7 +20,9 @@ Invariants:
   screenshot tool is installed, the capture overlay (Control-Option-Command-4)
   and full screen (Control-Option-Command-3), all in `HotkeyRole`. Any further
   global shortcut needs the owner first.
-- No network endpoints, update feed, analytics or telemetry.
+- One network endpoint: the update check against FixDock's own GitHub
+  releases (`AppInfo.releaseFeedURL`, PRIVACY.md). No other endpoint, no
+  upstream update feed, no analytics or telemetry.
 - `LICENSE` byte-identical to upstream; `NOTICE` keeps the upstream credit and
   only gains entries (forks, bundled third-party assets with their license).
 - No Vorssaint name, logo, bundle id, signing identity or domain

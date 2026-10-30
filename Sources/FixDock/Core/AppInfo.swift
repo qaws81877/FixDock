@@ -5,7 +5,8 @@
 import Foundation
 
 /// Identity of this unofficial fork. The upstream name, site, update feed,
-/// and signing identity are intentionally absent.
+/// and signing identity are intentionally absent; FixDock checks its own
+/// GitHub releases instead (PRIVACY.md).
 enum AppInfo {
     static let name = "FixDock"
     static let bundleID = "io.github.qaws81877.fixdock"
@@ -14,6 +15,11 @@ enum AppInfo {
     static let repositoryURL = URL(string: "https://github.com/qaws81877/FixDock")!
     static let upstreamURL = URL(string: "https://github.com/vorssaint/vorssaint-utils")!
     static let licenseURL = URL(string: "https://www.gnu.org/licenses/gpl-3.0.en.html")!
+    /// The only network endpoint. Tools/check-shell.py allows this exact URL.
+    static let releaseFeedURL = URL(string: "https://api.github.com/repos/qaws81877/FixDock/releases/latest")!
+    /// Gate only: a copy signed by another team never updates itself. What a
+    /// replacement must satisfy is derived from the running signature.
+    static let signingTeamID = "483JM5VB4A"
 
     /// The bundle version. The fallback applies to a bare binary, never the
     /// shipped app, which reads its Info.plist.

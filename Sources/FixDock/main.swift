@@ -4,6 +4,10 @@
 
 import AppKit
 
+// The relaunch and update helper is this same executable; it must run before
+// anything below touches defaults or AppKit.
+Relauncher.runIfHelper(CommandLine.arguments)
+
 // Login-item cleanup for Tools/uninstall.sh. The app is still on disk here,
 // which is the only moment Service Management will drop the registration.
 if CommandLine.arguments.contains("--unregister-login-item") {
