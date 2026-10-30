@@ -66,7 +66,6 @@ struct Strings {
     let menuSelectAll: String
     let panelEmptyTitle: String
     let panelEmptyBody: String
-    let panelInstalledHeading: String
     let panelNotInBuild: String
     let settingsTitle: String
     let tabGeneral: String
@@ -322,7 +321,6 @@ struct Strings {
     let mediaCancelled: String
     let mediaClearResults: String
     let mediaShowInFinder: String
-    let mediaOpenButton: String
     let mediaResultSizeFormat: String
     let mediaResultGrewFormat: String
     let mediaResultKeptOriginal: String
@@ -384,9 +382,6 @@ struct Strings {
     let screenshotFilePrefix: String
     let screenshotCaptureFailed: String
     let screenshotFolderUnavailable: String
-    let screenshotSavedAs: String
-    let screenshotCopied: String
-    let screenshotPanelSelect: String
     let screenshotPanelFullScreen: String
     let screenshotHint: String
     let screenshotHintScrolling: String
@@ -742,7 +737,6 @@ struct Strings {
         menuSelectAll: "Select All",
         panelEmptyTitle: "Nothing installed yet",
         panelEmptyBody: "Open Settings to choose tools. URL cleaner runs in this build. The others are saved for a later build.",
-        panelInstalledHeading: "Chosen for later",
         panelNotInBuild: "Not in this build",
         settingsTitle: "FixDock Settings",
         tabGeneral: "General",
@@ -998,7 +992,6 @@ struct Strings {
         mediaCancelled: "Cancelled. Files already saved stay.",
         mediaClearResults: "Clear",
         mediaShowInFinder: "Show",
-        mediaOpenButton: "Open",
         mediaResultSizeFormat: "%@ → %@ (%@ smaller)",
         mediaResultGrewFormat: "%@ → %@ (larger in the new format)",
         mediaResultKeptOriginal: "Could not get smaller, so the original image was saved as is.",
@@ -1060,9 +1053,6 @@ struct Strings {
         screenshotFilePrefix: "Screenshot",
         screenshotCaptureFailed: "The capture failed.",
         screenshotFolderUnavailable: "The save folder is missing or read-only, so the capture was not saved as a file.",
-        screenshotSavedAs: "Saved %@",
-        screenshotCopied: "Copied to the clipboard",
-        screenshotPanelSelect: "Select…",
         screenshotPanelFullScreen: "Full screen",
         screenshotHint: "Drag for an area · click a window · Return for the whole screen",
         screenshotHintScrolling: "Scrolling capture: drag the area to scroll",
