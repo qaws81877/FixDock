@@ -26,6 +26,7 @@ ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
     "https://github.com/qaws81877/FixDock",
     "https://github.com/qaws81877/homebrew-tap",
+    "https://api.github.com/repos/qaws81877/FixDock/releases/latest",
     "https://www.gnu.org/licenses/gpl-3.0.en.html",
 }
 FORBIDDEN = [

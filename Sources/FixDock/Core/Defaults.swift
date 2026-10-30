@@ -118,6 +118,13 @@ enum DefaultsKey {
     static let recorderGIFFrameRate = "recorderGIFFrameRate"
     static let recorderEditorPresets = "recorderEditorPresets"
 
+    // Self-update. The last two stay unregistered: absent means never.
+    static let updateAutomaticChecks = "updateAutomaticChecks"
+    static let updateShowNotesBeforeInstall = "updateShowNotesBeforeInstall"
+    static let updateLastCheckedAt = "updateLastCheckedAt"
+    /// "X.Y.Z" that failed to start here; banner and dot stay off for it.
+    static let updateQuietVersion = "updateQuietVersion"
+
     static func featureAvailable(_ id: String) -> String { "featureAvailable.\(id)" }
 }
 
@@ -171,6 +178,8 @@ enum Defaults {
             DefaultsKey.recorderGIFSize: RecorderSupport.GIFSize.medium.rawValue,
             DefaultsKey.recorderGIFFrameRate: 12,
             DefaultsKey.recorderEditorPresets: Data(),
+            DefaultsKey.updateAutomaticChecks: true,
+            DefaultsKey.updateShowNotesBeforeInstall: true,
         ])
     }
 }
