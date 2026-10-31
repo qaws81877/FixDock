@@ -46,6 +46,11 @@ struct UpdatesSection: View {
                     if status.canCancel {
                         Button(strings.updatePreviewCancel) { updates.cancelDownload() }
                     }
+                    if showsReleasePageForRestore(status) {
+                        Button(strings.updateOpenReleasePage) {
+                            NSWorkspace.shared.open(AppInfo.repositoryURL.appendingPathComponent("releases"))
+                        }
+                    }
                 }
                 if let date = status.lastChecked {
                     Text(String(format: strings.updateLastCheckedFormat,
@@ -56,6 +61,13 @@ struct UpdatesSection: View {
             }
         }
         .settingsCard()
+    }
+
+    /// An available offer already has its own release-page or install button.
+    private func showsReleasePageForRestore(_ status: UpdateStatus) -> Bool {
+        guard case .restoreFailed? = status.notice else { return false }
+        if case .available = status.phase { return false }
+        return true
     }
 }
 
@@ -133,9 +145,6 @@ struct UpdateStatusRow: View {
                   system: "exclamationmark.triangle.fill", tint: .orange)
         case .restoreFailed:
             label(strings.updateRestoreFailedNotice, system: "exclamationmark.triangle.fill", tint: .orange)
-            Button(strings.updateOpenReleasePage) {
-                NSWorkspace.shared.open(AppInfo.repositoryURL.appendingPathComponent("releases"))
-            }
         }
     }
 
@@ -253,8 +262,7 @@ struct UpdatePreviewView: View {
             Divider()
 
             ScrollView {
-                Text(notes)
-                    .textSelection(.enabled)
+                ReleaseNotesText(markdown: offer.notes)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(24)
             }
@@ -293,16 +301,106 @@ struct UpdatePreviewView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    private var notes: AttributedString {
-        (try? AttributedString(markdown: offer.notes,
-                               options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-            ?? AttributedString(offer.notes)
-    }
-
     private func showsStatus(_ status: UpdateStatus) -> Bool {
         if case .installing = status.phase { return true }
         if case .install? = status.problem { return true }
         return false
+    }
+}
+
+/// GitHub release bodies use headings, lists and code fences, which
+/// `AttributedString(markdown:)` keeps only as inline text, so blocks are
+/// split here and each line's inline Markdown is still parsed.
+struct ReleaseNotesText: View {
+    let markdown: String
+
+    enum Block: Equatable {
+        case heading(level: Int, text: String)
+        case item(marker: String, depth: Int, text: String)
+        case paragraph(String)
+        case code(String)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(Self.blocks(markdown).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .heading(let level, let text):
+                    Text(Self.inline(text))
+                        .font(level <= 2 ? .headline : .subheadline.weight(.semibold))
+                        .padding(.top, 4)
+                case .item(let marker, let depth, let text):
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(marker).foregroundStyle(.secondary)
+                        Text(Self.inline(text)).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.leading, CGFloat(depth) * 16)
+                case .paragraph(let text):
+                    Text(Self.inline(text)).fixedSize(horizontal: false, vertical: true)
+                case .code(let text):
+                    Text(text)
+                        .font(.system(.callout, design: .monospaced))
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+                }
+            }
+        }
+        .textSelection(.enabled)
+    }
+
+    static func inline(_ text: String) -> AttributedString {
+        (try? AttributedString(markdown: text,
+                               options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(text)
+    }
+
+    static func blocks(_ markdown: String) -> [Block] {
+        var blocks: [Block] = []
+        var paragraph: [String] = []
+        var code: [String]?
+        func flush() {
+            if !paragraph.isEmpty { blocks.append(.paragraph(paragraph.joined(separator: " "))) }
+            paragraph = []
+        }
+        for raw in markdown.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("```") {
+                if let lines = code {
+                    blocks.append(.code(lines.joined(separator: "\n")))
+                    code = nil
+                } else {
+                    flush()
+                    code = []
+                }
+                continue
+            }
+            if code != nil { code?.append(raw); continue }
+            if line.isEmpty { flush(); continue }
+            let hashes = line.prefix { $0 == "#" }.count
+            if (1...6).contains(hashes), line.dropFirst(hashes).first == " " {
+                flush()
+                blocks.append(.heading(level: hashes, text: String(line.dropFirst(hashes + 1))))
+                continue
+            }
+            let depth = (raw.prefix { $0 == " " }.count) / 2
+            if let first = line.first, "-*+".contains(first), line.dropFirst().first == " " {
+                flush()
+                blocks.append(.item(marker: "•", depth: depth, text: String(line.dropFirst(2))))
+                continue
+            }
+            if let dot = line.firstIndex(of: "."), line[..<dot].allSatisfy(\.isNumber), !line[..<dot].isEmpty,
+               line[line.index(after: dot)...].first == " " {
+                flush()
+                blocks.append(.item(marker: String(line[...dot]), depth: depth,
+                                    text: String(line[line.index(dot, offsetBy: 2)...])))
+                continue
+            }
+            paragraph.append(line)
+        }
+        if let lines = code { blocks.append(.code(lines.joined(separator: "\n"))) }
+        flush()
+        return blocks
     }
 }
 
