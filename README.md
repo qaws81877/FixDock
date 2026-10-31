@@ -34,6 +34,21 @@ GNU General Public License v3.0 or later. See [LICENSE](LICENSE) (unchanged from
 
 The Vorssaint name, logo, and signing identity are not used. See [TRADEMARKS.md](TRADEMARKS.md).
 
+### Install
+
+Requires macOS 14 or later on Apple Silicon.
+
+- **Download:** get `FixDock-<version>.zip` from the [latest release](https://github.com/qaws81877/FixDock/releases/latest), unzip it, and move `FixDock.app` to `/Applications`. The app is signed with a Developer ID and notarized by Apple, so it opens without a warning.
+- **Homebrew:**
+
+  ```bash
+  brew install --cask qaws81877/tap/fixdock
+  ```
+
+  The cask comes from [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap). FixDock updates itself in place, so `brew upgrade` skips it unless you pass `--greedy`.
+
+Keep FixDock in `/Applications`: it updates itself only there, and the login item needs that path. Version 1.0.0 has no updater; install 1.0.1 or later once by hand.
+
 ### Build and run
 
 Build on a Mac with Xcode Command Line Tools:
@@ -82,7 +97,7 @@ Click the menu bar icon for the panel. The default shortcut is Control-Option-Co
 
 Audio and the mixer, the system monitor, fan control, the notch, window and Dock tools, the app switcher, mouse and scroll tools, Homebrew, app updates, the uninstaller, ports, wallpaper, agent usage, and the other upstream modules. Their source remains in git history at merge commit `7336fd329db673743444ce169c1373097be9765a`. Languages other than English and Korean were removed. Upstream brand images were removed. No third-party font was bundled upstream, and none is bundled here.
 
-A personal Homebrew tap is planned. The tap is not created yet.
+Homebrew: see Install.
 
 ## 한국어
 
@@ -115,6 +130,21 @@ FixDock은 약 한 시간마다, 그리고 패널을 열 때 GitHub에서 자체
 GNU General Public License v3.0 이상. [LICENSE](LICENSE)는 업스트림 그대로입니다. [NOTICE](NOTICE)에 출처와 수정 내용이 있습니다. 원본 저작권은 Vorssaint 및 vorssaint-utils 기여자, Copyright (C) 2026입니다. 소스 헤더를 유지합니다. 업스트림 기록은 이 저장소에 있으며, 가져온 커밋은 `1cdbd59b1c7dccd036ec1713b2ea048334990d06`입니다.
 
 Vorssaint 이름, 로고, 서명 신원은 쓰지 않습니다. [TRADEMARKS.md](TRADEMARKS.md)를 보세요.
+
+### 설치
+
+Apple Silicon Mac, macOS 14 이상이 필요합니다.
+
+- **다운로드:** [최신 릴리스](https://github.com/qaws81877/FixDock/releases/latest)에서 `FixDock-<버전>.zip`을 받아 압축을 풀고, `FixDock.app`을 `/Applications`로 옮깁니다. Developer ID로 서명하고 Apple 공증을 받아 경고 없이 열립니다.
+- **Homebrew:**
+
+  ```bash
+  brew install --cask qaws81877/tap/fixdock
+  ```
+
+  cask는 [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap)에 있습니다. FixDock은 스스로 업데이트하므로 `brew upgrade`는 `--greedy`를 주지 않으면 건너뜁니다.
+
+FixDock은 `/Applications`에 두세요. 그 위치에서만 스스로 업데이트하고, 로그인 항목도 그 경로가 필요합니다. 1.0.0에는 업데이트 기능이 없으니 1.0.1 이상을 한 번은 직접 설치하세요.
 
 ### 빌드와 실행
 
@@ -164,4 +194,4 @@ Vorssaint 설치는 건드리지 않고 FixDock만 지우려면:
 
 오디오와 믹서, 시스템 모니터, 팬 제어, 노치, 창과 Dock 도구, 앱 전환, 마우스와 스크롤, Homebrew, 앱 업데이트, 제거 도구, 포트, 배경화면, 에이전트 사용량, 그 밖의 업스트림 모듈을 뺐습니다. 소스는 머지 커밋 `7336fd329db673743444ce169c1373097be9765a`의 git 기록에 남아 있습니다. 영어와 한국어 외 언어를 뺐습니다. 업스트림 브랜드 이미지를 뺐습니다. 업스트림은 서드파티 글꼴을 넣지 않았고, 여기도 없습니다.
 
-개인 Homebrew 탭을 만들 계획입니다. 탭 저장소는 아직 만들지 않습니다.
+Homebrew: 설치를 보세요.
