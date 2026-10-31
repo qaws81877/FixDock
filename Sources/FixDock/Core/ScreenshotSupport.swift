@@ -379,7 +379,6 @@ enum ScreenshotSupport {
     static let scrollMinimumOverlap = 0.2
     /// Limits for one scrolling capture.
     static let scrollMaximumHeight = 30_000
-    static let scrollMaximumFrames = 600
     static let scrollMaximumDuration: TimeInterval = 180
 
     /// Largest share of the frame a fixed header or footer may take, and of
