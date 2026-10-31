@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- Scrolling capture: frames now come from a live stream at up to 60 a second instead of a screenshot every 120 ms, so fast scrolling no longer skips frames. After a skipped frame the capture carries on instead of skipping every later frame, scrolling back up never adds rows twice, and returning to where it stopped leaves no hole.
+- Scrolling capture: a sidebar or other fixed panel inside the area no longer breaks matching or repeats down the image; below the first screen it is filled with its background colour. The frame and bar around the area never show up in the picture, and long captures use far less memory.
+- Screenshot loupe: Z steps off, regular and large (Shift-Z steps back); large shows 21 × 21 pixels with grid lines. The overlay opens with the loupe on, and a setting can start it off. A cross marks the centre pixel, and thin blue lines through the pointer replace the cursor while the overlay is up.
+- Colour copy (C) and the loupe label use the format chosen in Settings › Screen capture: HEX, HEX without #, `rgb()` or `hsl()`.
+
 ## 1.0.1
 
 - Updates: FixDock checks its own GitHub releases (about hourly, and when the panel opens) and can download, verify, install and restart into a new version from Settings › About, the panel banner or "Check for Updates…". A version that does not start is rolled back. Only the notarized release in /Applications installs in place; developer and self-built copies never check. Turn it off in Settings › About; what is sent is in PRIVACY.md.
