@@ -13,6 +13,8 @@ Ask the owner first:
   the update check, or a new bundled third-party asset (and its license).
 - Scope cuts from upstream that change what a tool does for the person.
 - Commits, pushes, PRs and merges, unless the owner asked for them.
+- Creating a public repository. Auto mode blocks it even when asked; hand
+  the owner the exact `! gh repo create …` line instead of working around it.
 
 Docs:
 
@@ -22,6 +24,9 @@ Docs:
 
 Git:
 
+- A release ends with the Homebrew tap: in qaws81877/homebrew-tap, set
+  `version` and `sha256` (the release asset's digest) in
+  `Casks/fixdock.rb`, then `brew audit --cask --online --strict`.
 - Merge PRs with a merge commit only, never squash or rebase. `main` must
   keep the upstream import merge `7336fd32` reachable.
 - A new `git worktree` has none of the local files. Copy `CLAUDE.md`,
@@ -44,6 +49,8 @@ Bundle:
 - `build.sh` copies only `Resources/*.lproj` and `Resources/Icons` into the
   app. A new resource folder needs its own copy line there. Without it, the
   app silently uses fallbacks.
+- Bump the version by editing the two `Resources/Info.plist` values as text.
+  `PlistBuddy -c Set` rewrites the file and reorders its keys.
 
 Platform quirks:
 
