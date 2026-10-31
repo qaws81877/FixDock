@@ -28,6 +28,15 @@ Gates, in order, before calling a change done:
 - A developer build with AirDrop auto-zip on blocks at launch on the
   Downloads permission prompt. Start scripted dev runs with
   `-airdropAutoZipFolderOverride <scratch dir>`.
+- Start the developer bundle with `open -n "<bundle>" --args …`, not its
+  executable. Run from a shell, TCC treats the terminal app as responsible,
+  so Screen Recording and Accessibility prompts and grants go to it.
+- `./build.sh --dev` compiles with `-Onone`, about 100 times slower in
+  pixel loops (one scroll match: 590 ms against 6 ms). Measure timing,
+  frame rate or skipped frames only on an `-O` build.
+- `build.sh` is a zsh script. Run it (or a copy) with `./` or `zsh`; under
+  bash it stops partway and the old bundle stays. Before a live test,
+  check for `✓ Bundle ready` and the bundle's modification time.
 - SourceKit "Cannot find … in scope" right after an edit is often stale.
   The result of `swift build` decides.
 
