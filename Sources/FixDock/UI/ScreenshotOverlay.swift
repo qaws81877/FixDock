@@ -10,11 +10,18 @@ import SwiftUI
 /// State the bottom bar on every display shares.
 final class ScreenshotOverlayOptions: ObservableObject {
     @Published var tool: ScreenCaptureTool = .screenshot
-    @Published var loupe = false
+    @Published var loupe: ScreenshotSupport.LoupeMode =
+        UserDefaults.standard.bool(forKey: DefaultsKey.screenshotLoupeAtStart) ? .regular : .off
     @Published var scrolling = false
     @Published var hasLastRegion = false
     /// A short line under the bar: a copied colour, or why a key did nothing.
     @Published var notice: String?
+
+    /// Read on every use, so a change in Settings reaches the next overlay;
+    /// the label and C share it, so what is shown is what is copied.
+    var colorFormat: ScreenshotSupport.ColorFormat {
+        .stored(UserDefaults.standard.string(forKey: DefaultsKey.screenshotColorFormat))
+    }
 }
 
 /// One capture session: a frozen image of every display under a dim panel
@@ -67,7 +74,7 @@ final class ScreenshotOverlayController {
         }
         options.hasLastRegion = lastRegion(for: panelUnderMouse()?.displayID ?? 0) != nil
         panelUnderMouse()?.makeKey()
-        NSCursor.crosshair.set()
+        ScreenshotOverlayView.hiddenCursor.set()
         installKeyMonitors()
         panels.forEach { $0.overlayView.pointerMoved(to: $0.mouseLocationInView) }
     }
@@ -179,7 +186,7 @@ final class ScreenshotOverlayController {
             return true
         }
         if Self.matches(event, "z", kVK_ANSI_Z) {
-            toggleLoupe()
+            stepLoupe(backward: event.modifierFlags.contains(.shift))
             return true
         }
         if Self.matches(event, "c", kVK_ANSI_C) {
@@ -191,7 +198,7 @@ final class ScreenshotOverlayController {
             return true
         }
         if let delta = Self.nudge(keyCode: Int(event.keyCode)) {
-            guard options.loupe, panel?.overlayView.isDragging == false else { return false }
+            guard options.loupe.isOn, panel?.overlayView.isDragging == false else { return false }
             nudgePointer(by: delta, fast: event.modifierFlags.contains(.shift))
             return true
         }
@@ -207,8 +214,8 @@ final class ScreenshotOverlayController {
         options.tool = tool
     }
 
-    func toggleLoupe() {
-        options.loupe.toggle()
+    func stepLoupe(backward: Bool = false) {
+        options.loupe = backward ? options.loupe.previous : options.loupe.next
         panels.forEach { $0.overlayView.needsDisplay = true }
     }
 
@@ -225,13 +232,14 @@ final class ScreenshotOverlayController {
     }
 
     func copyColor() {
-        guard options.loupe else {
+        guard options.loupe.isOn else {
             showNotice(L10n.shared.s.screenshotColorNeedsLoupe)
             return
         }
-        guard let panel = panelUnderMouse(), let hex = panel.overlayView.colorUnderPointer() else { return }
-        ScreenshotService.copyText(hex)
-        showNotice(String(format: L10n.shared.s.screenshotColorCopied, hex))
+        guard let panel = panelUnderMouse(), let color = panel.overlayView.colorUnderPointer() else { return }
+        let text = options.colorFormat.text(color)
+        ScreenshotService.copyText(text)
+        showNotice(String(format: L10n.shared.s.screenshotColorCopied, text))
     }
 
     /// One device pixel per press, ten with Shift. The pointer may cross onto
@@ -481,15 +489,30 @@ final class ScreenshotOverlayView: NSView {
         needsDisplay = true
     }
 
+    /// The drawn crosshair replaces the cursor everywhere but over the bar.
+    static let hiddenCursor = NSCursor(image: NSImage(size: NSSize(width: 1, height: 1)), hotSpot: .zero)
+
+    private var pointerOverBar = false
+
+    private func updateCursor(for event: NSEvent) {
+        let hit = panel?.contentView?.hitTest(event.locationInWindow)
+        let overBar = hit != nil && hit !== self
+        if overBar != pointerOverBar {
+            pointerOverBar = overBar
+            needsDisplay = true
+        }
+        (overBar ? NSCursor.arrow : Self.hiddenCursor).set()
+    }
+
     override func mouseEntered(with event: NSEvent) {
         if let panel { controller.pointerEntered(panel) }
-        NSCursor.crosshair.set()
+        updateCursor(for: event)
     }
 
     override func mouseMoved(with event: NSEvent) {
         if let panel { controller.pointerEntered(panel) }
         pointerMoved(to: convert(event.locationInWindow, from: nil))
-        NSCursor.crosshair.set()
+        updateCursor(for: event)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -565,7 +588,13 @@ final class ScreenshotOverlayView: NSView {
             border.stroke()
             if let selection { drawSizeLabel(for: selection) }
         }
-        if options.loupe, let pointer, bounds.contains(pointer) {
+        if let pointer, !pointerOverBar, bounds.contains(pointer) {
+            let lines = ScreenshotSupport.crosshairLines(pointer: pointer, pixelScale: pixelScale, bounds: bounds)
+            NSColor.systemBlue.setFill()
+            lines.vertical.fill()
+            lines.horizontal.fill()
+        }
+        if options.loupe.isOn, let pointer, bounds.contains(pointer) {
             drawLoupe(at: pointer)
         }
     }
@@ -586,10 +615,6 @@ final class ScreenshotOverlayView: NSView {
         (text as NSString).draw(at: CGPoint(x: box.minX + 5, y: box.minY + 2), withAttributes: attributes)
     }
 
-    /// Pixels on each side of the centre pixel the loupe shows.
-    private static let loupeRadius = 7
-    private static let loupeCell: CGFloat = 9
-
     private var pointerPixel: (x: Int, y: Int)? {
         guard let pointer else { return nil }
         let x = Int((pointer.x * pixelScale).rounded(.down))
@@ -600,13 +625,12 @@ final class ScreenshotOverlayView: NSView {
 
     private func drawLoupe(at point: CGPoint) {
         guard let pixel = pointerPixel, let context = NSGraphicsContext.current?.cgContext else { return }
-        let radius = Self.loupeRadius
+        let mode = options.loupe
+        let radius = mode.radius
+        let cell = mode.cell
         let span = radius * 2 + 1
-        let side = CGFloat(span) * Self.loupeCell
-        var origin = CGPoint(x: point.x + 24, y: point.y + 24)
-        if origin.x + side > bounds.maxX { origin.x = point.x - 24 - side }
-        if origin.y + side + 24 > bounds.maxY { origin.y = point.y - 24 - side - 22 }
-        let frame = CGRect(origin: origin, size: CGSize(width: side, height: side))
+        let frame = ScreenshotSupport.loupeFrame(pointer: point, side: mode.side,
+                                                 labelHeight: ScreenshotSupport.loupeLabelHeight, bounds: bounds)
 
         let source = CGRect(x: pixel.x - radius, y: pixel.y - radius, width: span, height: span)
         context.saveGState()
@@ -618,22 +642,33 @@ final class ScreenshotOverlayView: NSView {
             CGRect(x: 0, y: 0, width: frozenImage.width, height: frozenImage.height))) {
             // Cells off the image edge stay black; the crop sits where its
             // pixels belong in the grid.
-            let offsetX = CGFloat(max(0, -source.minX)) * Self.loupeCell
-            let offsetY = CGFloat(max(0, -source.minY)) * Self.loupeCell
+            let offsetX = CGFloat(max(0, -source.minX)) * cell
+            let offsetY = CGFloat(max(0, -source.minY)) * cell
             let drawRect = CGRect(x: frame.minX + offsetX, y: frame.minY + offsetY,
-                                  width: CGFloat(crop.width) * Self.loupeCell,
-                                  height: CGFloat(crop.height) * Self.loupeCell)
+                                  width: CGFloat(crop.width) * cell,
+                                  height: CGFloat(crop.height) * cell)
+            context.saveGState()
             context.interpolationQuality = .none
             // The view is flipped; draw the image upright.
             context.translateBy(x: 0, y: drawRect.minY + drawRect.maxY)
             context.scaleBy(x: 1, y: -1)
             context.draw(crop, in: drawRect)
+            context.restoreGState()
         }
+        if mode.showsGrid {
+            NSColor.black.withAlphaComponent(0.2).setFill()
+            for index in 1..<span {
+                let offset = CGFloat(index) * cell
+                CGRect(x: frame.minX + offset, y: frame.minY, width: 1, height: frame.height).fill(using: .sourceOver)
+                CGRect(x: frame.minX, y: frame.minY + offset, width: frame.width, height: 1).fill(using: .sourceOver)
+            }
+        }
+        drawCrosshair(in: frame, cell: cell, radius: radius)
         context.restoreGState()
 
-        let center = CGRect(x: frame.minX + CGFloat(radius) * Self.loupeCell,
-                            y: frame.minY + CGFloat(radius) * Self.loupeCell,
-                            width: Self.loupeCell, height: Self.loupeCell)
+        let center = CGRect(x: frame.minX + CGFloat(radius) * cell,
+                            y: frame.minY + CGFloat(radius) * cell,
+                            width: cell, height: cell)
         NSColor.white.setStroke()
         let ring = NSBezierPath(rect: center)
         ring.lineWidth = 1.5
@@ -643,21 +678,42 @@ final class ScreenshotOverlayView: NSView {
         edge.lineWidth = 1
         edge.stroke()
 
-        if let hex = colorUnderPointer() {
-            let label = "\(hex)  \(pixel.x), \(pixel.y)"
+        if let color = colorUnderPointer() {
+            let label = "\(options.colorFormat.text(color))  \(pixel.x), \(pixel.y)"
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .medium),
                 .foregroundColor: NSColor.white,
             ]
-            let box = CGRect(x: frame.minX, y: frame.maxY + 4, width: side, height: 18)
+            let textWidth = (label as NSString).size(withAttributes: attributes).width
+            let box = ScreenshotSupport.loupeLabelFrame(loupe: frame, textWidth: textWidth, bounds: bounds)
             NSColor.black.withAlphaComponent(0.75).setFill()
             NSBezierPath(roundedRect: box, xRadius: 4, yRadius: 4).fill()
             (label as NSString).draw(at: CGPoint(x: box.minX + 6, y: box.minY + 3), withAttributes: attributes)
         }
     }
 
-    /// The frozen pixel under the pointer as `#RRGGBB`.
-    func colorUnderPointer() -> String? {
+    /// A horizontal and a vertical line through the centre cell, stopping at
+    /// its ring so the picked pixel stays uncovered.
+    private func drawCrosshair(in frame: CGRect, cell: CGFloat, radius: Int) {
+        let near = CGFloat(radius) * cell
+        let far = near + cell
+        let mid = near + cell / 2
+        let path = NSBezierPath()
+        path.move(to: CGPoint(x: frame.minX, y: frame.minY + mid))
+        path.line(to: CGPoint(x: frame.minX + near, y: frame.minY + mid))
+        path.move(to: CGPoint(x: frame.minX + far, y: frame.minY + mid))
+        path.line(to: CGPoint(x: frame.maxX, y: frame.minY + mid))
+        path.move(to: CGPoint(x: frame.minX + mid, y: frame.minY))
+        path.line(to: CGPoint(x: frame.minX + mid, y: frame.minY + near))
+        path.move(to: CGPoint(x: frame.minX + mid, y: frame.minY + far))
+        path.line(to: CGPoint(x: frame.minX + mid, y: frame.maxY))
+        NSColor.black.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+
+    /// The frozen pixel under the pointer, read as sRGB.
+    func colorUnderPointer() -> ScreenshotSupport.PixelColor? {
         guard let pixel = pointerPixel,
               let crop = frozenImage.cropping(to: CGRect(x: pixel.x, y: pixel.y, width: 1, height: 1))
         else { return nil }
@@ -668,7 +724,7 @@ final class ScreenshotOverlayView: NSView {
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
         context.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-        return ScreenshotSupport.hexColor(red: bytes[0], green: bytes[1], blue: bytes[2])
+        return ScreenshotSupport.PixelColor(red: bytes[0], green: bytes[1], blue: bytes[2])
     }
 }
 
@@ -689,8 +745,9 @@ struct ScreenshotOverlayBar: View {
                 keyButton("R", s.screenshotKeyRepeat, on: false, enabled: options.hasLastRegion) {
                     controller.repeatLastRegion()
                 }
-                keyButton("Z", s.screenshotKeyLoupe, on: options.loupe) { controller.toggleLoupe() }
-                keyButton("C", s.screenshotKeyColor, on: false, enabled: options.loupe) { controller.copyColor() }
+                keyButton("Z", options.loupe == .large ? s.screenshotKeyLoupeLarge : s.screenshotKeyLoupe,
+                          on: options.loupe.isOn) { controller.stepLoupe() }
+                keyButton("C", s.screenshotKeyColor, on: false, enabled: options.loupe.isOn) { controller.copyColor() }
                 keyButton("S", s.screenshotKeyScroll, on: options.scrolling) { controller.toggleScrolling() }
                 Divider().frame(height: 22)
                 keyButton("esc", s.screenshotKeyCancel, on: false) { controller.cancel() }

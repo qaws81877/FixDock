@@ -386,6 +386,7 @@ struct Strings {
     let screenshotHintScrolling: String
     let screenshotKeyRepeat: String
     let screenshotKeyLoupe: String
+    let screenshotKeyLoupeLarge: String
     let screenshotKeyColor: String
     let screenshotKeyScroll: String
     let screenshotKeyCancel: String
@@ -443,6 +444,13 @@ struct Strings {
     let screenshotPreviewCloseNever: String
     let screenshotPreviewCloseAfter: String
     let screenshotPreviewCloseWarning: String
+    let screenshotLoupeTitle: String
+    let screenshotLoupeAtStart: String
+    let screenshotColorFormatTitle: String
+    let screenshotColorFormatHex: String
+    let screenshotColorFormatHexPlain: String
+    let screenshotColorFormatRGB: String
+    let screenshotColorFormatHSL: String
     let screenshotQRTitle: String
     let screenshotQRCopy: String
     let screenshotQROpen: String
@@ -1102,6 +1110,7 @@ struct Strings {
         screenshotHintScrolling: "Scrolling capture: drag the area to scroll",
         screenshotKeyRepeat: "Last area",
         screenshotKeyLoupe: "Loupe",
+        screenshotKeyLoupeLarge: "Loupe (large)",
         screenshotKeyColor: "Copy colour",
         screenshotKeyScroll: "Scrolling",
         screenshotKeyCancel: "Cancel",
@@ -1128,8 +1137,8 @@ struct Strings {
         screenshotKeyHelpScreenshot: "Screenshot",
         screenshotKeyHelpRecording: "Screen recording",
         screenshotKeyHelpRepeat: "Capture the last area on this display again",
-        screenshotKeyHelpLoupe: "Loupe; arrow keys move one pixel, Shift ten",
-        screenshotKeyHelpColor: "Copy the colour under the loupe as hex",
+        screenshotKeyHelpLoupe: "Loupe: off, regular, large (Shift goes back); arrow keys move one pixel, Shift ten",
+        screenshotKeyHelpColor: "Copy the colour under the loupe in the chosen format",
         screenshotKeyHelpScroll: "Scrolling capture of the next area",
         screenshotKeyHelpFull: "Whole display under the pointer",
         screenshotKeyHelpMove: "Hold while dragging to move the area",
@@ -1159,6 +1168,13 @@ struct Strings {
         screenshotPreviewCloseNever: "Never",
         screenshotPreviewCloseAfter: "After %ld seconds",
         screenshotPreviewCloseWarning: "A preview that closes by itself saves no file; the capture stays only on the clipboard. Hovering over it keeps it open.",
+        screenshotLoupeTitle: "Loupe",
+        screenshotLoupeAtStart: "Turn on the loupe when the overlay opens",
+        screenshotColorFormatTitle: "Colour format",
+        screenshotColorFormatHex: "HEX",
+        screenshotColorFormatHexPlain: "HEX without #",
+        screenshotColorFormatRGB: "RGB",
+        screenshotColorFormatHSL: "HSL",
         screenshotQRTitle: "QR code",
         screenshotQRCopy: "Copy",
         screenshotQROpen: "Open link",
