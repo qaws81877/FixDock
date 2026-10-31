@@ -60,6 +60,11 @@ Platform quirks:
   notarization itself. The installed app is swapped only by `Relauncher`
   (`RENAME_SWAP`, pinned by `check-shell.py`), and removals under the update
   workspace only by `UpdateWorkspace.sweep`.
+  Any change to `Relauncher` keeps one rule: nothing stays at the install
+  path unless it passed the identity check there; otherwise it is moved
+  aside, never deleted, and nothing is opened. Judge security-review
+  findings against that rule instead of flipping between "restore" and
+  "keep".
 - `AVAssetWriter.cancelWriting()` deletes its output file. Point a writer
   only at an app-owned folder or a staged sibling it created, never
   straight at a file in the person's folder.

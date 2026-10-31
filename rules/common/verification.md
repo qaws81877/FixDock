@@ -17,13 +17,17 @@ Gates, in order, before calling a change done:
   the gate; describe it in words.
 
 - `swift build` does not refresh the app that is running. Before any live
-  test, run `./build.sh`, quit FixDock and open the new bundle. A
-  `./build.sh --dev` bundle alone is not enough: the owner checks
-  `build/stage/FixDock.app`, so rebuild and relaunch that one too.
+  test, rebuild, quit FixDock and open the new bundle. A
+  `./build.sh --dev` bundle alone is not enough: rebuild and relaunch the
+  copy the owner runs (check its path with `ps`). Since 2026-10-31 that is
+  `/Applications/FixDock.app` (`./build.sh --install`).
 - An agent shell may not have `FIXDOCK_CODESIGN_IDENTITY`. Pass it on the
   command line, for example `FIXDOCK_CODESIGN_IDENTITY="<SHA-1>" ./build.sh`.
   Do not edit shell profiles. An ad-hoc build resets Accessibility and other
   grants on every rebuild.
+- A developer build with AirDrop auto-zip on blocks at launch on the
+  Downloads permission prompt. Start scripted dev runs with
+  `-airdropAutoZipFolderOverride <scratch dir>`.
 - SourceKit "Cannot find … in scope" right after an edit is often stale.
   The result of `swift build` decides.
 
@@ -39,8 +43,16 @@ Proof:
   release zip, tampered zips and a local feed (`Tools/make-local-feed.sh`,
   a build with the local-feed compile flag); and the helper protocol on
   developer bundles copied to scratch (swap, rollback, guards, sweep
-  protection, plain relaunch). A real update needs a notarized test release
-  and the owner.
+  protection, plain relaunch). Ad-hoc bundles reach only the guards: every
+  swap, rollback and eviction case needs a Developer ID-signed old bundle
+  and a notarized, stapled newer one. A real update of the owner's app
+  needs the owner's click.
+- A test release made with `FIXDOCK_VERSION` and `Tools/notarize.sh` is
+  moved out of `build/release/` right away and never uploaded. Left there,
+  it blocks notarizing the real version and can be published by mistake.
+- To check SwiftUI states as PNGs, render with `NSHostingView` in an
+  offscreen key window (`cacheDisplay(in:to:)`). `ImageRenderer` draws
+  `ProgressView` as a placeholder and leaves `ScrollView` content blank.
 - Pixel checks in a harness: a `CGContext`'s memory starts at the image's
   top row, and `CGImage.cropping(to:)` counts y from the top too.
 - Behaviour on the Mac (permissions, menu bar, AirDrop, Finder, real files)
