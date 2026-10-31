@@ -42,10 +42,12 @@ Requires macOS 14 or later on Apple Silicon.
 - **Homebrew:**
 
   ```bash
-  brew install --cask qaws81877/tap/fixdock
+  brew tap qaws81877/tap
+  brew trust qaws81877/tap
+  brew install --cask fixdock
   ```
 
-  The cask comes from [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap). FixDock updates itself in place, so `brew upgrade` skips it unless you pass `--greedy`.
+  The cask comes from [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap). Recent Homebrew loads casks from a third-party tap only after `brew trust`; if your Homebrew has no `trust` command, skip that line. FixDock updates itself in place, so `brew upgrade` skips it unless you pass `--greedy`.
 
 Keep FixDock in `/Applications`: it updates itself only there, and the login item needs that path. Version 1.0.0 has no updater; install 1.0.1 or later once by hand.
 
@@ -139,10 +141,12 @@ Apple Silicon Mac, macOS 14 이상이 필요합니다.
 - **Homebrew:**
 
   ```bash
-  brew install --cask qaws81877/tap/fixdock
+  brew tap qaws81877/tap
+  brew trust qaws81877/tap
+  brew install --cask fixdock
   ```
 
-  cask는 [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap)에 있습니다. FixDock은 스스로 업데이트하므로 `brew upgrade`는 `--greedy`를 주지 않으면 건너뜁니다.
+  cask는 [qaws81877/homebrew-tap](https://github.com/qaws81877/homebrew-tap)에 있습니다. 최신 Homebrew는 `brew trust`로 신뢰한 서드파티 tap의 cask만 불러옵니다. `trust` 명령이 없는 버전이면 그 줄은 건너뛰세요. FixDock은 스스로 업데이트하므로 `brew upgrade`는 `--greedy`를 주지 않으면 건너뜁니다.
 
 FixDock은 `/Applications`에 두세요. 그 위치에서만 스스로 업데이트하고, 로그인 항목도 그 경로가 필요합니다. 1.0.0에는 업데이트 기능이 없으니 1.0.1 이상을 한 번은 직접 설치하세요.
 
