@@ -281,7 +281,7 @@ enum ScreenshotSupport {
     struct RowSignature {
         let columns: Int
         /// `rows * columns` grey values, row after row.
-        let values: [UInt8]
+        private(set) var values: [UInt8]
 
         var rows: Int { columns > 0 ? values.count / columns : 0 }
 
@@ -300,6 +300,52 @@ enum ScreenshotSupport {
         func slice(_ range: Range<Int>) -> RowSignature {
             RowSignature(columns: columns, values: Array(values[(range.lowerBound * columns)..<(range.upperBound * columns)]))
         }
+
+        /// Rows `range` of `other` added at the bottom.
+        mutating func append(rows range: Range<Int>, of other: RowSignature) {
+            values += other.values[(range.lowerBound * other.columns)..<(range.upperBound * other.columns)]
+        }
+
+        mutating func removeLast(rows count: Int) {
+            values.removeLast(min(values.count, max(0, count) * columns))
+        }
+
+        /// Only the sampled columns `range` of every row.
+        func keeping(columns range: Range<Int>) -> RowSignature {
+            guard range != 0..<columns else { return self }
+            var kept: [UInt8] = []
+            kept.reserveCapacity(rows * range.count)
+            for row in 0..<rows {
+                kept += values[(row * columns + range.lowerBound)..<(row * columns + range.upperBound)]
+            }
+            return RowSignature(columns: range.count, values: kept)
+        }
+    }
+
+    /// Sampled columns at the left and right edge that stayed put while the
+    /// content scrolled: a sidebar or a fixed panel. They are left out of the
+    /// match, and below the first frame the output shows them blank, since
+    /// stitching them would repeat the sidebar down the image.
+    struct FixedSides: Equatable {
+        var left: Int
+        var right: Int
+
+        static let none = FixedSides(left: 0, right: 0)
+
+        /// The columns between the sides, out of `columns`.
+        func content(of columns: Int) -> Range<Int> { left..<max(left, columns - right) }
+
+        /// The sides in image pixels. Only whole sampled columns count, so a
+        /// column the sidebar shares with content is never blanked.
+        func pixels(columns: Int, width: Int) -> (left: Int, right: Int) {
+            guard columns > 0 else { return (0, 0) }
+            return (left * width / columns, right * width / columns)
+        }
+
+        /// Sides fixed in both this step and `other`.
+        func common(with other: FixedSides) -> FixedSides {
+            FixedSides(left: min(left, other.left), right: min(right, other.right))
+        }
     }
 
     enum ScrollStep: Equatable {
@@ -308,10 +354,23 @@ enum ScreenshotSupport {
         /// The content between the fixed bands moved up by `rows`. `footer`
         /// rows at the bottom stayed put (a fixed toolbar or footer), so the
         /// new rows sit just above them.
-        case advanced(rows: Int, footer: Int)
+        case advanced(rows: Int, footer: Int, sides: FixedSides)
         /// Something changed but no shift explains it (scrolled back, an
         /// animation, a new page). The frame is skipped.
-        case unmatched
+        case unmatched(ScrollSkip)
+    }
+
+    /// Why a frame was skipped, for the scrolling-capture log.
+    enum ScrollSkip: String, CaseIterable, Error {
+        /// The frames differ in size, or too few rows are left to compare.
+        case tooSmall
+        /// No shift fits: the content moved further than the overlap
+        /// allows, moved up, or changed.
+        case noShift
+        /// The best shift fits on average but too many rows differ clearly.
+        case scattered
+        /// Another shift fits almost as well (a flat or repeating page).
+        case ambiguous
     }
 
     /// Most a row may differ, in grey levels, and still count as the same.
@@ -323,8 +382,38 @@ enum ScreenshotSupport {
     static let scrollMaximumFrames = 600
     static let scrollMaximumDuration: TimeInterval = 180
 
-    /// Largest share of the frame a fixed header or footer may take.
+    /// Largest share of the frame a fixed header or footer may take, and of
+    /// the width a fixed side may take.
     static let scrollMaximumFixedBand = 0.4
+    /// Columns that must stay in the match after the fixed sides are cut.
+    static let scrollMinimumContentColumns = 16
+
+    /// The fixed sides between two frames: edge columns where nearly every
+    /// row is the same in both.
+    static func fixedSides(previous: RowSignature, current: RowSignature, height: Int) -> FixedSides {
+        let columns = previous.columns
+        guard columns == current.columns, height > 0 else { return .none }
+        let allowedChanges = height / 50
+        func isFixed(_ column: Int) -> Bool {
+            var changes = 0
+            for row in 0..<height {
+                let a = Int(previous.values[row * columns + column])
+                let b = Int(current.values[row * columns + column])
+                if abs(a - b) > scrollMatchTolerance * 3 {
+                    changes += 1
+                    if changes > allowedChanges { return false }
+                }
+            }
+            return true
+        }
+        let cap = Int(Double(columns) * scrollMaximumFixedBand)
+        var left = 0
+        while left < cap, isFixed(left) { left += 1 }
+        var right = 0
+        while right < cap, isFixed(columns - 1 - right) { right += 1 }
+        guard columns - left - right >= scrollMinimumContentColumns else { return .none }
+        return FixedSides(left: left, right: right)
+    }
 
     /// How far the content moved between two frames of the same region.
     /// Rows that stayed put at the top (a sticky header) and bottom (a
@@ -333,37 +422,95 @@ enum ScreenshotSupport {
     static func scrollStep(previous: RowSignature, current: RowSignature,
                            knownFooter: Int? = nil) -> ScrollStep {
         let height = min(previous.rows, current.rows)
-        guard height >= 8, previous.columns == current.columns else { return .unmatched }
+        guard height >= 8, previous.columns == current.columns else { return .unmatched(.tooSmall) }
         if error(previous, current, shift: 0, height: height, stride: 1) <= scrollMatchTolerance / 2 {
             return .unchanged
         }
+        let sides = fixedSides(previous: previous, current: current, height: height)
+        let before = previous.keeping(columns: sides.content(of: previous.columns))
+        let after = current.keeping(columns: sides.content(of: current.columns))
         let cap = Int(Double(height) * scrollMaximumFixedBand)
         var header = 0
-        while header < cap, previous.difference(row: header, current, row: header) <= scrollMatchTolerance {
+        while header < cap, before.difference(row: header, after, row: header) <= scrollMatchTolerance {
             header += 1
         }
         var footer = 0
         while footer < cap,
-              previous.difference(row: height - 1 - footer, current, row: height - 1 - footer)
+              before.difference(row: height - 1 - footer, after, row: height - 1 - footer)
                 <= scrollMatchTolerance {
             footer += 1
         }
         footer = min(knownFooter ?? footer, height - header - 8)
-        guard footer >= 0, height - header - footer >= 8,
-              let shift = contentShift(previous.slice(header..<(height - footer)),
-                                       current.slice(header..<(height - footer)))
-        else { return .unmatched }
-        return .advanced(rows: shift, footer: footer)
+        guard footer >= 0, height - header - footer >= 8 else { return .unmatched(.tooSmall) }
+        switch contentShift(before.slice(header..<(height - footer)),
+                            after.slice(header..<(height - footer))) {
+        case .success(let shift): return .advanced(rows: shift, footer: footer, sides: sides)
+        case .failure(let skip): return .unmatched(skip)
+        }
+    }
+
+    /// Whether an unmatched frame shows only content already in the stitched
+    /// image (`stitched`, every row added so far): the person scrolled back
+    /// up, however far, or something animated in place. Matching then stays
+    /// anchored to the last stitched frame, so scrolling down again adds
+    /// nothing twice. Any other unmatched frame (a jump too far down) becomes
+    /// the new anchor, leaving a gap. Rows that stayed put against `anchor`
+    /// at the top, and the known footer, are left out of the search.
+    static func isAlreadyStitched(current fullCurrent: RowSignature, anchor fullAnchor: RowSignature,
+                                  stitched fullStitched: RowSignature, knownFooter: Int?,
+                                  sides: FixedSides = .none) -> Bool {
+        guard fullCurrent.columns == fullAnchor.columns, fullCurrent.columns == fullStitched.columns
+        else { return false }
+        let kept = sides.content(of: fullCurrent.columns)
+        let current = fullCurrent.keeping(columns: kept)
+        let anchor = fullAnchor.keeping(columns: kept)
+        let stitched = fullStitched.keeping(columns: kept)
+        let height = min(current.rows, anchor.rows)
+        guard height >= 8 else { return false }
+        let cap = Int(Double(height) * scrollMaximumFixedBand)
+        var header = 0
+        while header < cap, anchor.difference(row: header, current, row: header) <= scrollMatchTolerance {
+            header += 1
+        }
+        let footer = min(max(0, knownFooter ?? 0), cap)
+        let band = header..<(height - footer)
+        guard band.count >= 8, stitched.rows >= band.count else { return false }
+        let rowStride = max(1, band.count / 160)
+        let sampled = (band.count + rowStride - 1) / rowStride
+        let allowedSampled = sampled / 50
+        let allowed = band.count / 50
+        // Most offsets fail within a few rows, so every offset is cheap to try.
+        offsets: for offset in 0...(stitched.rows - band.count) {
+            var misses = 0
+            for row in Swift.stride(from: band.lowerBound, to: band.upperBound, by: rowStride)
+            where current.difference(row: row, stitched, row: offset + row - header) > scrollMatchTolerance * 3 {
+                misses += 1
+                if misses > allowedSampled { continue offsets }
+            }
+            var total = 0
+            misses = 0
+            for row in band {
+                let value = current.difference(row: row, stitched, row: offset + row - header)
+                total += value
+                if value > scrollMatchTolerance * 3 {
+                    misses += 1
+                    if misses > allowed { continue offsets }
+                }
+            }
+            if total / band.count <= scrollMatchTolerance { return true }
+        }
+        return false
     }
 
     /// The shift of one band. Every shift is tried on a sample of rows,
     /// since text is too fine for a coarse grid of shifts; the few best are
     /// then checked on every row.
-    private static func contentShift(_ previous: RowSignature, _ current: RowSignature) -> Int? {
+    private static func contentShift(_ previous: RowSignature,
+                                     _ current: RowSignature) -> Result<Int, ScrollSkip> {
         let height = min(previous.rows, current.rows)
         let minimumOverlap = max(4, Int(Double(height) * scrollMinimumOverlap))
         let maximumShift = height - minimumOverlap
-        guard maximumShift >= 1 else { return nil }
+        guard maximumShift >= 1 else { return .failure(.tooSmall) }
         let rowStride = max(1, height / 160)
         var candidates: [(shift: Int, error: Int)] = []
         for shift in 1...maximumShift {
@@ -376,17 +523,17 @@ enum ScreenshotSupport {
             let value = error(previous, current, shift: candidate.shift, height: height, stride: 1)
             if best == nil || value < best!.error { best = (candidate.shift, value) }
         }
-        guard let best, best.error <= scrollMatchTolerance,
-              mismatchedRows(previous, current, shift: best.shift, height: height)
+        guard let best, best.error <= scrollMatchTolerance else { return .failure(.noShift) }
+        guard mismatchedRows(previous, current, shift: best.shift, height: height)
                 <= (height - best.shift) / 50
-        else { return nil }
+        else { return .failure(.scattered) }
         // The match must be the only one: a flat page or repeating rows fit
         // several shifts, and guessing would duplicate or drop content.
         if let rival = candidates.first(where: { abs($0.shift - best.shift) > 2 }) {
             let rivalError = error(previous, current, shift: rival.shift, height: height, stride: 1)
-            guard rivalError >= best.error + scrollMatchTolerance else { return nil }
+            guard rivalError >= best.error + scrollMatchTolerance else { return .failure(.ambiguous) }
         }
-        return best.shift
+        return .success(best.shift)
     }
 
     /// Rows of the overlap that differ clearly, at `shift`.

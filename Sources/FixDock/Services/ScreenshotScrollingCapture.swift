@@ -4,6 +4,7 @@
 
 import AppKit
 import Combine
+import os
 import SwiftUI
 
 /// Scrolling capture of one region: frames are taken while the person
@@ -33,6 +34,11 @@ final class ScreenshotScrollingSession: ObservableObject {
 
     /// Columns kept per row for matching.
     private static let signatureColumns = 96
+    /// One line per frame and a summary, numbers only, so a report of
+    /// skipped frames can name the reason: `log show --predicate
+    /// 'category == "scrollCapture"' --info --last 10m`.
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "io.github.qaws81877.fixdock",
+                                    category: "scrollCapture")
     private static let interval: UInt64 = 120_000_000
 
     init?(displayID: CGDirectDisplayID, localRect: CGRect) {
@@ -73,12 +79,24 @@ final class ScreenshotScrollingSession: ObservableObject {
         var strips: [CGImage] = [first]
         var total = first.height
         var previous = firstSignature
+        /// The signature of the last frame whose rows were added.
+        var stitched = firstSignature
+        /// Every row added so far, top to bottom, to tell a frame scrolled
+        /// back up from one that jumped too far down.
+        var stitchedRows = firstSignature
+        /// Set while `previous` is a skipped frame rather than `stitched`.
+        var detached = false
         /// Rows that stay at the bottom of every frame, found on the first move.
         var footer: Int?
+        /// Edge columns that stayed put on every move: a sidebar.
+        var sides: ScreenshotSupport.FixedSides?
         var lastFrame = first
         var frames = 1
         var limited = false
+        var skips: [ScreenshotSupport.ScrollSkip: Int] = [:]
         let started = ProcessInfo.processInfo.systemUptime
+        var lastFrameTime = started
+        Self.log.info("start \(first.width, privacy: .public)x\(first.height, privacy: .public)")
         await publish(height: total)
 
         while !Task.isCancelled {
@@ -91,15 +109,33 @@ final class ScreenshotScrollingSession: ObservableObject {
                 try? await Task.sleep(nanoseconds: Self.interval)
             }
             guard !Task.isCancelled else { break }
+            let requested = ProcessInfo.processInfo.systemUptime
             guard let frame = await source.image(), let signature = Self.signature(frame) else {
+                Self.log.error("frame \(frames + 1, privacy: .public) capture failed")
                 break
             }
+            let captured = ProcessInfo.processInfo.systemUptime
+            let timing = String(format: "capture %.0fms gap %.0fms",
+                                (captured - requested) * 1000, (captured - lastFrameTime) * 1000)
+            lastFrameTime = captured
             frames += 1
-            switch ScreenshotSupport.scrollStep(previous: previous, current: signature,
-                                                knownFooter: footer) {
+            var step = ScreenshotSupport.scrollStep(previous: previous, current: signature,
+                                                    knownFooter: footer)
+            if detached {
+                // After a skip, a frame that still meets the last stitched
+                // one carries on from it, so going back to where stitching
+                // stopped leaves no hole.
+                let joined = ScreenshotSupport.scrollStep(previous: stitched, current: signature,
+                                                          knownFooter: footer)
+                if case .advanced = joined {
+                    step = joined
+                    Self.log.info("frame \(frames, privacy: .public) rejoined the last stitched frame")
+                }
+            }
+            switch step {
             case .unchanged:
-                break
-            case .advanced(let rows, let fixedBottom):
+                Self.log.debug("frame \(frames, privacy: .public) \(timing, privacy: .public) unchanged")
+            case .advanced(let rows, let fixedBottom, let stepSides):
                 if footer == nil {
                     footer = fixedBottom
                     // The first frame keeps its header but not the footer,
@@ -109,6 +145,7 @@ final class ScreenshotScrollingSession: ObservableObject {
                                                            height: first.height - fixedBottom)) {
                         strips[0] = top
                         total -= fixedBottom
+                        stitchedRows.removeLast(rows: fixedBottom)
                     }
                 }
                 let bottom = frame.height - fixedBottom
@@ -120,27 +157,54 @@ final class ScreenshotScrollingSession: ObservableObject {
                 if let strip = frame.cropping(to: CGRect(x: 0, y: bottom - newRows,
                                                          width: frame.width, height: newRows)) {
                     strips.append(strip)
+                    stitchedRows.append(rows: (bottom - newRows)..<bottom, of: signature)
                     total += newRows
                     previous = signature
+                    stitched = signature
+                    detached = false
+                    sides = sides?.common(with: stepSides) ?? stepSides
                     lastFrame = frame
+                    Self.log.info("frame \(frames, privacy: .public) \(timing, privacy: .public) advanced \(newRows, privacy: .public) footer \(fixedBottom, privacy: .public) total \(total + fixedBottom, privacy: .public)")
                     await publish(height: total + fixedBottom)
                 }
-            case .unmatched:
+            case .unmatched(let skip):
+                skips[skip, default: 0] += 1
+                // Match the next frame against this one, unless it shows
+                // rows already stitched. Against the last stitched frame, a
+                // single jump too far to match would leave every later frame
+                // too far as well, and stitching would never resume. The
+                // skipped rows stay a gap in the image.
+                if !ScreenshotSupport.isAlreadyStitched(current: signature, anchor: stitched,
+                                                        stitched: stitchedRows, knownFooter: footer,
+                                                        sides: sides ?? .none) {
+                    previous = signature
+                    detached = true
+                    Self.log.info("frame \(frames, privacy: .public) \(timing, privacy: .public) skipped \(skip.rawValue, privacy: .public), new anchor")
+                } else {
+                    Self.log.info("frame \(frames, privacy: .public) \(timing, privacy: .public) skipped \(skip.rawValue, privacy: .public), already stitched")
+                }
                 await MainActor.run { self.skippedFrames += 1 }
             }
             if finishing || limited { break }
         }
+        let reasons = ScreenshotSupport.ScrollSkip.allCases.map { "\($0.rawValue) \(skips[$0, default: 0])" }
+        let fixed = sides ?? .none
+        Self.log.notice("end frames \(frames, privacy: .public) height \(total, privacy: .public) sides \(fixed.left, privacy: .public)/\(fixed.right, privacy: .public) limited \(limited, privacy: .public) seconds \(Int(ProcessInfo.processInfo.systemUptime - started), privacy: .public) skipped \(reasons.joined(separator: ", "), privacy: .public)")
         if Task.isCancelled {
             await end(.cancelled)
             return
         }
+        var tailHeight = 0
         if let footer, footer > 0,
            let tail = lastFrame.cropping(to: CGRect(x: 0, y: lastFrame.height - footer,
                                                     width: lastFrame.width, height: footer)) {
             strips.append(tail)
             total += footer
+            tailHeight = footer
         }
-        guard let image = Self.stitch(strips, height: total) else {
+        let blank = Self.blankSides(fixed.pixels(columns: Self.signatureColumns, width: first.width),
+                                    of: strips[0], tailHeight: tailHeight)
+        guard let image = Self.stitch(strips, height: total, blank: blank) else {
             await end(.failed)
             return
         }
@@ -184,7 +248,49 @@ final class ScreenshotScrollingSession: ObservableObject {
         return drawn ? ScreenshotSupport.RowSignature(columns: columns, values: values) : nil
     }
 
-    static func stitch(_ strips: [CGImage], height: Int) -> CGImage? {
+    /// Where a fixed side is painted over below the first frame, and with
+    /// which colour: the side's most common colour in the first frame, so a
+    /// sidebar keeps its background instead of repeating its contents.
+    struct BlankSides {
+        var areas: [(x: Int, width: Int, color: CGColor)]
+        /// Rows at the top (the first frame) and bottom (the footer) left as they are.
+        var keepTop: Int
+        var keepBottom: Int
+    }
+
+    static func blankSides(_ pixels: (left: Int, right: Int), of first: CGImage, tailHeight: Int) -> BlankSides {
+        var areas: [(x: Int, width: Int, color: CGColor)] = []
+        for (x, width) in [(0, pixels.left), (first.width - pixels.right, pixels.right)] where width > 0 {
+            if let band = first.cropping(to: CGRect(x: x, y: 0, width: width, height: first.height)),
+               let color = commonColor(of: band) {
+                areas.append((x, width, color))
+            }
+        }
+        return BlankSides(areas: areas, keepTop: first.height, keepBottom: tailHeight)
+    }
+
+    /// The most frequent colour of an image, read from a small copy.
+    static func commonColor(of image: CGImage) -> CGColor? {
+        let side = 24
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: &pixels, width: side, height: side, bitsPerComponent: 8,
+                                      bytesPerRow: side * 4, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        var counts: [UInt32: Int] = [:]
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            let key = UInt32(pixels[index]) << 16 | UInt32(pixels[index + 1]) << 8 | UInt32(pixels[index + 2])
+            counts[key, default: 0] += 1
+        }
+        guard let key = counts.max(by: { $0.value < $1.value })?.key else { return nil }
+        return CGColor(srgbRed: CGFloat(key >> 16 & 0xFF) / 255, green: CGFloat(key >> 8 & 0xFF) / 255,
+                       blue: CGFloat(key & 0xFF) / 255, alpha: 1)
+    }
+
+    static func stitch(_ strips: [CGImage], height: Int, blank: BlankSides? = nil) -> CGImage? {
         guard let width = strips.first?.width, height > 0,
               let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
@@ -195,6 +301,14 @@ final class ScreenshotScrollingSession: ObservableObject {
         for strip in strips {
             top -= strip.height
             context.draw(strip, in: CGRect(x: 0, y: top, width: strip.width, height: strip.height))
+        }
+        if let blank {
+            // Bitmap y runs up from the bottom: the footer is at 0, the first frame at the top.
+            let rows = height - blank.keepTop - blank.keepBottom
+            for area in blank.areas where rows > 0 {
+                context.setFillColor(area.color)
+                context.fill(CGRect(x: area.x, y: blank.keepBottom, width: area.width, height: rows))
+            }
         }
         return context.makeImage()
     }
