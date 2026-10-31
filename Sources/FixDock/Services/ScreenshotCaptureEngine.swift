@@ -58,25 +58,10 @@ enum ScreenshotCaptureEngine {
                                                            configuration: configuration)
     }
 
-    /// A reusable capture of one display region, for scrolling capture, which
-    /// takes many frames of the same rect. `localPoints` is in the display's
-    /// own points with a top-left origin.
-    final class RegionCapture: @unchecked Sendable {
-        private let filter: SCContentFilter
-        private let configuration: SCStreamConfiguration
-
-        fileprivate init(filter: SCContentFilter, configuration: SCStreamConfiguration) {
-            self.filter = filter
-            self.configuration = configuration
-        }
-
-        func image() async -> CGImage? {
-            try? await SCScreenshotManager.captureImage(contentFilter: filter,
-                                                       configuration: configuration)
-        }
-    }
-
-    static func prepareRegion(displayID: CGDirectDisplayID, localPoints: CGRect) async -> RegionCapture? {
+    /// A live stream of one display region, for scrolling capture.
+    /// `localPoints` is in the display's own points with a top-left origin.
+    /// Not started; the caller starts and stops it.
+    static func regionStream(displayID: CGDirectDisplayID, localPoints: CGRect) async -> RegionStream? {
         guard let content = await shareableContent(),
               let display = content.displays.first(where: { $0.displayID == displayID })
         else { return nil }
@@ -88,10 +73,18 @@ enum ScreenshotCaptureEngine {
         configuration.sourceRect = rect
         configuration.width = max(1, Int((rect.width * scale).rounded()))
         configuration.height = max(1, Int((rect.height * scale).rounded()))
-        configuration.showsCursor = false
+        configuration.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+        // One buffer is held as the newest frame while another is copied out.
+        configuration.queueDepth = 5
+        configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.colorSpaceName = CGColorSpace.sRGB
-        let filter = SCContentFilter(display: display, excludingWindows: ownWindows(in: content))
-        return RegionCapture(filter: filter, configuration: configuration)
+        configuration.showsCursor = false
+        // The whole app, not a window list: the frame and the bar around the
+        // region are shown just before this and may not be listed yet, and a
+        // window list never covers windows opened later.
+        let ownApp = content.applications.filter { $0.processID == getpid() }
+        let filter = SCContentFilter(display: display, excludingApplications: ownApp, exceptingWindows: [])
+        return RegionStream(filter: filter, configuration: configuration)
     }
 
     /// Windows a click can pick, front to back, in window-server points.

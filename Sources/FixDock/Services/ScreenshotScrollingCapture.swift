@@ -39,7 +39,6 @@ final class ScreenshotScrollingSession: ObservableObject {
     /// 'category == "scrollCapture"' --info --last 10m`.
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "io.github.qaws81877.fixdock",
                                     category: "scrollCapture")
-    private static let interval: UInt64 = 120_000_000
 
     init?(displayID: CGDirectDisplayID, localRect: CGRect) {
         guard let screen = NSScreen.screens.first(where: { $0.displayID == displayID }) else { return nil }
@@ -68,11 +67,18 @@ final class ScreenshotScrollingSession: ObservableObject {
     // MARK: - Loop
 
     private func run() async {
-        guard let source = await ScreenshotCaptureEngine.prepareRegion(displayID: displayID,
-                                                                       localPoints: localRect),
-              let first = await source.image(),
+        guard let source = await ScreenshotCaptureEngine.regionStream(displayID: displayID,
+                                                                      localPoints: localRect),
+              await source.start()
+        else {
+            await end(.failed)
+            return
+        }
+        // The first frame of a new stream can take a moment to arrive.
+        guard case .frame(let first) = await source.next(timeout: 2),
               let firstSignature = Self.signature(first)
         else {
+            await source.stop()
             await end(.failed)
             return
         }
@@ -99,25 +105,32 @@ final class ScreenshotScrollingSession: ObservableObject {
         Self.log.info("start \(first.width, privacy: .public)x\(first.height, privacy: .public)")
         await publish(height: total)
 
-        while !Task.isCancelled {
+        frameLoop: while !Task.isCancelled {
             let finishing = await MainActor.run { self.finishRequested }
-            if ProcessInfo.processInfo.systemUptime - started > ScreenshotSupport.scrollMaximumDuration
-                || frames >= ScreenshotSupport.scrollMaximumFrames {
+            if ProcessInfo.processInfo.systemUptime - started > ScreenshotSupport.scrollMaximumDuration {
                 limited = true
             }
-            if !finishing, !limited {
-                try? await Task.sleep(nanoseconds: Self.interval)
-            }
+            // Done takes the frame already waiting, if any; otherwise wait a
+            // little, so Done and cancel are noticed while nothing moves.
+            let waitStarted = ProcessInfo.processInfo.systemUptime
+            let next = await source.next(timeout: finishing || limited ? 0.05 : 0.1)
             guard !Task.isCancelled else { break }
-            let requested = ProcessInfo.processInfo.systemUptime
-            guard let frame = await source.image(), let signature = Self.signature(frame) else {
-                Self.log.error("frame \(frames + 1, privacy: .public) capture failed")
-                break
+            let frame: CGImage
+            switch next {
+            case .frame(let image):
+                frame = image
+            case .idle:
+                if finishing || limited { break frameLoop }
+                continue frameLoop
+            case .stopped:
+                Self.log.error("frame \(frames + 1, privacy: .public) stream stopped")
+                break frameLoop
             }
-            let captured = ProcessInfo.processInfo.systemUptime
-            let timing = String(format: "capture %.0fms gap %.0fms",
-                                (captured - requested) * 1000, (captured - lastFrameTime) * 1000)
-            lastFrameTime = captured
+            guard let signature = Self.signature(frame) else { break }
+            let received = ProcessInfo.processInfo.systemUptime
+            let timing = String(format: "wait %.0fms gap %.0fms",
+                                (received - waitStarted) * 1000, (received - lastFrameTime) * 1000)
+            lastFrameTime = received
             frames += 1
             var step = ScreenshotSupport.scrollStep(previous: previous, current: signature,
                                                     knownFooter: footer)
@@ -155,7 +168,8 @@ final class ScreenshotScrollingSession: ObservableObject {
                     break
                 }
                 if let strip = frame.cropping(to: CGRect(x: 0, y: bottom - newRows,
-                                                         width: frame.width, height: newRows)) {
+                                                         width: frame.width, height: newRows))
+                    .flatMap(Self.ownedCopy) {
                     strips.append(strip)
                     stitchedRows.append(rows: (bottom - newRows)..<bottom, of: signature)
                     total += newRows
@@ -187,6 +201,7 @@ final class ScreenshotScrollingSession: ObservableObject {
             }
             if finishing || limited { break }
         }
+        await source.stop()
         let reasons = ScreenshotSupport.ScrollSkip.allCases.map { "\($0.rawValue) \(skips[$0, default: 0])" }
         let fixed = sides ?? .none
         Self.log.notice("end frames \(frames, privacy: .public) height \(total, privacy: .public) sides \(fixed.left, privacy: .public)/\(fixed.right, privacy: .public) limited \(limited, privacy: .public) seconds \(Int(ProcessInfo.processInfo.systemUptime - started), privacy: .public) skipped \(reasons.joined(separator: ", "), privacy: .public)")
@@ -246,6 +261,19 @@ final class ScreenshotScrollingSession: ObservableObject {
         }
         // A bitmap context's memory starts at the top row, matching the image.
         return drawn ? ScreenshotSupport.RowSignature(columns: columns, values: values) : nil
+    }
+
+    /// A crop shares the whole frame's pixels. At stream rates a capture
+    /// keeps hundreds of strips, so each gets pixels of its own size.
+    static func ownedCopy(_ image: CGImage) -> CGImage? {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: image.width, height: image.height,
+                                      bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+                                        | CGBitmapInfo.byteOrder32Little.rawValue)
+        else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return context.makeImage()
     }
 
     /// Where a fixed side is painted over below the first frame, and with
