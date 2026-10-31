@@ -559,3 +559,156 @@ enum ScreenshotSupport {
         return count > 0 ? total / count : Int.max
     }
 }
+
+// MARK: - Loupe
+
+extension ScreenshotSupport {
+    /// Z steps forward through the cases, Shift-Z backward. Each step carries
+    /// its own numbers, so the overlay never branches on size itself.
+    enum LoupeMode: String, CaseIterable {
+        case off
+        case regular
+        case large
+
+        var next: LoupeMode {
+            switch self {
+            case .off: return .regular
+            case .regular: return .large
+            case .large: return .off
+            }
+        }
+
+        var previous: LoupeMode {
+            switch self {
+            case .off: return .large
+            case .regular: return .off
+            case .large: return .regular
+            }
+        }
+
+        var isOn: Bool { self != .off }
+
+        /// Device pixels on each side of the centre pixel.
+        var radius: Int {
+            switch self {
+            case .off: return 0
+            case .regular: return 7
+            case .large: return 10
+            }
+        }
+
+        /// Points per device pixel, so the loupe looks the same at any scale.
+        var cell: CGFloat {
+            switch self {
+            case .off: return 0
+            case .regular: return 9
+            case .large: return 12
+            }
+        }
+
+        /// Regular cells are too small for lines between them.
+        var showsGrid: Bool { self == .large }
+
+        var side: CGFloat { CGFloat(radius * 2 + 1) * cell }
+    }
+
+    struct PixelColor: Equatable {
+        let red, green, blue: UInt8
+    }
+
+    /// How the loupe label shows a colour and C copies it.
+    enum ColorFormat: String, CaseIterable, Identifiable {
+        case hex
+        case hexPlain
+        case rgb
+        case hsl
+
+        static let `default` = ColorFormat.hex
+
+        var id: String { rawValue }
+
+        static func stored(_ raw: String?) -> ColorFormat {
+            raw.flatMap(ColorFormat.init(rawValue:)) ?? .default
+        }
+
+        func text(_ color: PixelColor) -> String {
+            switch self {
+            case .hex:
+                return ScreenshotSupport.hexColor(red: color.red, green: color.green, blue: color.blue)
+            case .hexPlain:
+                return String(ScreenshotSupport.hexColor(red: color.red, green: color.green, blue: color.blue)
+                    .dropFirst())
+            case .rgb:
+                return "rgb(\(color.red), \(color.green), \(color.blue))"
+            case .hsl:
+                let parts = ScreenshotSupport.hsl(color)
+                return "hsl(\(parts.hue), \(parts.saturation)%, \(parts.lightness)%)"
+            }
+        }
+    }
+
+    /// Whole degrees and percents, each rounded on its own; a grey has hue 0
+    /// and saturation 0, and a hue that rounds to 360 is 0.
+    static func hsl(_ color: PixelColor) -> (hue: Int, saturation: Int, lightness: Int) {
+        let r = Double(color.red) / 255
+        let g = Double(color.green) / 255
+        let b = Double(color.blue) / 255
+        let high = max(r, g, b)
+        let low = min(r, g, b)
+        let delta = high - low
+        let lightness = (high + low) / 2
+        let lightnessPercent = Int((lightness * 100).rounded())
+        guard delta > 0 else { return (0, 0, lightnessPercent) }
+        let saturation = delta / (1 - abs(2 * lightness - 1))
+        var hue: Double
+        if high == r {
+            hue = (g - b) / delta
+        } else if high == g {
+            hue = (b - r) / delta + 2
+        } else {
+            hue = (r - g) / delta + 4
+        }
+        hue *= 60
+        if hue < 0 { hue += 360 }
+        return (Int(hue.rounded()) % 360, Int((saturation * 100).rounded()), lightnessPercent)
+    }
+
+    /// The overlay's stand-in for the cursor: one device pixel wide lines,
+    /// edge to edge, through the device pixel under the pointer (flipped view).
+    static func crosshairLines(pointer: CGPoint, pixelScale: CGFloat,
+                               bounds: CGRect) -> (vertical: CGRect, horizontal: CGRect) {
+        let thickness = 1 / pixelScale
+        let x = (pointer.x * pixelScale).rounded(.down) / pixelScale
+        let y = (pointer.y * pixelScale).rounded(.down) / pixelScale
+        return (CGRect(x: x, y: bounds.minY, width: thickness, height: bounds.height),
+                CGRect(x: bounds.minX, y: y, width: bounds.width, height: thickness))
+    }
+
+    /// Gap plus box height of the label under the loupe.
+    static let loupeLabelHeight: CGFloat = 22
+
+    /// Where the loupe square goes for a pointer in the overlay view (flipped,
+    /// y down): 24 pt right and below, on the other side near the right or
+    /// bottom edge, then kept inside `bounds` with room for the label below.
+    /// Drawing and any partial redraw use this one rect.
+    static func loupeFrame(pointer: CGPoint, side: CGFloat, labelHeight: CGFloat,
+                           bounds: CGRect) -> CGRect {
+        let gap: CGFloat = 24
+        var x = pointer.x + gap
+        if x + side > bounds.maxX { x = pointer.x - gap - side }
+        var y = pointer.y + gap
+        if y + side + labelHeight > bounds.maxY { y = pointer.y - gap - side - labelHeight }
+        x = max(bounds.minX, min(x, bounds.maxX - side))
+        y = max(bounds.minY, min(y, bounds.maxY - side - labelHeight))
+        return CGRect(x: x, y: y, width: side, height: side)
+    }
+
+    /// The label box under `loupe`: as wide as the loupe or the text plus its
+    /// padding, whichever is wider, shifted left to stay inside `bounds`.
+    static func loupeLabelFrame(loupe: CGRect, textWidth: CGFloat, bounds: CGRect) -> CGRect {
+        let gap: CGFloat = 4
+        let width = max(loupe.width, (textWidth + 12).rounded(.up))
+        let x = max(bounds.minX, min(loupe.minX, bounds.maxX - width))
+        return CGRect(x: x, y: loupe.maxY + gap, width: width, height: loupeLabelHeight - gap)
+    }
+}

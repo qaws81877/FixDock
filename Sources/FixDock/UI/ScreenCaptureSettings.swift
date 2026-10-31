@@ -52,6 +52,9 @@ private struct ScreenshotSettingsTab: View {
     @AppStorage(DefaultsKey.screenshotPreviewCloseSeconds) private var closeSeconds = 0
     @AppStorage(DefaultsKey.screenshotPreviewPosition) private var position =
         ScreenshotSupport.PreviewPosition.bottomRight.rawValue
+    @AppStorage(DefaultsKey.screenshotColorFormat) private var colorFormat =
+        ScreenshotSupport.ColorFormat.default.rawValue
+    @AppStorage(DefaultsKey.screenshotLoupeAtStart) private var loupeAtStart = true
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -123,6 +126,15 @@ private struct ScreenshotSettingsTab: View {
                 }
             }
 
+            Section(s.screenshotLoupeTitle) {
+                Toggle(s.screenshotLoupeAtStart, isOn: $loupeAtStart)
+                Picker(s.screenshotColorFormatTitle, selection: $colorFormat) {
+                    ForEach(ScreenshotSupport.ColorFormat.allCases) { format in
+                        Text("\(formatTitle(format))  \(format.text(Self.formatExample))").tag(format.rawValue)
+                    }
+                }
+            }
+
             Section(s.screenshotToolKeysTitle) {
                 ScreenshotToolOrderControls(showsTitle: false)
             }
@@ -150,6 +162,17 @@ private struct ScreenshotSettingsTab: View {
         case .bottomLeft: return s.screenshotPreviewPositionBottomLeft
         case .topRight: return s.screenshotPreviewPositionTopRight
         case .topLeft: return s.screenshotPreviewPositionTopLeft
+        }
+    }
+
+    private static let formatExample = ScreenshotSupport.PixelColor(red: 255, green: 128, blue: 0)
+
+    private func formatTitle(_ format: ScreenshotSupport.ColorFormat) -> String {
+        switch format {
+        case .hex: return s.screenshotColorFormatHex
+        case .hexPlain: return s.screenshotColorFormatHexPlain
+        case .rgb: return s.screenshotColorFormatRGB
+        case .hsl: return s.screenshotColorFormatHSL
         }
     }
 

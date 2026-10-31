@@ -68,6 +68,10 @@ enum DefaultsKey {
     /// Seconds before an untouched preview closes; 0 keeps it open.
     static let screenshotPreviewCloseSeconds = "screenshotPreviewCloseSeconds"
     static let screenshotPreviewPosition = "screenshotPreviewPosition"
+    /// `ScreenshotSupport.ColorFormat` raw value for the overlay loupe and C.
+    static let screenshotColorFormat = "screenshotColorFormat"
+    /// Whether each overlay session starts with the regular loupe on.
+    static let screenshotLoupeAtStart = "screenshotLoupeAtStart"
     /// Last region per display, `[displayID: "x,y,w,h"]` in display points.
     static let screenshotLastRegions = "screenshotLastRegions"
     /// The editor's rail order (comma-separated tool ids), each tool's own
@@ -155,6 +159,8 @@ enum Defaults {
             DefaultsKey.screenshotShowPreview: true,
             DefaultsKey.screenshotPreviewCloseSeconds: 0,
             DefaultsKey.screenshotPreviewPosition: ScreenshotSupport.PreviewPosition.bottomRight.rawValue,
+            DefaultsKey.screenshotColorFormat: ScreenshotSupport.ColorFormat.default.rawValue,
+            DefaultsKey.screenshotLoupeAtStart: true,
             DefaultsKey.screenshotEditorBlurLevel: ScreenshotSupport.BlurStrength.defaultLevel,
             DefaultsKey.screenshotEditorSpotlightDim: Double(ScreenshotSupport.defaultSpotlightDim),
             // The editor reads these through UserDefaults as well as @AppStorage.
