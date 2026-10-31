@@ -47,6 +47,8 @@ Proof:
   swap, rollback and eviction case needs a Developer ID-signed old bundle
   and a notarized, stapled newer one. A real update of the owner's app
   needs the owner's click.
+- The cask's `uninstall quit:` quits a running FixDock, so a
+  `brew uninstall` test also stops the owner's app. Reopen it afterwards.
 - A test release made with `FIXDOCK_VERSION` and `Tools/notarize.sh` is
   moved out of `build/release/` right away and never uploaded. Left there,
   it blocks notarizing the real version and can be published by mistake.
