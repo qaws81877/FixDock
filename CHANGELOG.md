@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Updates: FixDock checks its own GitHub releases (about hourly, and when the panel opens) and can download, verify, install and restart into a new version from Settings › About, the panel banner or "Check for Updates…". A version that does not start is rolled back. Only the notarized release in /Applications installs in place; developer and self-built copies never check. Turn it off in Settings › About; what is sent is in PRIVACY.md.
+- The update window shows release notes with their headings and lists, and Korean update text writes versions one way.
+- Install with Homebrew: `brew install --cask qaws81877/tap/fixdock`.
 
 ## 1.0.0
 
