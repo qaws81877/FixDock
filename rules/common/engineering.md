@@ -72,6 +72,13 @@ Platform quirks:
   aside, never deleted, and nothing is opened. Judge security-review
   findings against that rule instead of flipping between "restore" and
   "keep".
+- ScreenCaptureKit: leave FixDock out by application
+  (`SCContentFilter(display:excludingApplications:exceptingWindows:)`),
+  not by a window list. `SCShareableContent` read right after a panel is
+  shown does not list it yet, and a list never covers later windows.
+- `CGImage.cropping(to:)` shares the source image's pixels. A crop kept
+  past the frame it came from (strips, thumbnails) is copied into its own
+  bitmap first; kept crops of stream frames took one capture to 1.2 GB.
 - `AVAssetWriter.cancelWriting()` deletes its output file. Point a writer
   only at an app-owned folder or a staged sibling it created, never
   straight at a file in the person's folder.
