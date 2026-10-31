@@ -17,6 +17,7 @@ dist/
 AGENTS.md
 CLAUDE.md
 docs/
+.claude/
 
 # macOS noise
 .DS_Store
