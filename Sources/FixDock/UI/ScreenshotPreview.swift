@@ -8,10 +8,9 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// What the preview's buttons show: what already happened, what a scan
-/// found, and a short line after Copy text.
+/// What the preview's buttons show: what a scan found, and a short line
+/// after Copy text.
 final class ScreenshotPreviewModel: ObservableObject {
-    @Published var copied = false
     @Published var code: ScreenshotRecognition.CodeReading?
     @Published var readingText = false
     @Published var notice: String?
@@ -21,9 +20,10 @@ final class ScreenshotPreviewModel: ObservableObject {
 /// code is found), Copy text, Share and Pin on it, then Trash, Save, Copy and
 /// Edit. The thumbnail can be dragged into Finder or another app; a click on
 /// it opens the editor. A file is written only by Save or a drop; closing,
-/// Esc and Trash leave nothing on disk. Save, Copy, Pin, Edit, a share target
-/// and a drop close the preview, as upstream. QR and Copy text keep it open,
-/// since closing would drop an unsaved capture. Adapted from the upstream
+/// Esc and Trash leave nothing on disk. Save, Pin, Edit, a share target and a
+/// drop close the preview, as upstream. Copy, QR and Copy text keep it open,
+/// since closing would drop an unsaved capture. Copy and Save confirm with a
+/// toast at the bottom centre of the display. Adapted from the upstream
 /// quick preview, without its upload link and notch.
 final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegate {
     enum Action { case save, copy, pin, edit, discard }
@@ -48,14 +48,13 @@ final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegat
 
     /// `perform` runs one action and reports whether it worked. `anchor` is
     /// the captured area in Cocoa screen points, for the automatic position.
-    init(image: CGImage, png: Data, anchor: CGRect?, copied: Bool,
+    init(image: CGImage, png: Data, anchor: CGRect?,
          perform: @escaping (Action) -> Bool, onClose: @escaping () -> Void) {
         self.image = image
         self.png = png
         self.anchor = anchor
         self.perform = perform
         self.onClose = onClose
-        model.copied = copied
     }
 
     func show() {
@@ -107,8 +106,18 @@ final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegat
 
     private func run(_ action: Action) {
         guard !closed, !sharing else { return }
-        if action == .copy, model.copied { return }
-        if perform(action) { close() }
+        // Read before close, which drops the panel.
+        let screen = panel?.screen
+        guard perform(action) else { return }
+        switch action {
+        case .copy:
+            ScreenshotToastController.shared.show(.copied, on: screen)
+        case .save:
+            ScreenshotToastController.shared.show(.saved, on: screen)
+            close()
+        case .pin, .edit, .discard:
+            close()
+        }
     }
 
     // MARK: - Automatic close
@@ -171,8 +180,6 @@ final class ScreenshotPreviewController: NSObject, NSSharingServicePickerDelegat
                     self.showNotice(s.screenshotPreviewNoText)
                 } else {
                     ScreenshotService.copyText(text)
-                    // The clipboard now holds text, so Copy can put the image back.
-                    self.model.copied = false
                     self.showNotice(s.screenshotPreviewTextCopied)
                 }
             }
@@ -507,10 +514,10 @@ private struct ScreenshotPreviewView: View {
                     Image(systemName: "trash").frame(width: 22, height: 18)
                 }
                 .help(s.screenshotPreviewDiscard + "  (⌫)")
-                actionButton("square.and.arrow.down", s.screenshotPreviewSave, "⌘S", disabled: false) {
+                actionButton("square.and.arrow.down", s.screenshotPreviewSave, "⌘S") {
                     run(.save)
                 }
-                actionButton("doc.on.doc", s.screenshotPreviewCopy, "⌘C", disabled: model.copied) {
+                actionButton("doc.on.doc", s.screenshotPreviewCopy, "⌘C") {
                     run(.copy)
                 }
                 Spacer(minLength: 4)
@@ -528,12 +535,11 @@ private struct ScreenshotPreviewView: View {
         .onHover(perform: hover)
     }
 
-    private func actionButton(_ symbol: String, _ title: String, _ shortcut: String, disabled: Bool,
+    private func actionButton(_ symbol: String, _ title: String, _ shortcut: String,
                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
         }
-        .disabled(disabled)
         .help("\(title)  (\(shortcut))")
     }
 

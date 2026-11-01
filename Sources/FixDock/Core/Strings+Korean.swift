@@ -397,6 +397,8 @@ extension Strings {
         screenshotPreviewQR: "QR 코드 내용 보기",
         screenshotPreviewCopyText: "캡처 속 텍스트 복사",
         screenshotPreviewTextCopied: "텍스트를 복사했습니다",
+        screenshotToastCopied: "복사완료!",
+        screenshotToastSaved: "저장완료!",
         screenshotPreviewNoText: "텍스트를 찾지 못했습니다",
         screenshotPreviewDragHint: "Finder나 다른 앱으로 끌어다 놓기",
         screenshotPreviewPositionTitle: "미리보기 위치",

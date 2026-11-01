@@ -21,7 +21,8 @@ struct ScreenshotEditorView: View {
     @State private var drag = ScreenshotSupport.EditorDrag()
     @State private var dragCanvasArea: CGSize?
     @State private var appeared = false
-    @State private var hoveredTool: ScreenshotSupport.Tool?
+    @State private var hoveredRailItem: RailItem?
+    @State private var tooltipRailItem: RailItem?
     @State private var magnifyBase: CGFloat?
     // Rail order and keys, the tool order popover, and the zoom an
     // Expand canvas drag holds so the canvas does not refit under it.
@@ -66,6 +67,17 @@ struct ScreenshotEditorView: View {
             }
         }
         .ignoresSafeArea()
+        .overlayPreferenceValue(RailTooltipKey.self) { anchors in
+            railTooltip(anchors)
+        }
+        .task(id: hoveredRailItem) {
+            tooltipRailItem = nil
+            guard hoveredRailItem != nil else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            tooltipRailItem = hoveredRailItem
+        }
+        .animation(.easeOut(duration: 0.12), value: tooltipRailItem)
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: model.tool)
         .animation(.easeOut(duration: 0.16), value: model.annotationShadowsEnabled)
     }
@@ -539,13 +551,38 @@ struct ScreenshotEditorView: View {
     }
 
     private func selectTool(_ tool: ScreenshotSupport.Tool) {
+        tooltipRailItem = nil
         commitEditingTextIfNeeded()
         model.tool = tool
     }
 
+    /// AppKit tooltips do not show here, so the rail draws its own: beside
+    /// the hovered row, above the canvas, after the pointer rests.
+    @ViewBuilder
+    private func railTooltip(_ anchors: [RailItem: RailTooltipAnchor]) -> some View {
+        if let item = tooltipRailItem, let anchor = anchors[item] {
+            GeometryReader { proxy in
+                let row = proxy[anchor.bounds]
+                Text(anchor.title)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+                    .fixedSize()
+                    .frame(height: row.height, alignment: .leading)
+                    .offset(x: row.maxX + 10, y: row.minY)
+            }
+            .allowsHitTesting(false)
+            .transition(.opacity)
+        }
+    }
+
     private func railButton(_ tool: ScreenshotSupport.Tool, height: CGFloat) -> some View {
         let isActive = model.tool == tool
-        let isHovered = hoveredTool == tool
+        let isHovered = hoveredRailItem == .tool(tool)
         let keyLabel = ScreenshotSupport.Tool.shortcutLabel(for: tool, orderRaw: toolOrderRaw,
                                                           bindingsRaw: toolBindingsRaw,
                                                           enabled: toolShortcutsEnabled)
@@ -573,10 +610,7 @@ struct ScreenshotEditorView: View {
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.borderless)
-        .onHover { inside in
-            hoveredTool = inside ? tool : (hoveredTool == tool ? nil : hoveredTool)
-        }
-        .help(title)
+        .railTooltip(.tool(tool), title: title, hovered: $hoveredRailItem)
         .accessibilityLabel(title)
     }
 
@@ -604,7 +638,7 @@ struct ScreenshotEditorView: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
-        .help(s.screenshotEditorMoreTools)
+        .railTooltip(.moreTools, title: s.screenshotEditorMoreTools, hovered: $hoveredRailItem)
         .accessibilityLabel(s.screenshotEditorMoreTools)
     }
 
@@ -1372,6 +1406,7 @@ extension ScreenshotEditorView {
     /// The rail's last button: the order of the tools and their keys.
     private func toolOrderButton(height: CGFloat) -> some View {
         Button {
+            tooltipRailItem = nil
             toolOrderShown.toggle()
         } label: {
             Image(systemName: "gearshape.fill")
@@ -1383,7 +1418,7 @@ extension ScreenshotEditorView {
                 .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.borderless)
-        .help(s.screenshotEditorToolOrder)
+        .railTooltip(.toolOrder, title: s.screenshotEditorToolOrder, hovered: $hoveredRailItem)
         .accessibilityLabel(s.screenshotEditorToolOrder)
         .popover(isPresented: $toolOrderShown, arrowEdge: .trailing) {
             ScrollView {
@@ -1444,5 +1479,42 @@ private enum ScreenshotArrowStyleSamples {
                                            annotationShadowsEnabled: false)
         image.addRepresentation(bitmap)
         return image
+    }
+}
+
+/// A row of the editor's tool rail that can show a tooltip.
+private enum RailItem: Hashable {
+    case tool(ScreenshotSupport.Tool)
+    case moreTools
+    case toolOrder
+}
+
+private struct RailTooltipAnchor {
+    let title: String
+    let bounds: Anchor<CGRect>
+}
+
+private struct RailTooltipKey: PreferenceKey {
+    static let defaultValue: [RailItem: RailTooltipAnchor] = [:]
+
+    static func reduce(value: inout [RailItem: RailTooltipAnchor], nextValue: () -> [RailItem: RailTooltipAnchor]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+private extension View {
+    /// Tracks the pointer over a rail row and publishes where the row is, so
+    /// the editor can draw its tooltip outside the rail's scroll view.
+    func railTooltip(_ item: RailItem, title: String, hovered: Binding<RailItem?>) -> some View {
+        onHover { inside in
+            if inside {
+                hovered.wrappedValue = item
+            } else if hovered.wrappedValue == item {
+                hovered.wrappedValue = nil
+            }
+        }
+        .anchorPreference(key: RailTooltipKey.self, value: .bounds) {
+            [item: RailTooltipAnchor(title: title, bounds: $0)]
+        }
     }
 }
