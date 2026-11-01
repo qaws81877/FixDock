@@ -21,6 +21,15 @@ Gates, in order, before calling a change done:
   `./build.sh --dev` bundle alone is not enough: rebuild and relaunch the
   copy the owner runs (check its path with `ps`). Since 2026-10-31 that is
   `/Applications/FixDock.app` (`./build.sh --install`).
+  A `./build.sh --install` copy is self-built and never updates itself;
+  after a release, install the notarized zip there instead (move the old
+  app aside, do not delete it).
+- `build/verify/` is scratch: the verify-fixdock `cleanup.sh` deletes it.
+  Keep reusable helpers (harnesses, the signed event driver) in
+  `build/verify-tools/`.
+- The owner's FixDock may have the same tool on (quit protection,
+  snippets, shortcuts). A live check then passes because of it; quit it for
+  the check (with the owner's OK) or use a trigger only the dev build has.
 - An agent shell may not have `FIXDOCK_CODESIGN_IDENTITY`. Pass it on the
   command line, for example `FIXDOCK_CODESIGN_IDENTITY="<SHA-1>" ./build.sh`.
   Do not edit shell profiles. An ad-hoc build resets Accessibility and other
