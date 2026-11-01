@@ -219,7 +219,7 @@ final class ScreenshotService: ObservableObject {
             lastOutcome = .copied
         }
         let controller = ScreenshotPreviewController(
-            image: image, png: png, anchor: anchor, copied: copy,
+            image: image, png: png, anchor: anchor,
             perform: { [weak self] action in
                 guard let self else { return false }
                 switch action {

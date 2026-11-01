@@ -445,6 +445,8 @@ struct Strings {
     let screenshotPreviewQR: String
     let screenshotPreviewCopyText: String
     let screenshotPreviewTextCopied: String
+    let screenshotToastCopied: String
+    let screenshotToastSaved: String
     let screenshotPreviewNoText: String
     let screenshotPreviewDragHint: String
     let screenshotPreviewPositionTitle: String
@@ -1211,6 +1213,8 @@ struct Strings {
         screenshotPreviewQR: "Show the QR code's content",
         screenshotPreviewCopyText: "Copy the text in the capture",
         screenshotPreviewTextCopied: "Text copied",
+        screenshotToastCopied: "Copied!",
+        screenshotToastSaved: "Saved!",
         screenshotPreviewNoText: "No text found",
         screenshotPreviewDragHint: "Drag into Finder or another app",
         screenshotPreviewPositionTitle: "Preview position",
