@@ -19,6 +19,12 @@ if CommandLine.arguments.contains("--unregister-login-item") {
     exit(EXIT_SUCCESS)
 }
 
+// Fast Korean/English switch restore for Tools/uninstall.sh, after the app
+// has quit: puts back the keyboards and id 60 from the journal. No AppKit.
+if CommandLine.arguments.contains("--restore-input-switch") {
+    exit(InputSwitchSystem.runHeadlessRestore())
+}
+
 Defaults.register()
 
 let app = NSApplication.shared

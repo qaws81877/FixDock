@@ -50,6 +50,12 @@ enum DefaultsKey {
     static let airdropAutoZipPreset = "airdropAutoZipPreset"
     /// Developer runs only: watch this folder instead of Downloads.
     static let airdropAutoZipFolderOverride = "airdropAutoZipFolderOverride"
+    /// Fast Korean/English switch: the main switch and the key (`SwitchKey` raw value).
+    static let inputSwitchEnabled = "inputSwitchEnabled"
+    static let inputSwitchKey = "inputSwitchKey"
+    /// Developer runs only (argument domain): let the developer build own
+    /// the HID mapping and id 60. Without it that build is inert for the tool.
+    static let inputSwitchDeveloperClaim = "inputSwitchDeveloperClaim"
     /// Standardized paths the cleaner never removes.
     static let cleanerExceptions = "cleanerExceptions"
     static let mediaImageFormat = "mediaImageFormat"

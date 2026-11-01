@@ -55,6 +55,38 @@ enum PrivateFileStore {
         return true
     }
 
+    /// Owner-only write that is on disk before it returns: a temporary
+    /// sibling, `F_FULLFSYNC`, rename, then the directory synced. Used where
+    /// the file is an undo record that must land before the change it guards.
+    @discardableResult
+    static func writeDurably(_ data: Data, to url: URL) -> Bool {
+        let temporary = url.deletingLastPathComponent()
+            .appendingPathComponent(".\(url.lastPathComponent).\(getpid()).tmp")
+        let fd = open(temporary.path, O_WRONLY | O_CREAT | O_TRUNC, mode_t(filePermissions))
+        guard fd >= 0 else { return false }
+        let written = data.withUnsafeBytes { buffer -> Bool in
+            var offset = 0
+            while offset < buffer.count {
+                let n = Darwin.write(fd, buffer.baseAddress! + offset, buffer.count - offset)
+                if n <= 0 { return false }
+                offset += n
+            }
+            return true
+        }
+        let synced = written && fcntl(fd, F_FULLFSYNC) == 0
+        close(fd)
+        guard synced, rename(temporary.path, url.path) == 0 else {
+            unlink(temporary.path)
+            return false
+        }
+        let directory = open(url.deletingLastPathComponent().path, O_RDONLY)
+        if directory >= 0 {
+            _ = fsync(directory)
+            close(directory)
+        }
+        return true
+    }
+
     /// `url` plus every directory between it and `container`, the container
     /// included. `createDirectory` leaves directories that already exist with
     /// the mode they were created with, so a container from a version that made

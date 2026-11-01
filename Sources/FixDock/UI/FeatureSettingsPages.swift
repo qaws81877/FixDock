@@ -53,6 +53,8 @@ extension AppFeature {
             // With only the recorder installed that page is the recorder's
             // own, showing just the recording tab.
             return AppFeature.screenshot.isAvailable ? nil : page { ScreenCaptureSettingsPage() }
+        case .inputSwitch:
+            return page { InputSwitchSettings() }
         }
     }
 

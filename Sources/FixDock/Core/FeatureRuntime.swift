@@ -32,10 +32,17 @@ final class FeatureRuntime: ObservableObject {
         AppFeature.allCases.filter(\.isAvailable)
     }
 
+    /// An uninstalled tool's binding never runs here; a tool that changes
+    /// macOS outside FixDock gets a `launchCleanups` entry instead, which puts
+    /// back what a crash left behind without creating its service.
     func syncAtLaunch() {
-        for feature in AppFeature.allCases where feature.isAvailable && feature.hasService {
-            loadedThisSession.insert(feature)
-            Self.bindings[feature]?()
+        for feature in AppFeature.allCases where feature.hasService {
+            if feature.isAvailable {
+                loadedThisSession.insert(feature)
+                Self.bindings[feature]?()
+            } else {
+                Self.launchCleanups[feature]?()
+            }
         }
     }
 
@@ -77,5 +84,11 @@ final class FeatureRuntime: ObservableObject {
         .cleaner: { CleanerService.shared.syncWithPreferences() },
         .screenshot: { ScreenshotService.shared.syncWithPreferences() },
         .screenRecorder: { ScreenRecorderService.shared.syncWithPreferences() },
+        .inputSwitch: { InputSwitchService.shared.syncWithPreferences() },
+    ]
+
+    /// Launch-time restore for uninstalled tools that leave system state.
+    private static let launchCleanups: [AppFeature: () -> Void] = [
+        .inputSwitch: { InputSwitchSystem.restoreLeftovers() },
     ]
 }

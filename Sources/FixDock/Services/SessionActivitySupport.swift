@@ -24,6 +24,12 @@ enum SessionActivitySupport {
         return true
     }
 
+    /// The lock-screen flag out of a session dictionary. Unreadable counts
+    /// as unlocked; the lock notification corrects it.
+    static func isScreenLocked(_ session: [String: Any]?) -> Bool {
+        (session?["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue ?? false
+    }
+
     /// Whether an event tap should be in the event chain at all.
     ///
     /// Fast user switching adds the third condition. A tap created here keeps

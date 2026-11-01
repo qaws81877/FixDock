@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New tool, fast Korean/English switch (adapted from gksdud, MIT): Caps Lock switches the input source on press, without a wrong first letter. FixDock maps Caps Lock to F19 and points "Select the previous input source" at it while the tool is on, and puts both back when you turn it off, quit or uninstall (also after a crash, at the next launch or from `Tools/uninstall.sh`).
+
 ## 1.0.2
 
 - Scrolling capture: frames now come from a live stream at up to 60 a second instead of a screenshot every 120 ms, so fast scrolling no longer skips frames. After a skipped frame the capture carries on instead of skipping every later frame, scrolling back up never adds rows twice, and returning to where it stopped leaves no hole.

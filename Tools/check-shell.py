@@ -21,6 +21,7 @@ FEATURE_ORDER = [
     "cleaner",
     "screenshot",
     "screenRecorder",
+    "inputSwitch",
 ]
 ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
@@ -194,6 +195,9 @@ def main():
         "1cdbd59b1c7dccd036ec1713b2ea048334990d06",
         "io.github.qaws81877.fixdock",
         "GPL-3.0",
+        "github.com/codingnoye/gksdud",
+        "Copyright (c) 2026 CodingNoye",
+        "Permission is hereby granted, free of charge",
     ):
         if needle not in notice:
             errors += fail(f"NOTICE is missing {needle}")
@@ -246,9 +250,10 @@ def main():
     if (
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
         "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
-        "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n" not in catalog
+        "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n"
+        "            || self == .inputSwitch\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot and screen recorder should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder and input switch should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
@@ -315,10 +320,25 @@ def main():
         ("RENAME_SWAP", ["Services/Relauncher.swift"]),
         ("FIXDOCK_LOCAL_FEED", ["Services/UpdateTransport.swift"]),
         ("483JM5VB4A", ["Core/AppInfo.swift"]),
+        # Input switch: every macOS write lives in one file (docs/input-switch.md).
+        ('"UserKeyMapping"', ["Services/InputSwitchSystem.swift"]),
+        ("IOHIDServiceClientSetProperty", ["Services/InputSwitchSystem.swift"]),
+        ('"com.apple.symbolichotkeys"', ["Services/InputSwitchSystem.swift"]),
+        ("CFPreferencesSetAppValue", ["Services/InputSwitchSystem.swift"]),
+        ("SystemAdministration.framework", ["Services/InputSwitchSystem.swift"]),
+        ('"kern.bootsessionuuid"', ["Services/InputSwitchSystem.swift"]),
+        ("OwnKeyEvent.inputSwitchMarker", ["Services/InputSwitchService.swift"]),
     ):
         found = files_with(needle)
         if found != allowed:
             errors += fail(f"{needle} must appear only in {allowed}, found in {found}")
+    # Switching through the system shortcut only: selecting a source directly breaks Hangul composition.
+    if files_with("TISSelectInputSource"):
+        errors += fail(f"TISSelectInputSource is not allowed (gksdud: switch through the shortcut only), found in {files_with('TISSelectInputSource')}")
+    for path in swift_files:
+        text = path.read_text(encoding="utf-8")
+        if "adapted from gksdud" in text and "Copyright (c) 2026 CodingNoye" not in text:
+            errors += fail(f"{path.name}: gksdud-derived code must keep the CodingNoye copyright line")
     for path in swift_files:
         if path.name.startswith("Update") and path.name != "UpdateWorkspace.swift":
             if "removeItem" in path.read_text(encoding="utf-8"):
@@ -334,6 +354,17 @@ def main():
         r"\bNS(App|Application|Workspace|RunningApplication)\b", relauncher
     ):
         errors += fail("Relauncher.swift (the helper) must not use AppKit")
+    support_imports = re.findall(r"^import (\w+)", (sources / "Core/InputSwitchSupport.swift").read_text(encoding="utf-8"), re.M)
+    if support_imports != ["Foundation"]:
+        errors += fail(f"InputSwitchSupport.swift must import only Foundation, imports {support_imports}")
+    switch_system = (sources / "Services/InputSwitchSystem.swift").read_text(encoding="utf-8")
+    if re.search(r"^import (AppKit|SwiftUI)", switch_system, re.M) or re.search(r"\bNS(App|Application|Workspace)\b", switch_system):
+        errors += fail("InputSwitchSystem.swift must not use AppKit (it also runs headless)")
+    if "--restore-input-switch" not in (sources / "main.swift").read_text(encoding="utf-8"):
+        errors += fail("main.swift must handle --restore-input-switch")
+    uninstall = (ROOT / "Tools/uninstall.sh").read_text(encoding="utf-8")
+    if not (0 < uninstall.find("pkill") < uninstall.find("--restore-input-switch") < uninstall.find("rm -rf")):
+        errors += fail("Tools/uninstall.sh must quit the app, then --restore-input-switch, then remove it")
     statements = [
         line for line in (sources / "main.swift").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith(("//", "import "))

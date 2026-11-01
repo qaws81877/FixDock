@@ -62,7 +62,7 @@ enum PanelCard: String, CaseIterable, Identifiable {
         case .quickActions:
             return [.screenshot, .screenRecorder, .cleaningMode, .mediaTools, .urlCleaner, .cleaner]
         case .onAndOff:
-            return [.quitWindowProtection, .textSnippets, .airdropAutoZip]
+            return [.quitWindowProtection, .textSnippets, .airdropAutoZip, .inputSwitch]
         }
     }
 
