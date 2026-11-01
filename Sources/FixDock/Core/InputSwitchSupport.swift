@@ -432,3 +432,72 @@ struct InputSwitchKeyRouter {
 
     mutating func reset() { held.removeAll() }
 }
+
+// MARK: Long press (phase 5)
+
+/// A held switch key (gksdud `LongPressState`). The press still switches at
+/// once; held past `delay`, it also ends in English with Caps Lock flipped.
+/// 0.5 s is a chosen threshold, not a macOS default.
+struct InputSwitchLongPress {
+    static let delay: TimeInterval = 0.5
+
+    private(set) var key: Int64?
+    private var started: TimeInterval = 0
+    private var fired = false
+    private var cancelled = false
+
+    mutating func begin(key: Int64, now: TimeInterval) {
+        self.key = key
+        started = now
+        fired = false
+        cancelled = false
+    }
+
+    /// True once per press, when it has been held long enough.
+    mutating func claimLong(now: TimeInterval) -> Bool {
+        guard key != nil, !cancelled, !fired, now - started >= Self.delay else { return false }
+        fired = true
+        return true
+    }
+
+    /// The key's release. `long` is a long press the timer had not claimed yet.
+    mutating func release(key: Int64, now: TimeInterval) -> (owned: Bool, long: Bool) {
+        guard self.key == key else { return (false, false) }
+        let long = claimLong(now: now)
+        self.key = nil
+        return (true, long)
+    }
+
+    mutating func cancel() {
+        cancelled = true
+        key = nil
+    }
+}
+
+/// The last pulse until macOS acts on it: a second one meanwhile would
+/// switch back (gksdud `SentSwitch`).
+struct InputSwitchSentPulse: Equatable {
+    static let window: TimeInterval = 0.5
+    let fromLanguage: String
+    let at: TimeInterval
+
+    func inFlight(now: TimeInterval, language: String) -> Bool {
+        now - at < Self.window && language == fromLanguage
+    }
+}
+
+/// How a long press reaches English. A switch still on its way
+/// lands on the other source: from Korean it reaches English by itself,
+/// from English another pulse has to bring it back.
+enum InputSwitchEnglishRoute: Equatable {
+    case now, awaitSwitch, sendSwitch
+
+    static func from(language: String, inFlight: Bool) -> InputSwitchEnglishRoute {
+        if InputSwitchLanguage.isEnglish(language) { return inFlight ? .sendSwitch : .now }
+        return inFlight ? .awaitSwitch : .sendSwitch
+    }
+}
+
+enum InputSwitchLanguage {
+    static func isEnglish(_ language: String) -> Bool { language.hasPrefix("en") }
+}

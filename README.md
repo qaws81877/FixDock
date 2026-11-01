@@ -19,7 +19,7 @@ The tools:
 7. Cleaner: reviews and removes caches, logs, leftovers and backups.
 8. Screenshot: capture overlay, full screen, scrolling capture, preview, pin and editor.
 9. Screen recorder: records a region, window or display with sound, plus an editor (trim, zoom, overlays, MP4 and GIF).
-10. Fast Korean/English switch: Caps Lock switches the input source the moment you press it, without a wrong first letter (adapted from gksdud, MIT; see NOTICE). While it is on, Caps Lock no longer locks capitals.
+10. Fast Korean/English switch: Caps Lock switches the input source the moment you press it, without a wrong first letter (adapted from gksdud, MIT; see NOTICE). Hold the key for half a second to switch to English and turn Caps Lock on or off.
 
 Permissions are asked only when a tool needs them: Accessibility for quit protection, cleaning mode, text snippets and the fast Korean/English switch; Full Disk Access for the cleaner; Screen Recording for screenshot and the recorder. The recorder asks for the microphone, system audio and Accessibility only when you turn those options on. Everything the tools do stays on this Mac.
 
@@ -119,7 +119,7 @@ FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱�
 7. Mac 정리: 캐시, 로그, 남은 파일, 백업을 살펴보고 지웁니다.
 8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 미리보기, 고정, 편집기.
 9. 화면 녹화: 영역·창·디스플레이를 소리와 함께 녹화하고, 편집기(자르기, 확대, 오버레이, MP4·GIF)로 다듬습니다.
-10. 빠른 한/영 전환: Caps Lock을 누르는 순간 입력 소스가 바뀌어 첫 글자가 씹히지 않습니다 (gksdud를 수정해 사용, MIT, NOTICE 참고). 켜 둔 동안 Caps Lock은 대문자 고정을 하지 않습니다.
+10. 빠른 한/영 전환: Caps Lock을 누르는 순간 입력 소스가 바뀌어 첫 글자가 씹히지 않습니다 (gksdud를 수정해 사용, MIT, NOTICE 참고). 키를 0.5초 누르고 있으면 영어로 바꾸고 대문자 고정을 켜거나 끕니다.
 
 권한은 도구가 필요할 때만 요청합니다. 종료·닫기 보호, 청소 모드, 상용구, 빠른 한/영 전환은 손쉬운 사용, Mac 정리는 전체 디스크 접근, 스크린샷과 화면 녹화는 화면 기록 권한을 씁니다. 화면 녹화는 마이크, 시스템 소리, 손쉬운 사용을 해당 옵션을 켤 때만 요청합니다. 도구의 모든 처리는 이 Mac 안에서만 합니다.
 

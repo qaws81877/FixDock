@@ -31,6 +31,19 @@ final class InputSwitchService: ObservableObject {
     private var termSource: DispatchSourceSignal?
     private var syncing = false
 
+    // Long press (phase 5). The option is cached here: the tap never
+    // reads UserDefaults or the input source itself.
+    private var longPressEnabled = true
+    private var longPress = InputSwitchLongPress()
+    private var longPressInitialCaps = false
+    /// Bumped on every cancel; a timer from an older press does nothing.
+    private var generation = 0
+    /// The Caps Lock a transition sets once the source is English.
+    private var pendingCaps: Bool?
+    private var sentPulse: InputSwitchSentPulse?
+    /// Kept by the source-change notification, so a press costs no TIS call.
+    private var cachedLanguage: String?
+
     private init() {
         SessionActivity.shared.onChange { [weak self] _ in self?.syncWithPreferences() }
         permissionWatch = Permissions.shared.$accessibility
@@ -52,6 +65,10 @@ final class InputSwitchService: ObservableObject {
             }
         }
         InputSwitchSystem.shared.onReportChange = { [weak self] _ in self?.syncWithPreferences() }
+        let token = DistributedNotificationCenter.default().addObserver(
+            forName: InputSwitchCapsLock.sourceChangedNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.sourceChanged() }
+        observers.append((DistributedNotificationCenter.default(), token))
     }
 
     private func observe(_ center: NotificationCenter, _ name: Notification.Name,
@@ -72,6 +89,12 @@ final class InputSwitchService: ObservableObject {
         let installed = AppFeature.inputSwitch.isAvailable
         let enabled = UserDefaults.standard.bool(forKey: DefaultsKey.inputSwitchEnabled)
         let trusted = AXIsProcessTrusted()
+        let defaults = UserDefaults.standard
+        // The repair timer re-syncs every second: cancel only when long press
+        // is just turned off.
+        let longPressWasEnabled = longPressEnabled
+        longPressEnabled = defaults.bool(forKey: DefaultsKey.inputSwitchLongPressCapsLock)
+        if longPressWasEnabled && !longPressEnabled { cancelTransition() }
         updatePermissionPoll(waiting: installed && enabled && !trusted)
 
         let other = NSWorkspace.shared.runningApplications.first {
@@ -193,6 +216,7 @@ final class InputSwitchService: ObservableObject {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else { return }
         self.tap = tap
+        cachedLanguage = InputSwitchCapsLock.currentLanguage()
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
@@ -208,11 +232,13 @@ final class InputSwitchService: ObservableObject {
         tap = nil
         runLoopSource = nil
         router.reset()
+        cancelTransition()
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             router.reset()
+            cancelTransition()
             if let tap, liveKeyCode != nil, SessionActivity.shared.isActive { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
@@ -220,9 +246,11 @@ final class InputSwitchService: ObservableObject {
               event.getIntegerValueField(.eventSourceUserData) != OwnKeyEvent.inputSwitchMarker
         else { return Unmanaged.passUnretained(event) }
 
-        let decision = router.decide(down: type == .keyDown,
-                                     keyCode: event.getIntegerValueField(.keyboardEventKeycode),
-                                     isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        if type == .keyUp, longPress.key == keyCode { finishLongPress(keyCode: keyCode) }
+
+        let decision = router.decide(down: type == .keyDown, keyCode: keyCode, isRepeat: isRepeat,
                                      liveKeyCode: liveKeyCode)
         switch decision {
         case .pass:
@@ -239,10 +267,94 @@ final class InputSwitchService: ObservableObject {
             }
             // Re-entering at the HID level reaches the system shortcut before
             // the key's release: the switch happens on press (gksdud).
-            pulse.down.post(tap: .cghidEventTap)
-            pulse.up.post(tap: .cghidEventTap)
+            post(pulse)
+            if longPressEnabled { startLongPress(keyCode: keyCode, capsOn: event.flags.contains(.maskAlphaShift)) }
             return nil
         }
+    }
+
+    private func post(_ pulse: (down: CGEvent, up: CGEvent)) {
+        pulse.down.post(tap: .cghidEventTap)
+        pulse.up.post(tap: .cghidEventTap)
+        sentPulse = cachedLanguage.map { InputSwitchSentPulse(fromLanguage: $0, at: ProcessInfo.processInfo.systemUptime) }
+    }
+
+    /// A pulse with no physical event to copy (a long press after its key's
+    /// release). A new F-key event carries the flags macOS gives F-keys.
+    private func postGeneratedPulse() -> Bool {
+        guard let liveKeyCode,
+              let event = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(liveKeyCode), keyDown: true),
+              let pulse = makePulse(from: event) else { return false }
+        post(pulse)
+        return true
+    }
+
+    // MARK: Long press
+
+    private func startLongPress(keyCode: Int64, capsOn: Bool) {
+        cancelTransition()
+        longPress.begin(key: keyCode, now: ProcessInfo.processInfo.systemUptime)
+        longPressInitialCaps = capsOn
+        let current = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + InputSwitchLongPress.delay) { [weak self] in
+            guard let self, self.generation == current,
+                  self.longPress.claimLong(now: ProcessInfo.processInfo.systemUptime) else { return }
+            self.beginCapsTransition(!self.longPressInitialCaps)
+        }
+    }
+
+    private func finishLongPress(keyCode: Int64) {
+        // Called from the tap: the transition reads the source, so it runs after.
+        if longPress.release(key: keyCode, now: ProcessInfo.processInfo.systemUptime).long {
+            let desired = !longPressInitialCaps
+            DispatchQueue.main.async { [weak self] in self?.beginCapsTransition(desired) }
+        }
+    }
+
+    /// Reach English, then set Caps Lock to `desired`. Only the pulse
+    /// switches; gives up after 0.5 s if English never comes.
+    private func beginCapsTransition(_ desired: Bool) {
+        guard liveKeyCode != nil, let language = InputSwitchCapsLock.currentLanguage() else { return cancelTransition() }
+        cachedLanguage = language
+        let inFlight = sentPulse?.inFlight(now: ProcessInfo.processInfo.systemUptime, language: language) ?? false
+        pendingCaps = desired
+        switch InputSwitchEnglishRoute.from(language: language, inFlight: inFlight) {
+        case .now:
+            completeCapsTransition(language: language)
+            return
+        case .awaitSwitch:
+            break
+        case .sendSwitch:
+            guard postGeneratedPulse() else { return cancelTransition() }
+            // Two are on their way back here, so neither is in flight from this source.
+            if inFlight { sentPulse = nil }
+        }
+        let current = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + InputSwitchSentPulse.window) { [weak self] in
+            guard let self, self.generation == current, self.pendingCaps != nil else { return }
+            InputSwitchSystem.log.info("caps transition: English did not come")
+            self.cancelTransition()
+        }
+    }
+
+    private func completeCapsTransition(language: String) {
+        guard let desired = pendingCaps, InputSwitchLanguage.isEnglish(language) else { return }
+        pendingCaps = nil
+        generation += 1
+        if !InputSwitchCapsLock.set(desired) { InputSwitchSystem.log.info("caps transition: set failed") }
+    }
+
+    private func sourceChanged() {
+        guard tap != nil else { return }
+        let language = InputSwitchCapsLock.currentLanguage()
+        cachedLanguage = language
+        if let language, pendingCaps != nil { completeCapsTransition(language: language) }
+    }
+
+    private func cancelTransition() {
+        generation += 1
+        pendingCaps = nil
+        longPress.cancel()
     }
 
     /// Two copies of the F-key event. Held modifiers are stripped but the

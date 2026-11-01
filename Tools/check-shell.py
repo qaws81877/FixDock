@@ -328,6 +328,7 @@ def main():
         ("SystemAdministration.framework", ["Services/InputSwitchSystem.swift"]),
         ('"kern.bootsessionuuid"', ["Services/InputSwitchSystem.swift"]),
         ("OwnKeyEvent.inputSwitchMarker", ["Services/InputSwitchService.swift"]),
+        ("IOHIDSetModifierLockState", ["Services/InputSwitchCapsLock.swift"]),
     ):
         found = files_with(needle)
         if found != allowed:
