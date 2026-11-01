@@ -34,6 +34,7 @@ final class TextSnippetService {
     private var buffer = ""
     private var permissionWatch: AnyCancellable?
     private var permissionPoll: Timer?
+    private var tapRetry: Timer?
     /// Split by expansion mode at load time; the tap callback only scans.
     private var immediateSnippets: [TextSnippet] = []
     private var delimiterSnippets: [TextSnippet] = []
@@ -113,6 +114,8 @@ final class TextSnippetService {
     }
 
     private func stop() {
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.textSnippets, .off)
         let snapshot = tapLifecycleLock.withLock {
             () -> (runLoop: CFRunLoop?, tap: CFMachPort?, threadExists: Bool) in
             shouldStopTapThread = true
@@ -163,7 +166,11 @@ final class TextSnippetService {
                 },
                 userInfo: Unmanaged.passUnretained(self).toOpaque()
             ) else {
+                // Accessibility reads as granted, yet the window server
+                // refused the tap. Say so and try again rather than staying
+                // off silently.
                 _ = clearEventTapThread()
+                DispatchQueue.main.async { [weak self] in self?.tapDidFail() }
                 return
             }
 
@@ -202,11 +209,35 @@ final class TextSnippetService {
         DispatchQueue.main.async { [weak self] in self?.start() }
     }
 
+    private func tapDidFail() {
+        // A stop or a new start since then owns the state.
+        guard !isRunning, tapLifecycleLock.withLock({ tapThread == nil }) else { return }
+        let enabled = AppFeature.textSnippets.isAvailable
+            && UserDefaults.standard.bool(forKey: DefaultsKey.textSnippetsEnabled)
+        guard enabled, AXIsProcessTrusted() else { return }
+        KeyTapHealth.shared.report(.textSnippets, .failed)
+        guard tapRetry == nil else { return }
+        let timer = Timer(timeInterval: 3, repeats: false) { [weak self] _ in
+            self?.tapRetry = nil
+            self?.syncWithPreferences()
+        }
+        tapRetry = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func cancelTapRetry() {
+        tapRetry?.invalidate()
+        tapRetry = nil
+    }
+
     private func tapDidStart(_ startedTap: CFMachPort) {
         let active = tapLifecycleLock.withLock {
             tap === startedTap && !shouldStopTapThread
         }
-        guard active, activationObserver == nil else { return }
+        guard active else { return }
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.textSnippets, .running)
+        guard activationObserver == nil else { return }
         // Switching apps invalidates whatever was half-typed there.
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
@@ -229,7 +260,11 @@ final class TextSnippetService {
             // like a disable by the system. A stop under way has nothing to
             // recover.
             let currentTap = tapLifecycleLock.withLock { shouldStopTapThread ? nil : tap }
-            if SessionActivity.shared.isActive, AXIsProcessTrusted(), let currentTap {
+            let rearm = currentTap != nil && SessionActivity.shared.isActive && AXIsProcessTrusted()
+            if currentTap != nil {
+                KeyTapHealth.logTapDisabled(.textSnippets, type: type, rearmed: rearm)
+            }
+            if rearm, let currentTap {
                 CGEvent.tapEnable(tap: currentTap, enable: true)
             } else if currentTap != nil {
                 DispatchQueue.main.async { [weak self] in self?.syncWithPreferences() }

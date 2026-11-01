@@ -190,6 +190,11 @@ struct Strings {
     let snippetsEnableCaption: String
     let snippetsSecureNote: String
     let snippetsNeedsAccessibility: String
+    let snippetsActiveNow: String
+    let keyTapSecureInputFormat: String
+    let keyTapSecureInputExitedFormat: String
+    let keyTapUnknownApp: String
+    let keyTapStartFailed: String
     let snippetsUnreadable: String
     let snippetsAddButton: String
     let snippetsNewTitle: String
@@ -941,6 +946,11 @@ struct Strings {
         snippetsEnableCaption: "Type a trigger anywhere and it becomes its text. Everything stays on this Mac.",
         snippetsSecureNote: "Password fields are left alone. Text with a line break is pasted, and the clipboard is put back right after.",
         snippetsNeedsAccessibility: "Snippets do not expand until FixDock has Accessibility.",
+        snippetsActiveNow: "Active",
+        keyTapSecureInputFormat: "Secure input is on (macOS names %@). While it is on, macOS shows typing to no other app, so this feature does not see keys. It comes back when that app turns it off: close its password or sign-in field, or quit it.",
+        keyTapSecureInputExitedFormat: "Secure input is still on, but %@, the app macOS names for it, has quit. If it does not clear, log out and back in.",
+        keyTapUnknownApp: "an unknown app",
+        keyTapStartFailed: "macOS refused FixDock's keyboard monitor although Accessibility is on. FixDock retries every few seconds. If this stays, remove FixDock in System Settings › Privacy & Security › Accessibility and add it again.",
         snippetsUnreadable: "The saved snippets could not be read, so editing is off to keep them from being overwritten.",
         snippetsAddButton: "Add snippet",
         snippetsNewTitle: "New snippet",

@@ -49,6 +49,7 @@ struct QuitProtectionSettings: View {
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
+                KeyTapStatusView(client: .quitProtection)
             }
 
             shortcutSection(shortcut: .quit,
