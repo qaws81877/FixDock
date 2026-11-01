@@ -13,8 +13,12 @@ Ask the owner first:
   the update check, or a new bundled third-party asset (and its license).
 - Scope cuts from upstream that change what a tool does for the person.
 - Commits, pushes, PRs and merges, unless the owner asked for them.
-- Creating a public repository. Auto mode blocks it even when asked; hand
-  the owner the exact `! gh repo create …` line instead of working around it.
+- Creating a public repository or deleting a branch (`git branch -d`,
+  `git push --delete`). Auto mode blocks these even when asked
+  (`gh pr merge --merge` went through on 2026-11-01); hand the owner the
+  exact `! …` line, one `!` command per
+  message (a second `!` pasted on the next line is read by the shell as
+  negation and the command after `&&` never runs).
 
 Docs:
 
@@ -29,6 +33,9 @@ Git:
   `Casks/fixdock.rb`, then `brew audit --cask --online --strict`.
 - Publish with one `gh release create v<version> build/release/FixDock-<version>.zip --target <full SHA>`;
   a short SHA is refused ("Release.target_commitish is invalid").
+- Stacked PRs: retarget the child with `gh pr edit <N> --base main` before
+  merging its base with `--delete-branch`; deleting the base through the
+  API closes the child instead of retargeting it.
 - Merge PRs with a merge commit only, never squash or rebase. `main` must
   keep the upstream import merge `7336fd32` reachable.
 - A new `git worktree` has none of the local files. Copy `CLAUDE.md`,
@@ -59,6 +66,17 @@ Bundle:
   `PlistBuddy -c Set` rewrites the file and reorders its keys.
 
 Platform quirks:
+
+- While any process holds Secure Event Input, session event taps get no
+  keys: quit protection and snippets both go quiet with no warning
+  (confirmed live). `kCGSSessionSecureInputPID` names the app that was
+  frontmost when it was enabled, not the enabler. For "works sometimes"
+  reports, read the `keyTaps` log or the About › Feedback report first.
+
+- A service's `syncWithPreferences` also runs from timers (the fast switch's
+  1 s repair, permission polls) and from its system layer's callbacks. Put
+  cancels and resets there only on a change of value, and once an exit
+  restore starts, nothing may re-apply.
 
 - A closed `NSPopover` keeps its SwiftUI views, so `onDisappear` never fires,
   and the Settings window is reused (`isReleasedWhenClosed = false`). Track

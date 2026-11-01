@@ -24,12 +24,20 @@ Gates, in order, before calling a change done:
   A `./build.sh --install` copy is self-built and never updates itself;
   after a release, install the notarized zip there instead (move the old
   app aside, do not delete it).
+  After merging, `git fetch`: if other PRs reached `main` since your build,
+  reinstall from the merged `main` so the owner's app is not missing them.
+- If another session is working in the main tree, ask the owner before
+  reinstalling `/Applications` from your branch, and install from an
+  `origin/main` worktree: a branch install drops their uncommitted work.
 - `build/verify/` is scratch: the verify-fixdock `cleanup.sh` deletes it.
   Keep reusable helpers (harnesses, the signed event driver) in
   `build/verify-tools/`.
 - The owner's FixDock may have the same tool on (quit protection,
   snippets, shortcuts). A live check then passes because of it; quit it for
   the check (with the owner's OK) or use a trigger only the dev build has.
+  The fast switch is stricter: both builds share one `InputSwitch/` lease,
+  so while the owner's app has it on the dev build stays inert. The dev
+  build also needs `-inputSwitchDeveloperClaim YES`. Test on the installed app.
 - An agent shell may not have `FIXDOCK_CODESIGN_IDENTITY`. Pass it on the
   command line, for example `FIXDOCK_CODESIGN_IDENTITY="<SHA-1>" ./build.sh`.
   Do not edit shell profiles. An ad-hoc build resets Accessibility and other
@@ -73,8 +81,18 @@ Proof:
 - To check SwiftUI states as PNGs, render with `NSHostingView` in an
   offscreen key window (`cacheDisplay(in:to:)`). `ImageRenderer` draws
   `ProgressView` as a placeholder and leaves `ScrollView` content blank.
+  A view that reads app singletons renders from a harness built from every
+  `Sources/FixDock` file except `main.swift`, plus the harness `main.swift`.
+- Reproducing secure input: bring the target app to the front first, then
+  enable it (a background enabler's hold ends when you switch apps). Judge
+  "did it quit" by `lsappinfo` or a changed pid, not `ps`: TextEdit's
+  process lingers after ⌘Q.
 - Pixel checks in a harness: a `CGContext`'s memory starts at the image's
   top row, and `CGImage.cropping(to:)` counts y from the top too.
+- A restore check (quit, crash, uninstall) passes only when the system state
+  matches the saved baseline, the tool's own record is gone (for the fast
+  switch, `InputSwitch/journal.plist`), and its log ends in `off`. A matching
+  baseline alone hid an exit loop that left the journal in `restoring`.
 - Behaviour on the Mac (permissions, menu bar, AirDrop, Finder, real files)
   counts as verified only after the owner runs the numbered test list. Say
   plainly when that has not happened yet.
