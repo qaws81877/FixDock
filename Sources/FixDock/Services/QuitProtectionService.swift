@@ -37,6 +37,7 @@ final class QuitProtectionService: ObservableObject {
     private var frontmostProcessIdentifier: pid_t?
     private var permissionWatch: AnyCancellable?
     private var permissionPoll: Timer?
+    private var tapRetry: Timer?
     private let hud = QuitProtectionHUD()
 
     private init() {
@@ -120,7 +121,15 @@ final class QuitProtectionService: ObservableObject {
 
     private func start() {
         guard !isRunning else { return }
-        guard installTap() else { return }
+        guard installTap() else {
+            // Accessibility reads as granted, yet the window server refused
+            // the tap. Say so and try again rather than staying off silently.
+            KeyTapHealth.shared.report(.quitProtection, .failed)
+            scheduleTapRetry()
+            return
+        }
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.quitProtection, .running)
         isRunning = true
         let frontmost = NSWorkspace.shared.frontmostApplication
         frontmostBundleIdentifier = frontmost?.bundleIdentifier
@@ -147,7 +156,24 @@ final class QuitProtectionService: ObservableObject {
         frontmostProcessIdentifier = app.processIdentifier
     }
 
+    private func scheduleTapRetry() {
+        guard tapRetry == nil else { return }
+        let timer = Timer(timeInterval: 3, repeats: false) { [weak self] _ in
+            self?.tapRetry = nil
+            self?.syncWithPreferences()
+        }
+        tapRetry = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func cancelTapRetry() {
+        tapRetry?.invalidate()
+        tapRetry = nil
+    }
+
     private func stop() {
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.quitProtection, .off)
         cancelPending()
         swallowShortcut = nil
         nativeSwitcherSessionActive = false
@@ -213,6 +239,11 @@ final class QuitProtectionService: ObservableObject {
                 accessibilityGranted: AXIsProcessTrusted(),
                 sessionIsActive: SessionActivity.shared.isActive
             )
+            // stop() clears `tap` right after switching it off, so a disable
+            // it caused itself is not logged as a failure.
+            if tap != nil {
+                KeyTapHealth.logTapDisabled(.quitProtection, type: type, rearmed: shouldRearm)
+            }
             if shouldRearm, let tap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             } else {

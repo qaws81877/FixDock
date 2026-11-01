@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Quit protection and text snippets now say why they hear no keys. While another app holds secure input (a password field, a sign-in window, Terminal's Secure Keyboard Entry), macOS hides typing from both, so ⌘Q passes straight through and snippets do not expand; their Settings pages now show this with the app macOS names. A keyboard monitor macOS refuses to start is shown and retried every few seconds. Both are written to the log (category `keyTaps`).
 - New tool, fast Korean/English switch (adapted from gksdud, MIT): Caps Lock switches the input source on press, without a wrong first letter. FixDock maps Caps Lock to F19 and points "Select the previous input source" at it while the tool is on, and puts both back when you turn it off, quit or uninstall (also after a crash, at the next launch or from `Tools/uninstall.sh`).
 
 ## 1.0.2

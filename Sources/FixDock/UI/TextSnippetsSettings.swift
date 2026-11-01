@@ -12,6 +12,7 @@ import SwiftUI
 struct TextSnippetsSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
+    @ObservedObject private var health = KeyTapHealth.shared
     @AppStorage(DefaultsKey.textSnippetsEnabled) private var enabled = false
     /// Nil when stored snippets exist but cannot be read. Every write path
     /// checks it, so an unreadable store is never replaced by an empty list.
@@ -39,7 +40,12 @@ struct TextSnippetsSettings: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                     Button(s.permissionRequest) { permissions.request(.accessibility) }
+                } else if health.state(of: .textSnippets) == .running {
+                    Label(s.snippetsActiveNow, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
                 }
+                KeyTapStatusView(client: .textSnippets)
             }
 
             Section {
