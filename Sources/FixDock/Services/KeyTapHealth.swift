@@ -59,20 +59,30 @@ final class KeyTapHealth: ObservableObject {
         guard old != state else { return }
         states[client] = state
         switch state {
-        case .running:
-            Self.log.notice("\(client.rawValue, privacy: .public): tap running")
-        case .off:
-            Self.log.notice("\(client.rawValue, privacy: .public): tap stopped")
+        case .running: Self.note("\(client.rawValue): tap running")
+        case .off: Self.note("\(client.rawValue): tap stopped")
         case .failed:
-            Self.log.error("\(client.rawValue, privacy: .public): tapCreate failed with Accessibility granted; retrying")
+            Self.note("\(client.rawValue): tapCreate failed with Accessibility granted; retrying",
+                      error: true)
         }
         updatePoll()
+    }
+
+    /// One health event: the unified log (kept on disk) and the journal the
+    /// feedback report reads. Any thread.
+    private static func note(_ message: String, error: Bool = false) {
+        if error {
+            log.error("\(message, privacy: .public)")
+        } else {
+            log.notice("\(message, privacy: .public)")
+        }
+        DiagnosticsJournal.shared.record(message)
     }
 
     /// Called from the tap callbacks, on any thread.
     static func logTapDisabled(_ client: Client, type: CGEventType, rearmed: Bool) {
         let reason = type == .tapDisabledByTimeout ? "timeout" : "user input"
-        log.error("\(client.rawValue, privacy: .public): tap disabled by \(reason, privacy: .public); re-armed \(rearmed, privacy: .public)")
+        note("\(client.rawValue): tap disabled by \(reason); re-armed \(rearmed)", error: true)
     }
 
     // MARK: Secure input
@@ -115,10 +125,10 @@ final class KeyTapHealth: ObservableObject {
             if secureInput == nil { secureInputSince = Date() }
             let pid = value.processIdentifier.map(String.init) ?? "unknown"
             let name = value.applicationName ?? "unknown"
-            Self.log.notice("secure input on: reported pid \(pid, privacy: .public) (\(name, privacy: .public))\(value.holderExited ? ", process gone" : "", privacy: .public); keys do not reach the taps")
+            Self.note("secure input on: reported pid \(pid) (\(name))\(value.holderExited ? ", process gone" : ""); keys do not reach the taps")
         } else if secureInput != nil {
             let seconds = secureInputSince.map { Int(Date().timeIntervalSince($0)) } ?? 0
-            Self.log.notice("secure input off after \(seconds, privacy: .public) s")
+            Self.note("secure input off after \(seconds) s")
             secureInputSince = nil
         }
         secureInput = value

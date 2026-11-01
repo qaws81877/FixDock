@@ -205,6 +205,7 @@ private struct PermissionsSettingsPage: View {
 
 private struct AboutSettingsPage: View {
     @ObservedObject private var l10n = L10n.shared
+    @State private var showsFeedback = false
 
     var body: some View {
         let strings = l10n.s
@@ -239,8 +240,10 @@ private struct AboutSettingsPage: View {
                 Button("GPL-3.0") {
                     NSWorkspace.shared.open(AppInfo.licenseURL)
                 }
+                Button(strings.feedbackButton) { showsFeedback = true }
             }
         }
         .settingsCard()
+        .sheet(isPresented: $showsFeedback) { FeedbackSheet() }
     }
 }
