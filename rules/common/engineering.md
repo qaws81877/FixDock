@@ -27,11 +27,17 @@ Git:
 - A release ends with the Homebrew tap: in qaws81877/homebrew-tap, set
   `version` and `sha256` (the release asset's digest) in
   `Casks/fixdock.rb`, then `brew audit --cask --online --strict`.
+- Publish with one `gh release create v<version> build/release/FixDock-<version>.zip --target <full SHA>`;
+  a short SHA is refused ("Release.target_commitish is invalid").
 - Merge PRs with a merge commit only, never squash or rebase. `main` must
   keep the upstream import merge `7336fd32` reachable.
 - A new `git worktree` has none of the local files. Copy `CLAUDE.md`,
   `.claude/` and the `docs/` the task needs into it (`rules/` is tracked),
   and bring changed docs back before removing the worktree.
+- When another session may be editing the main working tree, build,
+  verify and release from `git worktree add --detach <dir> origin/main`
+  (or a branch in its own worktree); building the live tree failed with
+  "input file … was modified during the build".
 - Stages built in parallel branch from one commit that already holds the
   shared contract: the shared files, a stub for the seam between them,
   and string block markers before `versionFormat` (one per branch, with
