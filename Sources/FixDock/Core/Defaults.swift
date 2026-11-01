@@ -53,6 +53,8 @@ enum DefaultsKey {
     /// Fast Korean/English switch: the main switch and the key (`SwitchKey` raw value).
     static let inputSwitchEnabled = "inputSwitchEnabled"
     static let inputSwitchKey = "inputSwitchKey"
+    /// Holding the key 0.5 s ends in English with Caps Lock flipped (on by default).
+    static let inputSwitchLongPressCapsLock = "inputSwitchLongPressCapsLock"
     /// Developer runs only (argument domain): let the developer build own
     /// the HID mapping and id 60. Without it that build is inert for the tool.
     static let inputSwitchDeveloperClaim = "inputSwitchDeveloperClaim"
@@ -158,6 +160,7 @@ enum Defaults {
             DefaultsKey.quitProtectionCloseHoldDurationMs: QuitProtectionSupport.defaultHoldDurationMilliseconds,
             DefaultsKey.quitProtectionQuitDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
             DefaultsKey.quitProtectionCloseDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
+            DefaultsKey.inputSwitchLongPressCapsLock: true,
             DefaultsKey.screenshotOverlayShortcutEnabled: true,
             DefaultsKey.screenshotFullScreenShortcutEnabled: true,
             DefaultsKey.screenshotSaveToFile: true,

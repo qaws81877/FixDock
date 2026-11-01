@@ -14,6 +14,7 @@ struct InputSwitchSettings: View {
 
     @AppStorage(DefaultsKey.inputSwitchEnabled) private var enabled = false
     @AppStorage(DefaultsKey.inputSwitchKey) private var key = SwitchKey.default.rawValue
+    @AppStorage(DefaultsKey.inputSwitchLongPressCapsLock) private var longPress = true
 
     var body: some View {
         Form {
@@ -50,7 +51,7 @@ struct InputSwitchSettings: View {
                     ForEach(SwitchKey.allCases) { Text(InputSwitchStatus.keyTitle($0, s)).tag($0.rawValue) }
                 }
                 .onChange(of: key) { _, _ in service.syncWithPreferences() }
-                if SwitchKey(rawValue: key) == .capsLock {
+                if SwitchKey(rawValue: key) == .capsLock && !longPress {
                     Text(s.inputSwitchCapsLockWarning)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -58,6 +59,14 @@ struct InputSwitchSettings: View {
                 Text(s.inputSwitchShortcutCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle(isOn: $longPress) {
+                    Text(s.inputSwitchLongPressLabel)
+                    Text(s.inputSwitchLongPressCaption)
+                }
+                .onChange(of: longPress) { _, _ in service.syncWithPreferences() }
             }
         }
         .formStyle(.grouped)

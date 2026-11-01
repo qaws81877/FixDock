@@ -759,6 +759,8 @@ extension Strings {
         inputSwitchProblemKeyboardsPendingFormat: "키보드 %d대에 아직 적용하지 못했습니다. 다시 시도합니다.",
         inputSwitchProblemOtherSwitcherFormat: "%@이(가) 실행 중입니다. FixDock의 전환을 쓰려면 종료해 주세요.",
         inputSwitchRestoredToDefault: "원래 단축키를 알 수 없어 macOS 기본값인 Control-Space로 되돌렸습니다.",
+        inputSwitchLongPressLabel: "길게 눌러 대문자 고정",
+        inputSwitchLongPressCaption: "전환 키를 0.5초 누르고 있으면 영어로 바꾸고 대문자 고정을 켜거나 끕니다. 짧게 누르면 지금처럼 전환만 합니다.",
         versionFormat: "버전 %@"
     )
 }

@@ -808,6 +808,8 @@ struct Strings {
     let inputSwitchProblemKeyboardsPendingFormat: String
     let inputSwitchProblemOtherSwitcherFormat: String
     let inputSwitchRestoredToDefault: String
+    let inputSwitchLongPressLabel: String
+    let inputSwitchLongPressCaption: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1571,6 +1573,8 @@ struct Strings {
         inputSwitchProblemKeyboardsPendingFormat: "%d keyboard(s) not set yet. FixDock will try again.",
         inputSwitchProblemOtherSwitcherFormat: "%@ is running. Quit it to use FixDock's switch.",
         inputSwitchRestoredToDefault: "The original shortcut was unknown, so it was set back to macOS's default, Control-Space.",
+        inputSwitchLongPressLabel: "Hold for Caps Lock",
+        inputSwitchLongPressCaption: "Hold the switch key for half a second to switch to English and turn Caps Lock on or off. A short press still just switches.",
         versionFormat: "Version %@"
     )
 }
