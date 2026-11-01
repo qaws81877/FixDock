@@ -195,6 +195,14 @@ struct Strings {
     let keyTapSecureInputExitedFormat: String
     let keyTapUnknownApp: String
     let keyTapStartFailed: String
+    let feedbackButton: String
+    let feedbackTitle: String
+    let feedbackCaption: String
+    let feedbackCommentPrompt: String
+    let feedbackPreviewLabel: String
+    let feedbackCopyButton: String
+    let feedbackCopied: String
+    let feedbackClose: String
     let snippetsUnreadable: String
     let snippetsAddButton: String
     let snippetsNewTitle: String
@@ -951,6 +959,14 @@ struct Strings {
         keyTapSecureInputExitedFormat: "Secure input is still on, but %@, the app macOS names for it, has quit. If it does not clear, log out and back in.",
         keyTapUnknownApp: "an unknown app",
         keyTapStartFailed: "macOS refused FixDock's keyboard monitor although Accessibility is on. FixDock retries every few seconds. If this stays, remove FixDock in System Settings › Privacy & Security › Accessibility and add it again.",
+        feedbackButton: "Feedback…",
+        feedbackTitle: "Feedback",
+        feedbackCaption: "Write what happened, then copy. The copy holds your note, which tools are on, and recent keyboard monitor events (secure input, taps that stopped). It has no typed text and no snippet contents. FixDock sends nothing; paste it wherever you want.",
+        feedbackCommentPrompt: "What happened?",
+        feedbackPreviewLabel: "What will be copied",
+        feedbackCopyButton: "Copy",
+        feedbackCopied: "Copied",
+        feedbackClose: "Close",
         snippetsUnreadable: "The saved snippets could not be read, so editing is off to keep them from being overwritten.",
         snippetsAddButton: "Add snippet",
         snippetsNewTitle: "New snippet",
