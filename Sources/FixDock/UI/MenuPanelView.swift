@@ -313,6 +313,8 @@ private struct PanelFeatureRow: View {
             SnippetsPanelRow(isEditing: isEditing, visibility: visibility)
         case .airdropAutoZip:
             AirDropPanelRow(isEditing: isEditing, visibility: visibility)
+        case .inputSwitch:
+            InputSwitchPanelRow(isEditing: isEditing, visibility: visibility)
         }
     }
 }

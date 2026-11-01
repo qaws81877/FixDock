@@ -768,6 +768,33 @@ struct Strings {
     let updateFailureSignature: String
     let updateFailureDisk: String
     let updateFailureHandoff: String
+    let featureInputSwitchName: String
+    let featureInputSwitchSummary: String
+    let inputSwitchIntro: String
+    let inputSwitchEnabledLabel: String
+    let inputSwitchKeyLabel: String
+    let inputSwitchKeyCapsLock: String
+    let inputSwitchKeyRightCommand: String
+    let inputSwitchKeyRightOption: String
+    let inputSwitchKeyRightControl: String
+    let inputSwitchCapsLockWarning: String
+    let inputSwitchShortcutCaption: String
+    let inputSwitchNeedsAccessibility: String
+    let inputSwitchActiveNow: String
+    let inputSwitchStatusLiveFormat: String
+    let inputSwitchStatusPreparing: String
+    let inputSwitchStatusAway: String
+    let inputSwitchStatusRestoring: String
+    let inputSwitchStatusDeveloperInert: String
+    let inputSwitchStatusOwnedByFormat: String
+    let inputSwitchStatusJournalUnreadable: String
+    let inputSwitchProblemNoFreeFunctionKey: String
+    let inputSwitchProblemHotkeyFailed: String
+    let inputSwitchProblemActivationFailed: String
+    let inputSwitchProblemHotkeyChanged: String
+    let inputSwitchProblemKeyboardsPendingFormat: String
+    let inputSwitchProblemOtherSwitcherFormat: String
+    let inputSwitchRestoredToDefault: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1491,6 +1518,33 @@ struct Strings {
         updateFailureSignature: "The new version isn't signed by FixDock's developer and notarized by Apple.",
         updateFailureDisk: "The download couldn't be saved.",
         updateFailureHandoff: "The installer couldn't start.",
+        featureInputSwitchName: "Fast Korean/English switch",
+        featureInputSwitchSummary: "Switch input source the moment you press the key, without a wrong first letter.",
+        inputSwitchIntro: "The chosen key switches to your previous input source as soon as you press it, not when you let go. Adapted from gksdud.",
+        inputSwitchEnabledLabel: "Use fast switch",
+        inputSwitchKeyLabel: "Switch key",
+        inputSwitchKeyCapsLock: "Caps Lock ⇪",
+        inputSwitchKeyRightCommand: "Right Command ⌘",
+        inputSwitchKeyRightOption: "Right Option ⌥",
+        inputSwitchKeyRightControl: "Right Control ⌃",
+        inputSwitchCapsLockWarning: "While this is on, Caps Lock no longer locks capitals. Type capitals with Shift.",
+        inputSwitchShortcutCaption: "While this is on, the key sends an F-key and macOS's \"Select the previous input source\" shortcut is set to that F-key. Turning it off, quitting or uninstalling FixDock puts both back.",
+        inputSwitchNeedsAccessibility: "Allow Accessibility so FixDock can switch on press.",
+        inputSwitchActiveNow: "Switching on press",
+        inputSwitchStatusLiveFormat: "On: %@ switches through %@.",
+        inputSwitchStatusPreparing: "Getting ready…",
+        inputSwitchStatusAway: "Paused while the screen is locked or another user is active.",
+        inputSwitchStatusRestoring: "Putting your keyboard settings back…",
+        inputSwitchStatusDeveloperInert: "The Developer build leaves this to the installed FixDock.",
+        inputSwitchStatusOwnedByFormat: "%@ is using the switch right now.",
+        inputSwitchStatusJournalUnreadable: "FixDock can't read its record of what it changed, so it changes nothing.",
+        inputSwitchProblemNoFreeFunctionKey: "No free key among F13–F19: other shortcuts use them all.",
+        inputSwitchProblemHotkeyFailed: "Couldn't change the input source shortcut. FixDock will try again.",
+        inputSwitchProblemActivationFailed: "macOS hasn't applied the shortcut change yet. FixDock will try again.",
+        inputSwitchProblemHotkeyChanged: "\"Select the previous input source\" was changed in System Settings, so FixDock stopped. Turn the switch off and on to use it again.",
+        inputSwitchProblemKeyboardsPendingFormat: "%d keyboard(s) not set yet. FixDock will try again.",
+        inputSwitchProblemOtherSwitcherFormat: "%@ is running. Quit it to use FixDock's switch.",
+        inputSwitchRestoredToDefault: "The original shortcut was unknown, so it was set back to macOS's default, Control-Space.",
         versionFormat: "Version %@"
     )
 }

@@ -7,15 +7,16 @@ import Foundation
 /// Features the hub can install. Declaration order is the order later steps
 /// add the real modules:
 /// URL cleaner, quit/close protection, cleaning mode, text snippets, media,
-/// AirDrop auto-zip, cleaner, screenshot, screen recorder.
+/// AirDrop auto-zip, cleaner, screenshot, screen recorder, fast Korean/English switch.
 ///
 /// Raw values match upstream vorssaint-utils where the feature existed, so a
 /// saved availability key still means the same thing when the module returns.
-/// `airdropAutoZip` is new and has no upstream module.
+/// `airdropAutoZip` and `inputSwitch` are new and have no upstream module.
+/// `inputSwitch` follows gksdud (MIT, credited in NOTICE).
 ///
 /// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets`,
 /// `mediaTools`, `airdropAutoZip`, `cleaner`, `screenshot` and
-/// `screenRecorder` have modules.
+/// `screenRecorder` and `inputSwitch` have modules.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection
@@ -26,6 +27,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
     case cleaner
     case screenshot
     case screenRecorder
+    case inputSwitch
 
     var id: String { rawValue }
 
@@ -34,12 +36,13 @@ enum AppFeature: String, CaseIterable, Identifiable {
         self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode
             || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip
             || self == .cleaner || self == .screenshot || self == .screenRecorder
+            || self == .inputSwitch
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
     var requiredPermissions: [PermissionKind] {
         switch self {
-        case .quitWindowProtection, .cleaningMode, .textSnippets: return [.accessibility]
+        case .quitWindowProtection, .cleaningMode, .textSnippets, .inputSwitch: return [.accessibility]
         case .cleaner: return [.fullDiskAccess]
         case .screenshot, .screenRecorder: return [.screenRecording]
         case .urlCleaner, .mediaTools, .airdropAutoZip:
@@ -60,6 +63,9 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .cleaningMode, .mediaTools, .cleaner,
              .screenshot, .screenRecorder:
             return
+        case .inputSwitch:
+            // Installing never rewires a key before the person turns it on.
+            return
         }
         let defaults = UserDefaults.standard
         if defaults.object(forKey: key) == nil {
@@ -77,7 +83,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         switch self {
         case .urlCleaner:
             return .files
-        case .quitWindowProtection, .textSnippets:
+        case .quitWindowProtection, .textSnippets, .inputSwitch:
             return .keyboard
         case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return .tools
@@ -95,6 +101,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .cleaner: return "sparkles"
         case .screenshot: return "camera.viewfinder"
         case .screenRecorder: return "record.circle"
+        case .inputSwitch: return "globe"
         }
     }
 
@@ -109,6 +116,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .cleaner: return strings.featureCleanerName
         case .screenshot: return strings.featureScreenshotName
         case .screenRecorder: return strings.featureRecorderName
+        case .inputSwitch: return strings.featureInputSwitchName
         }
     }
 
@@ -123,6 +131,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .cleaner: return strings.featureCleanerSummary
         case .screenshot: return strings.featureScreenshotSummary
         case .screenRecorder: return strings.featureRecorderSummary
+        case .inputSwitch: return strings.featureInputSwitchSummary
         }
     }
 }

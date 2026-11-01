@@ -19,7 +19,16 @@ remove_app() {
     fi
     if pgrep -x "$executable" >/dev/null 2>&1; then
         pkill -x "$executable" 2>/dev/null || true
-        sleep 0.4
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+            pgrep -x "$executable" >/dev/null 2>&1 || break
+            sleep 0.5
+        done
+    fi
+    # The fast Korean/English switch: put back the keyboards and the
+    # "Select the previous input source" shortcut if a crash left them.
+    if [[ -x "$app/Contents/MacOS/$executable" ]]; then
+        "$app/Contents/MacOS/$executable" --restore-input-switch \
+            || echo "  ! input switch: check 'Select the previous input source' in System Settings › Keyboard › Keyboard Shortcuts"
     fi
     rm -rf "$app"
     echo "  removed $app"
