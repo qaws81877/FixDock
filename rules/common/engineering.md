@@ -13,12 +13,13 @@ Ask the owner first:
   the update check, or a new bundled third-party asset (and its license).
 - Scope cuts from upstream that change what a tool does for the person.
 - Commits, pushes, PRs and merges, unless the owner asked for them.
-- Creating a public repository or deleting a branch (`git branch -d`,
-  `git push --delete`). Auto mode blocks these even when asked
-  (`gh pr merge --merge` went through on 2026-11-01); hand the owner the
-  exact `! …` line, one `!` command per
-  message (a second `!` pasted on the next line is read by the shell as
-  negation and the command after `&&` never runs).
+- Creating a public repository.
+- When auto mode denies a git or gh action the owner asked for (its
+  verdicts vary by context: on 2026-11-01 one session saw `gh pr merge`
+  denied and branch deletes pass, another the reverse), hand the owner the
+  exact `! …` line, one `!` command per message (a second `!` pasted on
+  the next line is read by the shell as negation and the command after
+  `&&` never runs).
 
 Docs:
 
