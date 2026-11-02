@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.0.3
 
 - Quit protection and text snippets now say why they hear no keys. While another app holds secure input (a password field, a sign-in window, Terminal's Secure Keyboard Entry), macOS hides typing from both, so ⌘Q passes straight through and snippets do not expand; their Settings pages now show this with the app macOS names. A keyboard monitor macOS refuses to start is shown and retried every few seconds. Both are written to the log (category `keyTaps`).
 - Settings › About › Feedback… copies a note together with a diagnostics report (versions, which tools are on, keyboard monitor state and recent events). Nothing is sent; paste it wherever you want. The events are kept in `diagnostics.log` in FixDock's Application Support folder and never include typed text or snippet contents.
 - New tool, fast Korean/English switch (adapted from gksdud, MIT): Caps Lock switches the input source on press, without a wrong first letter. FixDock maps Caps Lock to F19 and points "Select the previous input source" at it while the tool is on, and puts both back when you turn it off, quit or uninstall (also after a crash, at the next launch or from `Tools/uninstall.sh`).
 - Fast switch: hold the key for half a second to switch to English and turn Caps Lock on or off (on by default).
+- Screenshot preview: Copy and Save confirm with a short "Copied!" or "Saved!" at the bottom centre of the screen. Copy now copies again even after the automatic copy and keeps the preview open, so you can still save or edit.
+- Screenshot editor: resting the pointer on a tool in the left rail shows its name and key.
 
 ## 1.0.2
 
