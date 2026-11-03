@@ -339,25 +339,6 @@ private final class ScreenshotPromiseProvider: NSFilePromiseProvider, NSFileProm
     }
 }
 
-/// Holds the share button's view so the picker can open beside it.
-final class ShareAnchor {
-    weak var view: NSView?
-}
-
-private struct ShareAnchorView: NSViewRepresentable {
-    let anchor: ShareAnchor
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        anchor.view = view
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        anchor.view = nsView
-    }
-}
-
 /// A transparent view over the thumbnail that starts an AppKit drag, since a
 /// file promise needs a dragging session rather than SwiftUI's item provider.
 private struct DragSourceView: NSViewRepresentable {

@@ -206,7 +206,7 @@ final class ScreenRecorderPreviewController: NSObject, NSSharingServicePickerDel
                 }
                 .overlay(alignment: .topTrailing) {
                     circleButton("square.and.arrow.up", s.recorderPreviewShare, action: share)
-                        .background(RecorderShareAnchorView(anchor: shareAnchor))
+                        .background(ShareAnchorView(anchor: shareAnchor))
                         .padding(6)
                 }
 
@@ -259,20 +259,6 @@ private final class RecorderPreviewPanel: OverlayPanel {
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, !isKeyWindow { makeKey() }
         super.sendEvent(event)
-    }
-}
-
-private struct RecorderShareAnchorView: NSViewRepresentable {
-    let anchor: ShareAnchor
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        anchor.view = view
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        anchor.view = nsView
     }
 }
 

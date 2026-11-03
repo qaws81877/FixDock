@@ -64,6 +64,26 @@ extension View {
     }
 }
 
+/// Holds a button's view so a picker or menu can open beside it. Used by
+/// the screenshot pin bar and the recorder preview.
+final class ShareAnchor {
+    weak var view: NSView?
+}
+
+struct ShareAnchorView: NSViewRepresentable {
+    let anchor: ShareAnchor
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        anchor.view = nsView
+    }
+}
+
 struct ShortcutCaps: View {
     let keys: [String]
 

@@ -1037,10 +1037,23 @@ extension ScreenshotEditorModel {
 // MARK: - Window controller
 
 /// Hosts one editor window per capture and owns everything with a side
-/// effect: clipboard, files, pins, recognition and the close confirmation.
+/// effect: clipboard, files, the pin's round trip, recognition and the close confirmation.
 /// Nothing is written unless Save or Save As is used. Adapted from the
 /// upstream editor controller, without the parts `docs/screenshot-editor.md`
 /// cuts (no network, no file-copy clipboard mode, no temporary files).
+/// How an edit session that a pin opened ends. Delivered exactly once, from
+/// `windowWillClose`, the editor's single exit.
+enum ScreenshotEditOutcome {
+    /// Done (⌘↩), or a successful Copy, Save or Save As, each of which closes
+    /// the editor. `display` is the edit without the backdrop: what the pin
+    /// shows. `output` is the same edit with the backdrop, present only when
+    /// the editor painted one: what the pin hands out.
+    case edited(display: ScreenshotRenderer.Export, output: ScreenshotRenderer.Export?)
+    /// Every other close: close button, ⌘W, Esc at the last level, Discard in
+    /// the unsaved-edits alert, uninstall.
+    case cancelled
+}
+
 final class ScreenshotEditorController: NSObject, NSWindowDelegate {
     let model: ScreenshotEditorModel
     private var window: NSWindow?
@@ -1048,9 +1061,12 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
     private var scrollMonitor: Any?
     private var pointerMonitor: Any?
     private var noticeWork: DispatchWorkItem?
+    private var outcome: ScreenshotEditOutcome = .cancelled
+    private var onFinish: ((ScreenshotEditOutcome) -> Void)?
 
-    init(image: CGImage, scale: CGFloat) {
+    init(image: CGImage, scale: CGFloat, onFinish: @escaping (ScreenshotEditOutcome) -> Void) {
         model = ScreenshotEditorModel(image: image, scale: scale)
+        self.onFinish = onFinish
         super.init()
     }
 
@@ -1179,7 +1195,7 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             case kVK_ANSI_Z:
                 if flags.contains(.shift) { model.redo() } else { model.undo() }
                 return true
-            case kVK_ANSI_P: pin(); return true
+            case kVK_Return, kVK_ANSI_KeypadEnter: done(); return true
             case kVK_ANSI_W: window?.performClose(nil); return true
             case kVK_ANSI_0: model.zoomOverride = nil; return true
             case kVK_ANSI_1: model.zoomToActualSize(); return true
@@ -1226,6 +1242,28 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
 
     // MARK: Export actions
 
+    /// What the pin gets back. `export` is the with-backdrop render the
+    /// action already made, so only a backdrop costs a second render.
+    private func handBack(_ export: ScreenshotRenderer.Export) {
+        if model.decor.showsBackdrop, let display = model.exportImage(withBackdrop: false) {
+            outcome = .edited(display: display, output: export)
+        } else {
+            outcome = .edited(display: export, output: nil)
+        }
+    }
+
+    /// Done (⌘↩): the edit goes back to the pin and the editor closes.
+    /// `close()`, not `performClose`: nothing is lost, so no discard question.
+    func done() {
+        guard let export = model.exportImage() else {
+            NSSound.beep()
+            return
+        }
+        handBack(export)
+        model.markExported()
+        window?.close()
+    }
+
     /// The capture leaves as image data only and the editor closes, as
     /// upstream: the window's job is done.
     func copyToClipboard() {
@@ -1233,8 +1271,9 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             NSSound.beep()
             return
         }
-        // copyEdited beeps itself when the image cannot be encoded.
-        guard ScreenshotService.shared.copyEdited(export.image) else { return }
+        // copyCapture beeps itself when the image cannot be encoded.
+        guard ScreenshotService.shared.copyCapture(export.image, png: nil) else { return }
+        handBack(export)
         model.markExported()
         window?.close()
     }
@@ -1248,10 +1287,11 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
             NSSound.beep()
             return
         }
-        guard ScreenshotService.shared.saveEdited(data) else {
+        guard ScreenshotService.shared.saveToFolder(data) else {
             showNotice(L10n.shared.s.screenshotFolderUnavailable)
             return
         }
+        handBack(export)
         model.markExported()
         window?.close()
     }
@@ -1280,18 +1320,11 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
                 return
             }
             ScreenshotSupport.markAsScreenCapture(url)
-            ScreenshotService.shared.editorSaved(url)
+            ScreenshotService.shared.noteSaved(url)
+            self.handBack(export)
             self.model.markExported()
             self.window?.close()
         }
-    }
-
-    /// Pinning snapshots the current export, without the backdrop as
-    /// upstream, and leaves the editor open.
-    func pin() {
-        guard let export = model.exportImage(withBackdrop: false) else { return }
-        ScreenshotPinController.shared.pin(image: export.image, scale: export.scale)
-        model.markExported()
     }
 
     /// Copies the words selected on the canvas as plain text.
@@ -1340,6 +1373,9 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
         noticeWork?.cancel()
         window?.delegate = nil
         window = nil
+        let finish = onFinish
+        onFinish = nil
+        finish?(outcome)
         ScreenshotService.shared.editorDidClose(self)
     }
 }

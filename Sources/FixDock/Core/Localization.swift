@@ -488,6 +488,9 @@ struct Strings {
     let screenshotPinSettings: String
     let screenshotPinShortcuts: String
     let screenshotPinOpenSettings: String
+    let screenshotPinHiddenFormat: String
+    let screenshotPinTextTitle: String
+    let screenshotPinTextCopyAll: String
     let screenshotEditorTitle: String
     let screenshotEditorToolSelect: String
     let screenshotEditorToolArrow: String
@@ -506,6 +509,7 @@ struct Strings {
     let screenshotEditorZoomActual: String
     let screenshotEditorZoomHint: String
     let screenshotEditorSaveMenu: String
+    let screenshotEditorDone: String
     let screenshotEditorDiscardTitle: String
     let screenshotEditorDiscardMessage: String
     let screenshotEditorDiscard: String
@@ -1270,6 +1274,9 @@ struct Strings {
         screenshotPinSettings: "Settings",
         screenshotPinShortcuts: "Keyboard Shortcuts",
         screenshotPinOpenSettings: "Screenshot Settings…",
+        screenshotPinHiddenFormat: "%d hidden pins",
+        screenshotPinTextTitle: "Text in the capture",
+        screenshotPinTextCopyAll: "Copy All",
         screenshotEditorTitle: "Edit capture",
         screenshotEditorToolSelect: "Select",
         screenshotEditorToolArrow: "Arrow",
@@ -1288,6 +1295,7 @@ struct Strings {
         screenshotEditorZoomActual: "Actual size",
         screenshotEditorZoomHint: "Pinch, or scroll with Control held, to zoom",
         screenshotEditorSaveMenu: "Save options",
+        screenshotEditorDone: "Done",
         screenshotEditorDiscardTitle: "Discard your edits?",
         screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or pinned.",
         screenshotEditorDiscard: "Discard",

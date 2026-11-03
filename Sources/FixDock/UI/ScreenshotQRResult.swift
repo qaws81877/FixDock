@@ -55,6 +55,12 @@ final class ScreenshotQRResultController {
 
     var isShown: Bool { panel != nil }
 
+    /// Whether `window` is the result panel, so a pin can count it as its
+    /// satellite without a handle on the panel.
+    func owns(_ window: NSWindow?) -> Bool {
+        window != nil && window === panel
+    }
+
     func close() {
         for monitor in [keyMonitor, localMonitor, globalMonitor].compactMap({ $0 }) {
             NSEvent.removeMonitor(monitor)
