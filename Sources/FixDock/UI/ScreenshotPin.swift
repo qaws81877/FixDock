@@ -562,6 +562,7 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
     func hideSelection(animated: Bool = true) {
         content.isSelected = false
         closeTextPanel()
+        bar?.dismissTooltip()
         guard let bar, bar.parent != nil else { return }
         let detach = { [weak self, weak bar] in
             guard let self, let bar else { return }
@@ -758,11 +759,18 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
 
 /// The picture, its border, the pulse, and the right-click menu.
 private final class PinContentView: NSView {
+    private static let selectedBorder: CGFloat = 2
+    private static let cornerRadius: CGFloat = 7
+    private static let pulseKey = "pulse"
     private let imageLayer = CALayer()
+    /// The pulse's accent glow along the inside of the border: the shadow of
+    /// a frame-shaped fill that lies wholly outside the clipped bounds.
+    private let glowLayer = CAShapeLayer()
 
     var isSelected = false {
         didSet {
-            layer?.borderWidth = isSelected ? 2 : 1
+            if !isSelected { removePulse() }
+            layer?.borderWidth = isSelected ? Self.selectedBorder : 1
             layer?.borderColor = isSelected ? NSColor.controlAccentColor.cgColor : CGColor(gray: 0.5, alpha: 0.4)
         }
     }
@@ -773,23 +781,40 @@ private final class PinContentView: NSView {
         super.init(frame: .zero)
         imageLayer.contents = picture
         wantsLayer = true
-        layer?.cornerRadius = 7
+        layer?.cornerRadius = Self.cornerRadius
         layer?.masksToBounds = true
         layer?.borderWidth = 1
         layer?.borderColor = CGColor(gray: 0.5, alpha: 0.4)
         imageLayer.contentsGravity = .resizeAspect
         imageLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         layer?.addSublayer(imageLayer)
+        glowLayer.fillRule = .evenOdd
+        glowLayer.fillColor = CGColor(gray: 0, alpha: 1)
+        glowLayer.shadowOffset = .zero
+        glowLayer.shadowRadius = 12
+        glowLayer.shadowOpacity = 0
+        layer?.addSublayer(glowLayer)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
+    /// Bounds and position, not frame: a layer's frame is undefined while the
+    /// pulse scales it, and a drag-resize can start on the pulsing click.
     override func layout() {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageLayer.frame = bounds
+        let centre = CGPoint(x: bounds.midX, y: bounds.midY)
+        for sublayer in [imageLayer, glowLayer] {
+            sublayer.bounds = bounds
+            sublayer.position = centre
+        }
+        let frame = CGMutablePath()
+        frame.addRect(bounds.insetBy(dx: -20, dy: -20))
+        let radius = min(Self.cornerRadius, bounds.width / 2, bounds.height / 2)
+        frame.addRoundedRect(in: bounds, cornerWidth: radius, cornerHeight: radius)
+        glowLayer.path = frame
         CATransaction.commit()
     }
 
@@ -798,17 +823,30 @@ private final class PinContentView: NSView {
         if isSelected { layer?.borderColor = NSColor.controlAccentColor.cgColor }
     }
 
-    /// Reselect pulse: the picture swells 3 % and back inside its bordered,
-    /// rounded frame. The window does not grow, so a drag that starts on the
-    /// same click is never fought.
+    /// Reselect pulse, led by the border: it swells to 6 pt and settles at
+    /// the selected width with an accent glow inside, while the picture
+    /// swells 4.5 % and back. All inside the window's frame, so a drag that
+    /// starts on the same click is never fought. Call after `isSelected`:
+    /// the layers already hold the selected values, so nothing snaps at the end.
     func pulse() {
-        let scale = CABasicAnimation(keyPath: "transform.scale")
-        scale.fromValue = 1
-        scale.toValue = 1.03
-        scale.duration = 0.1
-        scale.autoreverses = true
-        scale.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        imageLayer.add(scale, forKey: "pulse")
+        guard let layer, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        let easeOut = CAMediaTimingFunction(name: .easeOut)
+        func swell(_ keyPath: String, _ values: [CGFloat]) -> CAKeyframeAnimation {
+            let animation = CAKeyframeAnimation(keyPath: keyPath)
+            animation.values = values
+            animation.keyTimes = [0, 0.35, 1]
+            animation.timingFunctions = [easeOut, easeOut]
+            animation.duration = 0.26
+            return animation
+        }
+        layer.add(swell("borderWidth", [Self.selectedBorder, 6, Self.selectedBorder]), forKey: Self.pulseKey)
+        glowLayer.shadowColor = NSColor.controlAccentColor.cgColor
+        glowLayer.add(swell("shadowOpacity", [0, 1, 0]), forKey: Self.pulseKey)
+        imageLayer.add(swell("transform.scale", [1, 1.045, 1]), forKey: Self.pulseKey)
+    }
+
+    private func removePulse() {
+        for target in [layer, imageLayer, glowLayer] { target?.removeAnimation(forKey: Self.pulseKey) }
     }
 
     override func menu(for event: NSEvent) -> NSMenu? { menuProvider?() }
@@ -835,6 +873,8 @@ private enum BarMenu {
 /// The bar's window: a child of its pin, never key, so a click on it keeps
 /// key status, and with it the shortcuts, on the pin.
 private final class BarPanel: OverlayPanel {
+    private let tooltip = BarTooltip()
+
     override var canBecomeKey: Bool { false }
 
     init(model: BarModel, pins: ScreenshotPinController,
@@ -844,15 +884,30 @@ private final class BarPanel: OverlayPanel {
          dragImage: @escaping () -> CGImage?) {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
-        let view = BarView(model: model, pins: pins, anchors: BarAnchors(), perform: perform, openMenu: openMenu,
-                           dragWriter: dragWriter, dragImage: dragImage)
+        let view = BarView(model: model, pins: pins, anchors: BarAnchors(), tooltip: tooltip, perform: perform,
+                           openMenu: openMenu, dragWriter: dragWriter, dragImage: dragImage)
         contentView = FirstMouseHostingView(rootView: view)
         isReleasedWhenClosed = false
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
         hidesOnDeactivate = false
-        allowsToolTipsWhenApplicationIsInactive = true
+        tooltip.bar = self
+    }
+
+    /// A press hides the tooltip until the pointer enters an item again.
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown || event.type == .rightMouseDown { tooltip.dismiss() }
+        super.sendEvent(event)
+    }
+
+    override func orderOut(_ sender: Any?) {
+        tooltip.dismiss()
+        super.orderOut(sender)
+    }
+
+    func dismissTooltip() {
+        tooltip.dismiss()
     }
 
     /// The bar's size for its current slots (QR adds one).
@@ -879,6 +934,7 @@ private struct BarView: View {
     /// For the badge only (`pins.hiddenCount`, derived from the stack).
     @ObservedObject var pins: ScreenshotPinController
     let anchors: BarAnchors
+    let tooltip: BarTooltip
     let perform: (ScreenshotPinAction, NSView?) -> Void
     let openMenu: (BarMenu, NSView) -> Void
     let dragWriter: () -> NSPasteboardWriting?
@@ -891,7 +947,7 @@ private struct BarView: View {
         HStack(spacing: 2) {
             ForEach(ScreenshotPinBarSlot.bar(model.context), id: \.self) { slot in
                 view(for: slot)
-                    .help(slot.tooltip(l10n.s))
+                    .background(TooltipAnchor(text: slot.tooltip(l10n.s), tooltip: tooltip))
             }
         }
         .padding(5)
@@ -969,6 +1025,176 @@ private struct BarView: View {
             .font(.system(size: 13, weight: .medium))
             .frame(width: Self.side, height: Self.side)
             .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Bar tooltip
+
+/// Risk R6: SwiftUI `.help` took 8 to 10 s to appear in the never-key bar of
+/// an inactive app (owner test), so the bar shows its own tooltip. Hover
+/// comes from `.activeAlways` tracking areas, which fire whichever app is
+/// active. The timing rules are `ScreenshotPinTooltipTiming`.
+private final class BarTooltip {
+    weak var bar: NSWindow?
+    private var timing = ScreenshotPinTooltipTiming<ObjectIdentifier>()
+    private weak var hovered: TooltipAnchorNSView?
+    private var panel: TooltipPanel?
+
+    func entered(_ anchor: TooltipAnchorNSView) {
+        hovered = anchor
+        run(timing.enter(ObjectIdentifier(anchor), at: Self.now))
+    }
+
+    func exited(_ anchor: TooltipAnchorNSView) {
+        run(timing.exit(ObjectIdentifier(anchor)))
+    }
+
+    func textChanged(_ anchor: TooltipAnchorNSView) {
+        if timing.isShown, timing.item == ObjectIdentifier(anchor) { show() }
+    }
+
+    func dismiss() {
+        timing.dismiss()
+        hide()
+    }
+
+    private func run(_ effect: ScreenshotPinTooltipTiming<ObjectIdentifier>.Effect) {
+        switch effect {
+        case .none:
+            break
+        case .show:
+            show()
+        case .hide:
+            hide()
+        case .wait(let seconds):
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+                guard let self else { return }
+                self.run(self.timing.tick(at: Self.now))
+            }
+        }
+    }
+
+    /// A child of the bar, so it follows a dragged pin and the bar's level.
+    private func show() {
+        guard let bar, bar.isVisible, let anchor = hovered, anchor.window === bar else { return }
+        let panel = self.panel ?? TooltipPanel()
+        self.panel = panel
+        panel.text = anchor.text
+        let item = bar.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        let visible = (bar.screen ?? NSScreen.main)?.visibleFrame ?? item
+        let pinIsAbove = bar.parent.map { $0.frame.midY > bar.frame.midY } ?? true
+        panel.setFrame(ScreenshotPinLayout.tooltipFrame(itemFrame: item, size: panel.fittingSize,
+                                                        preferAbove: !pinIsAbove, visibleFrame: visible),
+                       display: true)
+        if panel.parent == nil { bar.addChildWindow(panel, ordered: .above) }
+        panel.orderFront(nil)
+    }
+
+    private func hide() {
+        guard let panel else { return }
+        panel.parent?.removeChildWindow(panel)
+        panel.orderOut(nil)
+    }
+
+    private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+}
+
+/// One bar item's hover area: behind the item and never hit, so it takes
+/// no click from it.
+private struct TooltipAnchor: NSViewRepresentable {
+    let text: String
+    let tooltip: BarTooltip
+
+    func makeNSView(context: Context) -> TooltipAnchorNSView {
+        TooltipAnchorNSView(tooltip: tooltip)
+    }
+
+    func updateNSView(_ nsView: TooltipAnchorNSView, context: Context) {
+        nsView.text = text
+    }
+}
+
+private final class TooltipAnchorNSView: NSView {
+    private weak var tooltip: BarTooltip?
+
+    var text = "" {
+        didSet { if text != oldValue { tooltip?.textChanged(self) } }
+    }
+
+    init(tooltip: BarTooltip) {
+        self.tooltip = tooltip
+        super.init(frame: .zero)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func mouseEntered(with event: NSEvent) {
+        tooltip?.entered(self)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        tooltip?.exited(self)
+    }
+
+    /// A slot that goes away under the pointer (the QR button, a language
+    /// change) never gets its exit event.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { tooltip?.exited(self) }
+    }
+}
+
+/// The system tooltip look: tooltip material, tooltip font, rounded by a mask.
+private final class TooltipPanel: OverlayPanel {
+    private let label = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        isReleasedWhenClosed = false
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        hidesOnDeactivate = false
+        ignoresMouseEvents = true
+        let background = NSVisualEffectView()
+        background.material = .toolTip
+        background.state = .active
+        let radius: CGFloat = 5
+        let mask = NSImage(size: CGSize(width: radius * 2 + 1, height: radius * 2 + 1), flipped: false) { rect in
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        mask.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        mask.resizingMode = .stretch
+        background.maskImage = mask
+        label.font = .toolTipsFont(ofSize: 0)
+        label.textColor = .labelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        background.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 7),
+            label.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -7),
+            label.topAnchor.constraint(equalTo: background.topAnchor, constant: 3),
+            label.bottomAnchor.constraint(equalTo: background.bottomAnchor, constant: -3),
+        ])
+        contentView = background
+    }
+
+    override var canBecomeKey: Bool { false }
+
+    var text: String {
+        get { label.stringValue }
+        set { label.stringValue = newValue }
+    }
+
+    var fittingSize: CGSize {
+        contentView?.layoutSubtreeIfNeeded()
+        return contentView?.fittingSize ?? .zero
     }
 }
 

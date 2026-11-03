@@ -255,6 +255,22 @@ enum ScreenshotPinLayout {
         return (at(max(pinFrame.minY, visibleFrame.minY) + edgeInset), .overlay)
     }
 
+    static let tooltipGap: CGFloat = 4
+
+    /// A bar item's tooltip: centred on the item, on the side `preferAbove`
+    /// names (away from the pin), flipped when only the other side fits, and
+    /// kept inside sideways.
+    static func tooltipFrame(itemFrame: CGRect, size: CGSize, preferAbove: Bool,
+                             visibleFrame: CGRect) -> CGRect {
+        let below = itemFrame.minY - tooltipGap - size.height
+        let above = itemFrame.maxY + tooltipGap
+        let belowFits = below >= visibleFrame.minY
+        let aboveFits = above + size.height <= visibleFrame.maxY
+        let y = preferAbove ? (aboveFits || !belowFits ? above : below) : (belowFits || !aboveFits ? below : above)
+        let x = max(visibleFrame.minX, min(itemFrame.midX - size.width / 2, visibleFrame.maxX - size.width))
+        return CGRect(x: x, y: y, width: size.width, height: size.height)
+    }
+
     /// After an edit came back (crop, canvas expansion): same top-left corner
     /// (owner decision, round 2) and the zoom the person had, capped by
     /// `resizeLimits` and kept inside.
@@ -612,5 +628,69 @@ struct ScreenshotPinFocus: Equatable {
         selected = nil
         transients = []
         return [.deselect(id)]
+    }
+}
+
+// MARK: - Bar tooltip timing
+
+/// When the bar's own tooltip shows (risk R6). The caller feeds hover events
+/// with the time and runs the effect; `.wait` means call `tick` after that
+/// long. A stale tick changes nothing, so timers are never cancelled.
+struct ScreenshotPinTooltipTiming<Item: Hashable>: Equatable {
+    static var delay: TimeInterval { 0.5 }
+    /// After a shown tooltip hid, the next item shows at once for this long.
+    static var warm: TimeInterval { 0.4 }
+    /// Keeps a shown tooltip up across the gap between two items, so it
+    /// moves to the next one instead of blinking.
+    static var grace: TimeInterval { 0.08 }
+
+    private(set) var item: Item?
+    private(set) var isShown = false
+    private var enteredAt: TimeInterval?
+    private var hiddenAt: TimeInterval?
+
+    enum Effect: Equatable {
+        case none
+        /// Show, or move to `item`.
+        case show
+        case hide
+        case wait(TimeInterval)
+    }
+
+    mutating func enter(_ item: Item, at now: TimeInterval) -> Effect {
+        self.item = item
+        if isShown { return .show }
+        if let hiddenAt, now - hiddenAt <= Self.warm {
+            isShown = true
+            return .show
+        }
+        enteredAt = now
+        return .wait(Self.delay)
+    }
+
+    mutating func exit(_ item: Item) -> Effect {
+        guard self.item == item else { return .none }
+        self.item = nil
+        enteredAt = nil
+        return isShown ? .wait(Self.grace) : .none
+    }
+
+    mutating func tick(at now: TimeInterval) -> Effect {
+        guard item != nil else {
+            guard isShown else { return .none }
+            isShown = false
+            hiddenAt = now
+            return .hide
+        }
+        // Timers fire at or after their deadline; the margin absorbs clock rounding.
+        guard !isShown, let enteredAt, now - enteredAt >= Self.delay - 0.01 else { return .none }
+        isShown = true
+        return .show
+    }
+
+    /// A click, or the bar going away: the caller hides at once, and the
+    /// next hover waits the full delay.
+    mutating func dismiss() {
+        self = Self()
     }
 }
