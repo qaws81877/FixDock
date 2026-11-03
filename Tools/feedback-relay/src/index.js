@@ -7,6 +7,8 @@
 // Both webhooks belong to forum channels: each report opens its own post.
 
 const MAX_TEXT = 64 * 1024;
+// Korean is 3 bytes per character in UTF-8; JSON adds escapes.
+const MAX_BODY = 512 * 1024;
 const MAX_PREVIEW = 300;
 const MAX_TITLE = 100;
 
@@ -23,15 +25,16 @@ export default {
       if (!success) return reply(429);
     }
 
-    const declared = Number(request.headers.get("Content-Length") ?? 0);
-    if (declared > MAX_TEXT * 2) return reply(413);
+    const raw = await readCapped(request, MAX_BODY);
+    if (raw === null) return reply(413);
     let note, report;
     try {
-      ({ note, report } = await request.json());
+      ({ note, report } = JSON.parse(raw));
     } catch {
       return reply(400);
     }
-    if (typeof note !== "string" || !note.trim() || typeof report !== "string" || report.length > MAX_TEXT) {
+    if (typeof note !== "string" || !note.trim() || note.length > MAX_TEXT
+        || typeof report !== "string" || report.length > MAX_TEXT) {
       return reply(400);
     }
 
@@ -48,6 +51,32 @@ export default {
     return reply(sent.ok ? 204 : 502);
   },
 };
+
+// Counts the bytes actually read, so a missing or false Content-Length
+// cannot get a larger body past the cap.
+async function readCapped(request, limit) {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
 
 function clip(note) {
   const plain = note.trim().replaceAll("`", "'");
