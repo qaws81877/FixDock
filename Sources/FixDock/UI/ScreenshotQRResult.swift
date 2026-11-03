@@ -89,7 +89,7 @@ final class ScreenshotQRResultController {
             return nil
         }
         // A click outside closes it: other apps through the global monitor,
-        // FixDock's own windows (the preview) through the local one.
+        // FixDock's own windows (a pin, the editor) through the local one.
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             if event.window !== self?.panel { self?.close() }
             return event
