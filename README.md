@@ -6,7 +6,7 @@ FixDock has ten tools. You install the ones you want from Settings › Features;
 
 ## English
 
-FixDock is a lightweight macOS 14+ menu bar app for someone who repairs Macs. It is free and it is not sold. There is no account and no analytics. Its only network use is checking its own GitHub releases for updates, which you can turn off (see Updates).
+FixDock is a lightweight macOS 14+ menu bar app for someone who repairs Macs. It is free and it is not sold. There is no account and no analytics. It uses the network only to check its own GitHub releases for updates, which you can turn off (see Updates), and to send feedback when you press Send (see PRIVACY.md).
 
 The tools:
 
@@ -17,7 +17,7 @@ The tools:
 5. Media: compresses images and videos.
 6. AirDrop auto-zip: compresses and zips photos received by AirDrop (new; not in the original project).
 7. Cleaner: reviews and removes caches, logs, leftovers and backups.
-8. Screenshot: capture overlay, full screen, scrolling capture, preview, pin and editor.
+8. Screenshot: capture overlay, full screen, scrolling capture, captures pinned on screen with an action bar, capture sounds, snap to lines, and an editor.
 9. Screen recorder: records a region, window or display with sound, plus an editor (trim, zoom, overlays, MP4 and GIF).
 10. Fast Korean/English switch: Caps Lock switches the input source the moment you press it, without a wrong first letter (adapted from gksdud, MIT; see NOTICE). Hold the key for half a second to switch to English and turn Caps Lock on or off.
 
@@ -104,7 +104,7 @@ Homebrew: see Install.
 
 ## 한국어
 
-FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정과 분석이 없습니다. 네트워크는 GitHub에서 FixDock 업데이트를 확인할 때만 쓰며, 끌 수 있습니다(업데이트 참고).
+FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정과 분석이 없습니다. 네트워크는 GitHub에서 FixDock 업데이트를 확인할 때(끌 수 있음, 업데이트 참고)와 피드백에서 보내기를 누를 때(PRIVACY.md 참고)만 씁니다.
 
 도구는 10개입니다. 설정 › 기능에서 원하는 도구만 설치합니다. 설치하기 전에는 아무것도 동작하지 않습니다.
 
@@ -117,7 +117,7 @@ FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱�
 5. 미디어: 이미지와 영상을 압축합니다.
 6. AirDrop 자동 압축: AirDrop으로 받은 사진을 압축해 zip으로 묶습니다 (원본에는 없는 새 기능).
 7. Mac 정리: 캐시, 로그, 남은 파일, 백업을 살펴보고 지웁니다.
-8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 미리보기, 고정, 편집기.
+8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 동작 막대가 있는 화면 고정 핀, 캡처 소리, 선 맞춤, 편집기.
 9. 화면 녹화: 영역·창·디스플레이를 소리와 함께 녹화하고, 편집기(자르기, 확대, 오버레이, MP4·GIF)로 다듬습니다.
 10. 빠른 한/영 전환: Caps Lock을 누르는 순간 입력 소스가 바뀌어 첫 글자가 씹히지 않습니다 (gksdud를 수정해 사용, MIT, NOTICE 참고). 키를 0.5초 누르고 있으면 영어로 바꾸고 대문자 고정을 켜거나 끕니다.
 
