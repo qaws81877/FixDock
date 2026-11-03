@@ -14,29 +14,37 @@ struct ScreenshotPinID: Hashable {
     fileprivate let raw: Int
 }
 
-/// One encoded picture. `image` is read without the ImageIO cache, so a
-/// picture nobody draws holds only its PNG (twenty decoded 5K captures would
-/// hold over a gigabyte). A class because identity is the version: an OCR or
-/// QR result whose picture is no longer the pin's is stale.
+/// One encoded picture that holds only its PNG (twenty decoded 5K captures
+/// would hold over a gigabyte). A class because identity is the version: an
+/// OCR or QR result whose picture is no longer the pin's is stale.
 final class ScreenshotPinPicture {
     let png: Data
-    let image: CGImage
+    let pixelSize: CGSize
     /// Pixels per point, never below 1.
     let scale: CGFloat
 
     init?(png: Data, scale: CGFloat) {
-        let options = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, options)
-        else { return nil }
+        guard let image = Self.decode(png) else { return nil }
         self.png = png
-        self.image = image
+        pixelSize = CGSize(width: image.width, height: image.height)
         self.scale = max(1, scale)
     }
 
+    /// A fresh decode on every read. Measured (M1): a `CGImage` keeps its
+    /// decoded pixels once it has been drawn or scanned, even without the
+    /// ImageIO cache, so holding one kept every hidden pin at full size.
+    /// The bytes decoded once in `init`, so this cannot fail.
+    var image: CGImage { Self.decode(png)! }
+
     /// Size at 100 %, in points.
     var naturalSize: CGSize {
-        CGSize(width: CGFloat(image.width) / scale, height: CGFloat(image.height) / scale)
+        CGSize(width: pixelSize.width / scale, height: pixelSize.height / scale)
+    }
+
+    private static func decode(_ png: Data) -> CGImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(png as CFData, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, options)
     }
 }
 
@@ -59,7 +67,8 @@ struct ScreenshotPinCapture {
 // MARK: - Stack
 
 /// Order and phase of every pin, bottom to top. Frames, opacity and pictures
-/// live on the windows, so nothing here is synced back from a drag.
+/// live on the visible pin's window and on the shell's records of hidden
+/// pins, so nothing here is synced back from a drag.
 ///
 /// - Past `capacity` the oldest resting entry drops. An entry under edit is
 ///   never dropped, since its editor still answers to it.

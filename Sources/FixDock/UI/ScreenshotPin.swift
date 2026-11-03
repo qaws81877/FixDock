@@ -8,8 +8,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Every capture lands here as a pin over the place it was taken, selected,
-/// with its bar. Owns the stack (order and phase), the windows that
-/// materialize it, which pin is selected, and the round trip to the editor.
+/// with its bar. Owns the stack (order and phase), each pin's window or
+/// record, which pin is selected, and the round trip to the editor.
 /// Main thread only. The pure decisions are in `Core/ScreenshotPinSupport.swift`.
 final class ScreenshotPinController: ObservableObject {
     static let shared = ScreenshotPinController()
@@ -17,12 +17,20 @@ final class ScreenshotPinController: ObservableObject {
     /// Published so the bar's badge derives `hiddenCount` from it.
     @Published fileprivate private(set) var stack = ScreenshotPinStack()
     /// Materialized from `stack` by `reconcile`; nothing else adds or removes.
-    private var windows: [ScreenshotPinID: PinWindow] = [:]
+    private var pins: [ScreenshotPinID: Pin] = [:]
     private var focus = ScreenshotPinFocus()
     /// Alive exactly while a pin is selected.
     private var focusWatch: FocusWatch?
     /// Alive exactly while the stack is non-empty.
     private var stackWatch: StackWatch?
+
+    /// Only the visible top has a window. Measured (M1): 19 ordered-out pin
+    /// windows kept about 8 MB of window-server backing store each, 151 MB in
+    /// all, so a hidden pin is a record and its window is dismantled.
+    private enum Pin {
+        case window(PinWindow)
+        case record(PinRecord)
+    }
 
     private init() {}
 
@@ -42,8 +50,8 @@ final class ScreenshotPinController: ObservableObject {
         let frame = ScreenshotPinLayout.pinFrame(naturalSize: picture.naturalSize, anchor: anchor,
                                                  pointer: pointer, visibleFrame: visible)
         let (id, _) = stack.push()
-        windows[id] = PinWindow(id: id, capture: ScreenshotPinCapture(display: picture), frame: frame,
-                                controller: self)
+        pins[id] = .record(PinRecord(capture: ScreenshotPinCapture(display: picture), frame: frame))
+        scanForCode(id, picture)
         reconcile(selectVisible: true)
     }
 
@@ -61,7 +69,7 @@ final class ScreenshotPinController: ObservableObject {
 
     /// The only place an action has an effect. No `default:`.
     fileprivate func perform(_ action: ScreenshotPinAction, on id: ScreenshotPinID, anchor: NSView?) {
-        guard let pin = windows[id], stack.presence(of: id) == .shown,
+        guard let pin = window(id), stack.presence(of: id) == .shown,
               action.availability(pin.barModel.context) == .ready
         else { return }
         switch action {
@@ -106,15 +114,30 @@ final class ScreenshotPinController: ObservableObject {
 
     fileprivate var hiddenCount: Int { stack.hiddenCount }
 
+    private func window(_ id: ScreenshotPinID) -> PinWindow? {
+        guard case .window(let window)? = pins[id] else { return nil }
+        return window
+    }
+
     // MARK: Reconcile
 
-    /// Makes the windows match the stack. A second run changes nothing. The
-    /// only caller of `dismantle` and `setOnScreen`. The visible top goes
-    /// first so key moves pin to pin: FixDock never passes through "no key
-    /// window", which would post didResignActive and race the new selection.
+    /// Makes the pins match the stack. A second run changes nothing. The
+    /// only place a window is made or dismantled, so the frame has one owner
+    /// at a time: the window while it exists, the record from the moment it
+    /// is dismantled. The visible top goes first so key moves pin to pin:
+    /// FixDock never passes through "no key window", which would post
+    /// didResignActive and race the new selection.
     private func reconcile(selectVisible: Bool) {
-        if let top = stack.visible, let window = windows[top] {
-            window.setOnScreen(true)
+        if let top = stack.visible, let pin = pins[top] {
+            let window: PinWindow
+            switch pin {
+            case .window(let shown):
+                window = shown
+            case .record(let record):
+                window = PinWindow(id: top, record: record, controller: self)
+                pins[top] = .window(window)
+                window.orderFrontRegardless()
+            }
             if selectVisible {
                 window.makeKey()
                 // Already key (a stale key flag after focus left): AppKit
@@ -122,14 +145,21 @@ final class ScreenshotPinController: ObservableObject {
                 if window.isKeyWindow { report(.keyGained(top)) }
             }
         }
-        for entry in stack.entries where stack.presence(of: entry.id) != .shown {
-            report(.gone(entry.id))
-            windows[entry.id]?.setOnScreen(false)
-        }
-        for (id, window) in windows where stack.presence(of: id) == .absent {
+        for (id, pin) in pins where stack.presence(of: id) != .shown {
             report(.gone(id))
-            window.dismantle()
-            windows[id] = nil
+            let record: PinRecord
+            switch pin {
+            case .window(let window): record = window.dismantle()
+            case .record(let stored): record = stored
+            }
+            guard stack.presence(of: id) == .absent else {
+                pins[id] = .record(record)
+                continue
+            }
+            if record.showedCode, ScreenshotQRResultController.shared.isShown {
+                ScreenshotQRResultController.shared.close()
+            }
+            pins[id] = nil
         }
         syncStackWatch()
     }
@@ -138,11 +168,11 @@ final class ScreenshotPinController: ObservableObject {
         for change in changes {
             switch change {
             case .select(let id, let emphasize):
-                windows[id]?.showSelection(emphasize: emphasize)
+                window(id)?.showSelection(emphasize: emphasize)
             case .deselect(let id):
-                windows[id]?.hideSelection()
+                window(id)?.hideSelection()
             case .restoreKey(let id):
-                DispatchQueue.main.async { [weak self] in self?.windows[id]?.restoreKeyIfAway() }
+                DispatchQueue.main.async { [weak self] in self?.window(id)?.restoreKeyIfAway() }
             }
         }
         syncFocusWatch()
@@ -150,7 +180,7 @@ final class ScreenshotPinController: ObservableObject {
 
     /// Derived from `focus.selected`: built on select, dropped on deselect.
     private func syncFocusWatch() {
-        guard let id = focus.selected, let pin = windows[id] else {
+        guard let id = focus.selected, let pin = window(id) else {
             focusWatch = nil
             return
         }
@@ -176,7 +206,7 @@ final class ScreenshotPinController: ObservableObject {
     /// event addressed to the pin window: keys in a key text panel go on to
     /// the main menu (Edit ▸ Copy copies the selection).
     private func route(_ event: NSEvent) -> NSEvent? {
-        guard let id = focus.selected, let window = windows[id], event.window === window else { return event }
+        guard let id = focus.selected, let pin = window(id), event.window === pin else { return event }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard let action = ScreenshotPinAction.forKey(keyCode: Int(event.keyCode), command: flags.contains(.command),
                                                       shift: flags.contains(.shift), option: flags.contains(.option),
@@ -190,29 +220,44 @@ final class ScreenshotPinController: ObservableObject {
     /// would otherwise reveal off screen.
     private func screensChanged() {
         let visibleFrames = NSScreen.screens.map(\.visibleFrame)
-        for window in windows.values { window.clamp(intoAnyOf: visibleFrames) }
+        for (id, pin) in pins {
+            switch pin {
+            case .window(let window):
+                window.clamp(intoAnyOf: visibleFrames)
+            case .record(var record):
+                record.frame = ScreenshotPinLayout.clamp(record.frame, intoAnyOf: visibleFrames)
+                pins[id] = .record(record)
+            }
+        }
     }
 
     // MARK: Editor round trip
 
     /// The pin leaves the screen (and, as the editing top, so does the stack
-    /// under it) while the editor has it. The window stays alive, ordered
-    /// out, holding the original capture and frame: that is what Cancel
-    /// restores, so Cancel needs no code of its own.
+    /// under it) while the editor has it. Its record keeps the original
+    /// capture and frame: that is what Cancel restores, so Cancel needs no
+    /// code of its own.
     private func beginEdit(_ id: ScreenshotPinID) {
-        guard let window = windows[id], stack.beginEdit(id) else { return }
+        guard let display = window(id)?.capture.display, stack.beginEdit(id) else { return }
         reconcile(selectVisible: false)
-        let display = window.capture.display
         ScreenshotService.shared.openEditor(image: display.image, scale: display.scale) { [weak self] outcome in
             self?.finishEdit(id, outcome)
         }
     }
 
     private func finishEdit(_ id: ScreenshotPinID, _ outcome: ScreenshotEditOutcome) {
-        guard stack.endEdit(id), let window = windows[id] else { return }
+        guard stack.endEdit(id), case .record(var record)? = pins[id] else { return }
         if case .edited(let display, let output) = outcome {
             if let shown = Self.picture(display) {
-                window.replace(with: ScreenshotPinCapture(display: shown, backdropped: output.flatMap(Self.picture)))
+                // Same top-left corner and zoom.
+                record.frame = ScreenshotPinLayout.frameAfterEdit(
+                    previous: record.frame, previousNatural: record.capture.display.naturalSize,
+                    newNatural: shown.naturalSize, visibleFrame: Self.visibleFrame(around: record.frame))
+                record.capture = ScreenshotPinCapture(display: shown, backdropped: output.flatMap(Self.picture))
+                record.code = nil
+                record.recognizedText = nil
+                pins[id] = .record(record)
+                scanForCode(id, shown)
             } else {
                 NSSound.beep()
             }
@@ -220,6 +265,28 @@ final class ScreenshotPinController: ObservableObject {
         // windowWillClose runs while AppKit still picks the next key window;
         // keying the pin one turn later keeps the closing editor from winning.
         DispatchQueue.main.async { [weak self] in self?.reconcile(selectVisible: true) }
+    }
+
+    /// Once per picture, off the main thread. The result goes to whichever
+    /// holds the pin by then, so a pin hidden mid-scan still gets its QR button.
+    private func scanForCode(_ id: ScreenshotPinID, _ picture: ScreenshotPinPicture) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let reading = ScreenshotRecognition.readCodes(picture.image) else { return }
+            DispatchQueue.main.async { self?.found(reading, in: picture, for: id) }
+        }
+    }
+
+    private func found(_ reading: ScreenshotRecognition.CodeReading, in picture: ScreenshotPinPicture,
+                       for id: ScreenshotPinID) {
+        switch pins[id] {
+        case .window(let window)?:
+            window.found(reading, in: picture)
+        case .record(var record)? where record.capture.display === picture:
+            record.code = reading
+            pins[id] = .record(record)
+        case .record?, nil:
+            break
+        }
     }
 
     /// Boundary: encode once, parse back into a picture that decodes on demand.
@@ -233,6 +300,25 @@ final class ScreenshotPinController: ObservableObject {
     fileprivate static func screen(containing point: CGPoint) -> NSScreen? {
         NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) }
     }
+
+    /// The visible frame of the screen holding `frame`'s centre.
+    fileprivate static func visibleFrame(around frame: CGRect, fallback: NSScreen? = nil) -> CGRect {
+        (screen(containing: CGPoint(x: frame.midX, y: frame.midY)) ?? fallback ?? NSScreen.main)?.visibleFrame
+            ?? fallbackVisibleFrame
+    }
+}
+
+/// What a pin keeps while it has no window: everything a reveal needs to
+/// rebuild it as it was.
+private struct PinRecord {
+    var capture: ScreenshotPinCapture
+    var frame: CGRect
+    var opacity: ScreenshotPinOpacity = .full
+    var code: ScreenshotRecognition.CodeReading?
+    /// OCR result for `capture.display`.
+    var recognizedText: String?
+    /// Its QR result may be up; closing the pin closes it.
+    var showedCode = false
 }
 
 // MARK: - Watches
@@ -305,33 +391,36 @@ private final class StackWatch {
 
 // MARK: - Pin window
 
-/// One pinned capture: the picture at its own frame, an accent border while
+/// The visible pin: the picture at its own frame, an accent border while
 /// selected, edge resize keeping proportions, and the right-click menu. Owns
 /// its bar and extracted-text panel as child windows. Its own delegate, so
-/// the controller exposes no delegate methods.
+/// the controller exposes no delegate methods. Made from a `PinRecord` on
+/// reveal and turned back into one by `dismantle`.
 private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServicePickerDelegate {
     let id: ScreenshotPinID
-    private(set) var capture: ScreenshotPinCapture
+    let capture: ScreenshotPinCapture
     /// Per-pin bar state (QR reading, OCR busy, opacity). One owner.
     let barModel = BarModel()
     private unowned let controller: ScreenshotPinController
-    private let content = PinContentView()
+    private let content: PinContentView
     /// Made on first selection; attached as a child only while selected.
     private var bar: BarPanel?
     private var barEdge = ScreenshotPinLayout.BarEdge.below
     private var textPanel: TextPanel?
     private var textModel: TextPanelModel?
-    /// OCR result for `capture.display`; nil after an edit replaces it.
+    /// OCR result for `capture.display`.
     private var recognizedText: String?
     private var picker: NSSharingServicePicker?
-    private var showedCode = false
+    private var showedCode: Bool
 
-    init(id: ScreenshotPinID, capture: ScreenshotPinCapture, frame: CGRect,
-         controller: ScreenshotPinController) {
+    init(id: ScreenshotPinID, record: PinRecord, controller: ScreenshotPinController) {
         self.id = id
-        self.capture = capture
+        capture = record.capture
+        recognizedText = record.recognizedText
+        showedCode = record.showedCode
         self.controller = controller
-        super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel, .resizable],
+        content = PinContentView(picture: record.capture.display.image)
+        super.init(contentRect: record.frame, styleMask: [.borderless, .nonactivatingPanel, .resizable],
                    backing: .buffered, defer: false)
         isReleasedWhenClosed = false
         level = .floating
@@ -345,20 +434,19 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
         contentView = content
         delegate = self
         content.menuProvider = { [weak self] in self?.contextMenu() }
-        scanForCode()
+        barModel.code = record.code
+        opacity = record.opacity
     }
 
     override var canBecomeKey: Bool { true }
 
     private var visibleFrame: CGRect {
-        let centre = CGPoint(x: frame.midX, y: frame.midY)
-        return (ScreenshotPinController.screen(containing: centre) ?? screen ?? NSScreen.main)?.visibleFrame
-            ?? ScreenshotPinController.fallbackVisibleFrame
+        ScreenshotPinController.visibleFrame(around: frame, fallback: screen)
     }
 
     private func applyPictureLimits() {
-        let image = capture.display.image
-        contentAspectRatio = CGSize(width: CGFloat(max(1, image.width)), height: CGFloat(max(1, image.height)))
+        let pixels = capture.display.pixelSize
+        contentAspectRatio = CGSize(width: max(1, pixels.width), height: max(1, pixels.height))
         let limits = ScreenshotPinLayout.resizeLimits(naturalSize: capture.display.naturalSize,
                                                       visibleFrame: visibleFrame)
         minSize = limits.min
@@ -419,30 +507,18 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
 
     // MARK: Driven by reconcile
 
-    /// Memory: a hidden pin keeps no decoded bitmap. Hiding clears the
-    /// layer's contents; showing sets them again from the picture, which
-    /// decodes from the PNG. The window and its frame stay, so a reveal
-    /// lands where the pin was.
-    func setOnScreen(_ shown: Bool) {
-        if shown {
-            guard !isVisible else { return }
-            content.picture = capture.display.image
-            orderFrontRegardless()
-        } else {
-            hideSelection(animated: false)
-            closeTextPanel()
-            bar?.orderOut(nil)
-            bar = nil
-            orderOut(nil)
-            content.picture = nil
-        }
-    }
-
-    /// An open Save As panel keeps running and writes the PNG it captured.
-    func dismantle() {
-        setOnScreen(false)
-        if showedCode, ScreenshotQRResultController.shared.isShown { ScreenshotQRResultController.shared.close() }
+    /// Closes the window and hands back what outlives it; the record owns the
+    /// frame from here. An open Save As panel keeps running and writes the
+    /// PNG it captured.
+    func dismantle() -> PinRecord {
+        hideSelection(animated: false)
+        closeTextPanel()
+        bar?.orderOut(nil)
+        bar = nil
         delegate = nil
+        close()
+        return PinRecord(capture: capture, frame: frame, opacity: opacity, code: barModel.code,
+                         recognizedText: recognizedText, showedCode: showedCode)
     }
 
     func clamp(intoAnyOf visibleFrames: [CGRect]) {
@@ -526,20 +602,6 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
 
     // MARK: Actions with window-local effects
 
-    /// After an edit came back. Same top-left corner and zoom. The window is
-    /// ordered out: the picture is set on reveal.
-    func replace(with new: ScreenshotPinCapture) {
-        let target = ScreenshotPinLayout.frameAfterEdit(previous: frame, previousNatural: capture.display.naturalSize,
-                                                        newNatural: new.display.naturalSize, visibleFrame: visibleFrame)
-        capture = new
-        applyPictureLimits()
-        setFrame(target, display: false)
-        recognizedText = nil
-        barModel.code = nil
-        barModel.readingText = false
-        scanForCode()
-    }
-
     /// Writes the output PNG as of the click, even if an edit lands meanwhile.
     func runSaveAs() {
         let panel = NSSavePanel()
@@ -602,8 +664,7 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let text = ScreenshotRecognition.readText(picture.image, languages: languages)
             DispatchQueue.main.async {
-                // Edited since: the result belongs to a picture the pin no longer shows.
-                guard let self, self.capture.display === picture else { return }
+                guard let self else { return }
                 self.barModel.readingText = false
                 self.recognizedText = text
                 if self.textPanel != nil { self.showText(text) }
@@ -645,18 +706,13 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
         ScreenshotQRResultController.shared.show(code)
     }
 
-    /// Off the main thread; the QR button appears when a code is found.
-    private func scanForCode() {
-        let picture = capture.display
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let reading = ScreenshotRecognition.readCodes(picture.image) else { return }
-            DispatchQueue.main.async {
-                guard let self, self.capture.display === picture else { return }
-                self.barModel.code = reading
-                // The bar is wider now; SwiftUI lays it out on the next turn.
-                DispatchQueue.main.async { [weak self] in self?.layoutSatellites() }
-            }
-        }
+    /// The controller's scan of `picture`; the QR button appears. A scan of
+    /// the picture before an edit is stale.
+    func found(_ reading: ScreenshotRecognition.CodeReading, in picture: ScreenshotPinPicture) {
+        guard capture.display === picture else { return }
+        barModel.code = reading
+        // The bar is wider now; SwiftUI lays it out on the next turn.
+        DispatchQueue.main.async { [weak self] in self?.layoutSatellites() }
     }
 
     private func contextMenu() -> NSMenu? {
@@ -704,11 +760,6 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
 private final class PinContentView: NSView {
     private let imageLayer = CALayer()
 
-    /// nil while the pin is hidden (memory: no decoded copy in the layer).
-    var picture: CGImage? {
-        didSet { imageLayer.contents = picture }
-    }
-
     var isSelected = false {
         didSet {
             layer?.borderWidth = isSelected ? 2 : 1
@@ -718,8 +769,9 @@ private final class PinContentView: NSView {
 
     var menuProvider: (() -> NSMenu?)?
 
-    init() {
+    init(picture: CGImage) {
         super.init(frame: .zero)
+        imageLayer.contents = picture
         wantsLayer = true
         layer?.cornerRadius = 7
         layer?.masksToBounds = true
