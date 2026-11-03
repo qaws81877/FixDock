@@ -89,6 +89,16 @@ Proof:
   process lingers after ⌘Q.
 - Pixel checks in a harness: a `CGContext`'s memory starts at the image's
   top row, and `CGImage.cropping(to:)` counts y from the top too.
+- Computer use cannot grant FixDock (it is not listed as an app), so it
+  refuses clicks on FixDock windows and any key while FixDock is frontmost;
+  `osascript` keystrokes are refused too (2026-11-03). With a granted app in
+  front, global capture chords and keys to a key pin do arrive. Read window
+  state from `CGWindowListCopyWindowInfo` (bounds, onscreen) by pid; clicks
+  and hovers stay owner checks.
+- A click on the desktop wallpaper can trigger macOS "click wallpaper to
+  reveal desktop", which slides every window, floating panels included,
+  off screen until an app is activated. Do not judge window positions after
+  a wallpaper click; deselect by activating another app instead.
 - A restore check (quit, crash, uninstall) passes only when the system state
   matches the saved baseline, the tool's own record is gone (for the fast
   switch, `InputSwitch/journal.plist`), and its log ends in `off`. A matching
