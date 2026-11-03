@@ -1079,6 +1079,8 @@ private final class BarTooltip {
         guard let bar, bar.isVisible, let anchor = hovered, anchor.window === bar else { return }
         let panel = self.panel ?? TooltipPanel()
         self.panel = panel
+        // Measured: a child does not inherit it; without it the tooltip is missing in full-screen Spaces.
+        panel.collectionBehavior = bar.collectionBehavior
         panel.text = anchor.text
         let item = bar.convertToScreen(anchor.convert(anchor.bounds, to: nil))
         let visible = (bar.screen ?? NSScreen.main)?.visibleFrame ?? item
