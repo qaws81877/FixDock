@@ -192,9 +192,6 @@ enum ScreenshotSupport {
         var id: String { rawValue }
     }
 
-    /// Seconds before an untouched preview closes; 0 keeps it open.
-    static let previewCloseChoices = [0, 5, 10, 30]
-
     /// The preview's frame in Cocoa screen points. A corner sits inside the
     /// visible frame; automatic sits beside the captured area, else beside
     /// the pointer. Adapted from upstream.

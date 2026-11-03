@@ -5,7 +5,7 @@
 import AppKit
 import SwiftUI
 
-/// What a preview action confirms with a toast.
+/// What a pin or Copy All action confirms with a toast.
 enum ScreenshotToast {
     case copied, saved
 
@@ -18,10 +18,10 @@ enum ScreenshotToast {
     }
 }
 
-/// A short line at the bottom centre of a display after Copy or Save in the
-/// preview. It outlives the preview, which Save closes. It never takes key
-/// status or clicks, so the preview keeps Command-C and Command-S while it
-/// shows. A new toast replaces the one on screen.
+/// A short line at the bottom centre of a display after a pin's Copy, Save,
+/// Save As or Copy All. It never takes key status or clicks, so the pin
+/// keeps Command-C and Command-S while it shows. A new toast replaces the
+/// one on screen.
 final class ScreenshotToastController {
     static let shared = ScreenshotToastController()
 

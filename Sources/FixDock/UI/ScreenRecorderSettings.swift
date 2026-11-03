@@ -24,6 +24,8 @@ struct ScreenRecorderSettings: View {
     @AppStorage(DefaultsKey.recorderGIFSize) private var gifSizeRaw = RecorderSupport.GIFSize.medium.rawValue
     @AppStorage(DefaultsKey.recorderGIFFrameRate) private var gifFrameRate = 12
     @AppStorage(DefaultsKey.screenshotSaveFolder) private var saveFolder = ""
+    @AppStorage(DefaultsKey.screenshotPreviewPosition) private var previewPosition =
+        ScreenshotSupport.PreviewPosition.bottomRight.rawValue
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -146,6 +148,11 @@ struct ScreenRecorderSettings: View {
             }
 
             Section(s.recorderEditorSettingsSection) {
+                Picker(s.screenshotPreviewPositionTitle, selection: $previewPosition) {
+                    ForEach(ScreenshotSupport.PreviewPosition.allCases) { choice in
+                        Text(positionTitle(choice)).tag(choice.rawValue)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(s.recorderEditorSettingsAutomaticZoomToggle, isOn: $automaticZoom)
                     Text(s.recorderEditorSettingsAutomaticZoomCaption)
@@ -168,6 +175,16 @@ struct ScreenRecorderSettings: View {
         }
         .formStyle(.grouped)
         .onAppear { permissions.refresh() }
+    }
+
+    private func positionTitle(_ position: ScreenshotSupport.PreviewPosition) -> String {
+        switch position {
+        case .automatic: return s.screenshotPreviewPositionAutomatic
+        case .bottomRight: return s.screenshotPreviewPositionBottomRight
+        case .bottomLeft: return s.screenshotPreviewPositionBottomLeft
+        case .topRight: return s.screenshotPreviewPositionTopRight
+        case .topLeft: return s.screenshotPreviewPositionTopLeft
+        }
     }
 
     private func permissionButton(_ kind: PermissionKind) -> some View {

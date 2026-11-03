@@ -7,10 +7,10 @@ import Combine
 import UniformTypeIdentifiers
 
 /// The screenshot tool: its two shortcuts, the overlay session and what
-/// happens to a capture. A capture is saved as a new PNG in the chosen folder
-/// and copied to the clipboard as image data, each when switched on. Nothing
-/// existing is ever overwritten, moved or removed. New in FixDock; the save
-/// and copy rules follow upstream.
+/// happens to a capture. A capture is copied to the clipboard as image data,
+/// saved as a new PNG in the chosen folder and pinned on screen, each when
+/// switched on. Nothing existing is ever overwritten, moved or removed. New
+/// in FixDock; the save and copy rules follow upstream.
 final class ScreenshotService: ObservableObject {
     static let shared = ScreenshotService()
 
@@ -25,7 +25,6 @@ final class ScreenshotService: ObservableObject {
 
     private var overlay: ScreenshotOverlayController?
     private var scrolling: ScreenshotScrollingSession?
-    private var preview: ScreenshotPreviewController?
     /// Open editors, dropped as each window closes.
     private var editors: [ScreenshotEditorController] = []
 
@@ -41,9 +40,8 @@ final class ScreenshotService: ObservableObject {
             hotkeys.actions[.captureOverlay] = nil
             hotkeys.actions[.captureFullScreen] = nil
             cancelOverlay()
-            preview?.close()
-            // Uninstalling tears the tool down at once, edits included, as
-            // it does the preview.
+            // Pins first: an editor's `.cancelled` then finds no entry.
+            ScreenshotPinController.shared.tearDown()
             editors.forEach { $0.closeWithoutAsking() }
         }
         hotkeys.sync()
@@ -177,97 +175,40 @@ final class ScreenshotService: ObservableObject {
 
     // MARK: - Output
 
-    /// `anchor` is the captured area in Cocoa screen points: where the
-    /// automatic preview sits, and the scale a pin is drawn at.
+    /// Three independent steps (owner, round 2): the copy, the auto-save,
+    /// the pin. A folder failure beeps and records itself but drops neither
+    /// the copy nor the pin. `anchor` is the captured area in Cocoa screen
+    /// points: where the pin opens, and the scale it is drawn at.
     func deliver(_ image: CGImage, anchor: CGRect? = nil) {
         let defaults = UserDefaults.standard
-        let save = defaults.bool(forKey: DefaultsKey.screenshotSaveToFile)
-        let copy = defaults.bool(forKey: DefaultsKey.screenshotCopyToClipboard)
         guard let png = Self.pngData(image) else {
             fail(L10n.shared.s.screenshotCaptureFailed)
             return
         }
-        if defaults.bool(forKey: DefaultsKey.screenshotShowPreview) {
-            showPreview(image, png: png, copy: copy, anchor: anchor)
-            return
-        }
-        var outcome: Outcome = .copied
-        if save {
-            switch Self.write(png, to: Self.saveFolder) {
-            case .success(let url):
-                outcome = .saved(url)
-            case .failure:
-                // A copy still happens: the picture is not lost to the folder.
-                if copy { copyToClipboard(image, png: png) }
-                fail(L10n.shared.s.screenshotFolderUnavailable)
-                return
-            }
-        }
-        if copy { copyToClipboard(image, png: png) }
-        if save || copy {
-            lastOutcome = outcome
-        }
-    }
-
-    /// With the preview on, only the copy is automatic. The file is written
-    /// when Save is pressed there; closing the preview keeps nothing on disk.
-    /// A new capture replaces a preview still on screen.
-    private func showPreview(_ image: CGImage, png: Data, copy: Bool, anchor: CGRect?) {
-        preview?.close()
-        if copy {
+        if defaults.bool(forKey: DefaultsKey.screenshotCopyToClipboard) {
             copyToClipboard(image, png: png)
             lastOutcome = .copied
         }
-        let controller = ScreenshotPreviewController(
-            image: image, png: png, anchor: anchor,
-            perform: { [weak self] action in
-                guard let self else { return false }
-                switch action {
-                case .save:
-                    switch Self.write(png, to: Self.saveFolder) {
-                    case .success(let url):
-                        self.lastOutcome = .saved(url)
-                        return true
-                    case .failure:
-                        self.fail(L10n.shared.s.screenshotFolderUnavailable)
-                        return false
-                    }
-                case .copy:
-                    self.copyToClipboard(image, png: png)
-                    self.lastOutcome = .copied
-                    return true
-                case .pin:
-                    ScreenshotPinController.shared.pin(image: image, scale: Self.scale(of: image, anchor: anchor))
-                    return true
-                case .edit:
-                    // The preview closes without saving; the editor owns the
-                    // capture from here.
-                    self.openEditor(image: image, scale: Self.scale(of: image, anchor: anchor))
-                    return true
-                case .discard:
-                    // Nothing was written: Save closes the preview, so a
-                    // discard never has a file to remove.
-                    return true
-                }
-            },
-            onClose: { [weak self] in self?.preview = nil })
-        preview = controller
-        controller.show()
-    }
-
-    /// Pixels per point of a capture: from the area it came from, else the
-    /// main display's.
-    private static func scale(of image: CGImage, anchor: CGRect?) -> CGFloat {
-        let scale = anchor.map { $0.width > 0 ? CGFloat(image.width) / $0.width : 2 }
-            ?? (NSScreen.main?.backingScaleFactor ?? 2)
-        return max(1, scale)
+        if defaults.bool(forKey: DefaultsKey.screenshotSaveToFile) {
+            _ = saveToFolder(png)
+        }
+        if defaults.bool(forKey: DefaultsKey.screenshotShowPreview) {
+            let scale = ScreenshotPinLayout.pixelsPerPoint(imagePixelWidth: image.width, anchorWidth: anchor?.width,
+                                                           fallback: NSScreen.main?.backingScaleFactor ?? 2)
+            ScreenshotPinController.shared.pin(png: png, scale: scale, capturedAt: anchor)
+        }
     }
 
     // MARK: - Editor
 
-    func openEditor(image: CGImage, scale: CGFloat) {
-        guard AppFeature.screenshot.isAvailable else { return }
-        let editor = ScreenshotEditorController(image: image, scale: scale)
+    /// The only way into the editor; every editor answers to a pin, exactly
+    /// once. Unavailable: the pin hears `.cancelled` at once and comes back.
+    func openEditor(image: CGImage, scale: CGFloat, onFinish: @escaping (ScreenshotEditOutcome) -> Void) {
+        guard AppFeature.screenshot.isAvailable else {
+            onFinish(.cancelled)
+            return
+        }
+        let editor = ScreenshotEditorController(image: image, scale: scale, onFinish: onFinish)
         editors.append(editor)
         editor.show()
     }
@@ -276,9 +217,10 @@ final class ScreenshotService: ObservableObject {
         editors.removeAll { $0 === editor }
     }
 
-    /// The editor's Save: a new file in the chosen folder, as the preview's
-    /// Save. False after the beep and message when the folder is unusable.
-    func saveEdited(_ png: Data) -> Bool {
+    /// A new file in the chosen folder, for the auto-save, the pin's Save
+    /// and the editor's Save. False after the beep and message when the
+    /// folder is unusable.
+    func saveToFolder(_ png: Data) -> Bool {
         switch Self.write(png, to: Self.saveFolder) {
         case .success(let url):
             lastOutcome = .saved(url)
@@ -290,13 +232,19 @@ final class ScreenshotService: ObservableObject {
     }
 
     /// Save As wrote `url` after the save panel's own replace question.
-    func editorSaved(_ url: URL) {
+    func noteSaved(_ url: URL) {
         lastOutcome = .saved(url)
     }
 
-    /// The edited image on the clipboard, image data only.
-    func copyEdited(_ image: CGImage) -> Bool {
-        guard copyImage(image) else { return false }
+    /// A capture on the clipboard, image data only, for the pin's and the
+    /// editor's Copy. `png` is passed when the caller already has it.
+    @discardableResult
+    func copyCapture(_ image: CGImage, png: Data?) -> Bool {
+        guard let png = png ?? Self.pngData(image) else {
+            NSSound.beep()
+            return false
+        }
+        copyToClipboard(image, png: png)
         lastOutcome = .copied
         return true
     }
@@ -339,17 +287,6 @@ final class ScreenshotService: ObservableObject {
         }
         ScreenshotSupport.markAsScreenCapture(url)
         return .success(url)
-    }
-
-    /// The image on the clipboard, for a pin's and the editor's Copy.
-    @discardableResult
-    func copyImage(_ image: CGImage) -> Bool {
-        guard let png = Self.pngData(image) else {
-            NSSound.beep()
-            return false
-        }
-        copyToClipboard(image, png: png)
-        return true
     }
 
     /// Text on the clipboard (a QR payload, recognized text, a colour), marked

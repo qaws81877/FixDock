@@ -445,15 +445,11 @@ struct Strings {
     let shortcutConflict: String
     let screenshotShowPreview: String
     let screenshotPreviewSavesOnly: String
-    let screenshotPreviewClose: String
     let screenshotPreviewShare: String
-    let screenshotPreviewDiscard: String
     let screenshotPreviewSave: String
     let screenshotPreviewCopy: String
     let screenshotPreviewEdit: String
-    let screenshotPreviewPin: String
     let screenshotPreviewQR: String
-    let screenshotPreviewCopyText: String
     let screenshotPreviewTextCopied: String
     let screenshotToastCopied: String
     let screenshotToastSaved: String
@@ -465,10 +461,6 @@ struct Strings {
     let screenshotPreviewPositionBottomLeft: String
     let screenshotPreviewPositionTopRight: String
     let screenshotPreviewPositionTopLeft: String
-    let screenshotPreviewCloseTitle: String
-    let screenshotPreviewCloseNever: String
-    let screenshotPreviewCloseAfter: String
-    let screenshotPreviewCloseWarning: String
     let screenshotLoupeTitle: String
     let screenshotLoupeAtStart: String
     let screenshotColorFormatTitle: String
@@ -481,9 +473,15 @@ struct Strings {
     let screenshotQROpen: String
     let screenshotPinSaveAs: String
     let screenshotPinOpacity: String
-    let screenshotPinClickThrough: String
     let screenshotPinClose: String
     let screenshotPinCloseAll: String
+    let screenshotPinExtractText: String
+    let screenshotPinSettings: String
+    let screenshotPinShortcuts: String
+    let screenshotPinOpenSettings: String
+    let screenshotPinHiddenFormat: String
+    let screenshotPinTextTitle: String
+    let screenshotPinTextCopyAll: String
     let screenshotEditorTitle: String
     let screenshotEditorToolSelect: String
     let screenshotEditorToolArrow: String
@@ -502,6 +500,7 @@ struct Strings {
     let screenshotEditorZoomActual: String
     let screenshotEditorZoomHint: String
     let screenshotEditorSaveMenu: String
+    let screenshotEditorDone: String
     let screenshotEditorDiscardTitle: String
     let screenshotEditorDiscardMessage: String
     let screenshotEditorDiscard: String
@@ -1221,17 +1220,13 @@ struct Strings {
         screenshotKeyHelpMove: "Hold while dragging to move the area",
         screenshotWindowLimit: "A window is captured on its own, without its shadow. Sheets and dialogs attached to it are not included.",
         shortcutConflict: "Another FixDock shortcut already uses that combination.",
-        screenshotShowPreview: "Show a preview after a capture",
-        screenshotPreviewSavesOnly: "The copy is automatic. A file is saved only when you press Save in the preview; closing it saves nothing.",
-        screenshotPreviewClose: "Close without saving",
+        screenshotShowPreview: "Pin the capture on screen",
+        screenshotPreviewSavesOnly: "Save on the pin writes a file to the folder. \"Save as a PNG file\" also saves every capture as it is taken.",
         screenshotPreviewShare: "Share",
-        screenshotPreviewDiscard: "Discard",
         screenshotPreviewSave: "Save",
         screenshotPreviewCopy: "Copy",
         screenshotPreviewEdit: "Edit",
-        screenshotPreviewPin: "Pin above other windows",
         screenshotPreviewQR: "Show the QR code's content",
-        screenshotPreviewCopyText: "Copy the text in the capture",
         screenshotPreviewTextCopied: "Text copied",
         screenshotToastCopied: "Copied!",
         screenshotToastSaved: "Saved!",
@@ -1243,10 +1238,6 @@ struct Strings {
         screenshotPreviewPositionBottomLeft: "Bottom left",
         screenshotPreviewPositionTopRight: "Top right",
         screenshotPreviewPositionTopLeft: "Top left",
-        screenshotPreviewCloseTitle: "Close the preview",
-        screenshotPreviewCloseNever: "Never",
-        screenshotPreviewCloseAfter: "After %ld seconds",
-        screenshotPreviewCloseWarning: "A preview that closes by itself saves no file; the capture stays only on the clipboard. Hovering over it keeps it open.",
         screenshotLoupeTitle: "Loupe",
         screenshotLoupeAtStart: "Turn on the loupe when the overlay opens",
         screenshotColorFormatTitle: "Colour format",
@@ -1259,9 +1250,15 @@ struct Strings {
         screenshotQROpen: "Open link",
         screenshotPinSaveAs: "Save As…",
         screenshotPinOpacity: "Opacity",
-        screenshotPinClickThrough: "Click through (Option-click to undo)",
         screenshotPinClose: "Close",
         screenshotPinCloseAll: "Close all pins",
+        screenshotPinExtractText: "Extract Text",
+        screenshotPinSettings: "Settings",
+        screenshotPinShortcuts: "Keyboard Shortcuts",
+        screenshotPinOpenSettings: "Screenshot Settings…",
+        screenshotPinHiddenFormat: "%d hidden pins",
+        screenshotPinTextTitle: "Text in the capture",
+        screenshotPinTextCopyAll: "Copy All",
         screenshotEditorTitle: "Edit capture",
         screenshotEditorToolSelect: "Select",
         screenshotEditorToolArrow: "Arrow",
@@ -1280,8 +1277,9 @@ struct Strings {
         screenshotEditorZoomActual: "Actual size",
         screenshotEditorZoomHint: "Pinch, or scroll with Control held, to zoom",
         screenshotEditorSaveMenu: "Save options",
+        screenshotEditorDone: "Done",
         screenshotEditorDiscardTitle: "Discard your edits?",
-        screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or pinned.",
+        screenshotEditorDiscardMessage: "The edited capture has not been saved, copied or kept with Done.",
         screenshotEditorDiscard: "Discard",
         screenshotEditorCancel: "Cancel",
         screenshotEditorToolBlur: "Blur",

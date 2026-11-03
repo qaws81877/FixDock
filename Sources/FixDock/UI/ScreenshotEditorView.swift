@@ -668,11 +668,6 @@ struct ScreenshotEditorView: View {
                     .transition(.scale.combined(with: .opacity))
             }
             Divider().frame(height: 16).padding(.horizontal, 3)
-            iconButton("pin", s.screenshotPreviewPin + "  (⌘P)", enabled: true) {
-                commitEditingTextIfNeeded()
-                controller.pin()
-            }
-            Divider().frame(height: 16).padding(.horizontal, 3)
             Menu {
                 Button(s.screenshotPreviewSave + "  (⌘S)") {
                     commitEditingTextIfNeeded()
@@ -695,8 +690,13 @@ struct ScreenshotEditorView: View {
                 commitEditingTextIfNeeded()
                 controller.copyToClipboard()
             }
-            .buttonStyle(.borderedProminent)
             .help(s.screenshotPreviewCopy + "  (⌘C, ⏎)")
+            Button(s.screenshotEditorDone) {
+                commitEditingTextIfNeeded()
+                controller.done()
+            }
+            .buttonStyle(.borderedProminent)
+            .help(s.screenshotEditorDone + "  (⌘⏎)")
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
