@@ -99,34 +99,46 @@ private struct GeneralSettingsPage: View {
     @ObservedObject private var l10n = L10n.shared
     @State private var launchAtLogin = UserDefaults.standard.bool(forKey: DefaultsKey.launchAtLoginWanted)
     @State private var loginMessage: String?
+    @State private var showsFeedback = false
 
     var body: some View {
         let strings = l10n.s
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(strings.languageTitle).font(.headline)
-                Text(strings.languageCaption)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(strings.languageTitle).font(.headline)
+                    Text(strings.languageCaption)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
                 Picker(strings.languageTitle, selection: $l10n.language) {
                     ForEach(AppLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
                     }
                 }
                 .labelsHidden()
-                .frame(width: 220)
+                .fixedSize()
             }
             .settingsCard()
 
             VStack(alignment: .leading, spacing: 6) {
-                Toggle(strings.launchAtLogin, isOn: Binding(
-                    get: { launchAtLogin },
-                    set: { applyLogin($0) }
-                ))
-                Text(strings.launchAtLoginCaption)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(strings.launchAtLogin).font(.headline)
+                        Text(strings.launchAtLoginCaption)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Toggle(strings.launchAtLogin, isOn: Binding(
+                        get: { launchAtLogin },
+                        set: { applyLogin($0) }
+                    ))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                }
                 if let loginMessage {
                     Text(loginMessage)
                         .font(.callout)
@@ -135,6 +147,19 @@ private struct GeneralSettingsPage: View {
                 }
             }
             .settingsCard()
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(strings.feedbackTitle).font(.headline)
+                    Text(strings.feedbackSectionCaption)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(strings.feedbackButton) { showsFeedback = true }
+            }
+            .settingsCard()
+            .sheet(isPresented: $showsFeedback) { FeedbackSheet() }
 
             Button(strings.relaunch) { appDelegate()?.relaunch() }
         }
@@ -205,7 +230,6 @@ private struct PermissionsSettingsPage: View {
 
 private struct AboutSettingsPage: View {
     @ObservedObject private var l10n = L10n.shared
-    @State private var showsFeedback = false
 
     var body: some View {
         let strings = l10n.s
@@ -240,10 +264,8 @@ private struct AboutSettingsPage: View {
                 Button("GPL-3.0") {
                     NSWorkspace.shared.open(AppInfo.licenseURL)
                 }
-                Button(strings.feedbackButton) { showsFeedback = true }
             }
         }
         .settingsCard()
-        .sheet(isPresented: $showsFeedback) { FeedbackSheet() }
     }
 }

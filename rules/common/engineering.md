@@ -10,7 +10,10 @@ Ask the owner first:
 
 - Anything that deletes, moves or overwrites user files, and the guard for it.
 - A new permission, a second global shortcut, a network call other than
-  the update check, or a new bundled third-party asset (and its license).
+  the update check and the feedback relay, a change to what feedback
+  sends, or a new bundled third-party asset (and its license).
+- Deploying the feedback relay or changing its secrets (the owner runs
+  `wrangler`; its login and `secret put` need a TTY).
 - Scope cuts from upstream that change what a tool does for the person.
 - Commits, pushes, PRs and merges, unless the owner asked for them.
 - Creating a public repository.
@@ -72,7 +75,7 @@ Platform quirks:
   keys: quit protection and snippets both go quiet with no warning
   (confirmed live). `kCGSSessionSecureInputPID` names the app that was
   frontmost when it was enabled, not the enabler. For "works sometimes"
-  reports, read the `keyTaps` log or the About › Feedback report first.
+  reports, read the `keyTaps` log or the General › Feedback report first.
 
 - A service's `syncWithPreferences` also runs from timers (the fast switch's
   1 s repair, permission polls) and from its system layer's callbacks. Put
