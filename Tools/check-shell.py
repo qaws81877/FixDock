@@ -361,6 +361,9 @@ def main():
     support_imports = re.findall(r"^import (\w+)", (sources / "Core/InputSwitchSupport.swift").read_text(encoding="utf-8"), re.M)
     if support_imports != ["Foundation"]:
         errors += fail(f"InputSwitchSupport.swift must import only Foundation, imports {support_imports}")
+    pin_imports = re.findall(r"^import (\w+)", (sources / "Core/ScreenshotPinSupport.swift").read_text(encoding="utf-8"), re.M)
+    if pin_imports != ["Carbon", "CoreGraphics", "Foundation", "ImageIO"]:
+        errors += fail(f"ScreenshotPinSupport.swift must import only Carbon, CoreGraphics, Foundation and ImageIO, imports {pin_imports}")
     switch_system = (sources / "Services/InputSwitchSystem.swift").read_text(encoding="utf-8")
     if re.search(r"^import (AppKit|SwiftUI)", switch_system, re.M) or re.search(r"\bNS(App|Application|Workspace)\b", switch_system):
         errors += fail("InputSwitchSystem.swift must not use AppKit (it also runs headless)")

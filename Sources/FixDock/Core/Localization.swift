@@ -484,6 +484,10 @@ struct Strings {
     let screenshotPinClickThrough: String
     let screenshotPinClose: String
     let screenshotPinCloseAll: String
+    let screenshotPinExtractText: String
+    let screenshotPinSettings: String
+    let screenshotPinShortcuts: String
+    let screenshotPinOpenSettings: String
     let screenshotEditorTitle: String
     let screenshotEditorToolSelect: String
     let screenshotEditorToolArrow: String
@@ -1262,6 +1266,10 @@ struct Strings {
         screenshotPinClickThrough: "Click through (Option-click to undo)",
         screenshotPinClose: "Close",
         screenshotPinCloseAll: "Close all pins",
+        screenshotPinExtractText: "Extract Text",
+        screenshotPinSettings: "Settings",
+        screenshotPinShortcuts: "Keyboard Shortcuts",
+        screenshotPinOpenSettings: "Screenshot Settings…",
         screenshotEditorTitle: "Edit capture",
         screenshotEditorToolSelect: "Select",
         screenshotEditorToolArrow: "Arrow",
