@@ -53,6 +53,10 @@ Git:
   shared contract: the shared files, a stub for the seam between them,
   and string block markers before `versionFormat` (one per branch, with
   lines between) so each branch adds strings in its own block.
+- secret-scan on a branch with no upstream scans the whole history, the
+  upstream import included, and flags its old test strings. Before the
+  first push, scan with `git branch --set-upstream-to=origin/main`, then
+  `git branch --unset-upstream`.
 
 Clipboard:
 
@@ -76,6 +80,11 @@ Platform quirks:
   (confirmed live). `kCGSSessionSecureInputPID` names the app that was
   frontmost when it was enabled, not the enabler. For "works sometimes"
   reports, read the `keyTaps` log or the General › Feedback report first.
+- A `CGImage` keeps its decoded pixels once drawn or scanned by Vision,
+  even when read with `kCGImageSourceShouldCache: false`, and an ordered-out
+  window keeps its window-server backing store (measured with `footprint`:
+  20 hidden pins, 158 MB Image IO and 151 MB unmapped). Hidden items hold
+  the PNG and decode on read, and keep no window.
 
 - A service's `syncWithPreferences` also runs from timers (the fast switch's
   1 s repair, permission polls) and from its system layer's callbacks. Put
