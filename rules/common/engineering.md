@@ -67,9 +67,13 @@ Clipboard:
 
 Bundle:
 
-- `build.sh` copies only `Resources/*.lproj` and `Resources/Icons` into the
-  app. A new resource folder needs its own copy line there. Without it, the
-  app silently uses fallbacks.
+- `build.sh` copies only `Resources/*.lproj`, `Resources/Icons` and
+  `Resources/Sounds` into the app. A new resource folder needs its own copy
+  line there. Without it, the app silently uses fallbacks.
+- `check-shell.py` scans every file under `Resources/`, binaries included.
+  Media converted from a tagged source carries its metadata (an MP3's
+  comment had two `https://` links) and fails the URL check. Convert
+  with `ffmpeg -map_metadata -1` and credit the source in `NOTICE`.
 - Bump the version by editing the two `Resources/Info.plist` values as text.
   `PlistBuddy -c Set` rewrites the file and reorders its keys.
 
