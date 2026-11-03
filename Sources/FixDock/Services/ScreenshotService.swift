@@ -98,6 +98,7 @@ final class ScreenshotService: ObservableObject {
             ?? NSScreen.main
         guard let displayID = screen?.displayID else { return }
         isCapturing = true
+        ScreenshotSound.shutter.play()
         Task { @MainActor in
             let image = await ScreenshotCaptureEngine.captureDisplay(displayID)
             self.isCapturing = false

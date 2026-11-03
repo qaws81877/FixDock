@@ -136,6 +136,7 @@ cp "build/$EXECUTABLE" "$STAGE/Contents/MacOS/$EXECUTABLE"
 cp Resources/Info.plist "$STAGE/Contents/Info.plist"
 cp -R Resources/*.lproj "$STAGE/Contents/Resources/"
 cp -R Resources/Icons "$STAGE/Contents/Resources/"
+cp -R Resources/Sounds "$STAGE/Contents/Resources/"
 printf 'APPL????' > "$STAGE/Contents/PkgInfo"
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $APP_BUNDLE_ID" "$STAGE/Contents/Info.plist"

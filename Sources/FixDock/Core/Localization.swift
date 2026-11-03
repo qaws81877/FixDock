@@ -463,6 +463,10 @@ struct Strings {
     let screenshotPreviewPositionTopLeft: String
     let screenshotLoupeTitle: String
     let screenshotLoupeAtStart: String
+    let screenshotOverlayTitle: String
+    let screenshotCaptureSounds: String
+    let screenshotCaptureSoundsNote: String
+    let screenshotSnapToLines: String
     let screenshotColorFormatTitle: String
     let screenshotColorFormatHex: String
     let screenshotColorFormatHexPlain: String
@@ -1240,6 +1244,10 @@ struct Strings {
         screenshotPreviewPositionTopLeft: "Top left",
         screenshotLoupeTitle: "Loupe",
         screenshotLoupeAtStart: "Turn on the loupe when the overlay opens",
+        screenshotOverlayTitle: "Capture overlay",
+        screenshotCaptureSounds: "Play sounds when capturing",
+        screenshotCaptureSoundsNote: "A beep when a drag starts and a shutter when the capture is taken, at the alert volume and on the sound effects output chosen in Sound settings.",
+        screenshotSnapToLines: "Snap the selection to horizontal and vertical lines",
         screenshotColorFormatTitle: "Colour format",
         screenshotColorFormatHex: "HEX",
         screenshotColorFormatHexPlain: "HEX without #",

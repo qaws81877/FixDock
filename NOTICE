@@ -66,8 +66,15 @@ uses FixDock's own mark (Resources/Icons/fixdock-mark.svg).
 
 FixDock bundles a few icons from Reicon (github.com/dqev/reicon), MIT
 License, Copyright (c) 2025 REICON. They are in Resources/Icons with the
-license text in Resources/Icons/LICENSE-reicon.txt. No other third-party
-asset is bundled.
+license text in Resources/Icons/LICENSE-reicon.txt.
+
+FixDock bundles two screenshot sounds from Freesound, both released under
+Creative Commons 0 (public domain dedication).
+Resources/Sounds/capture-focus.wav is the first 0.3 s of "Camera Shutter
+Click" by Kodack (freesound.org/s/271010/), and
+Resources/Sounds/capture-shutter.wav is "Nice Camera click.wav" by mmaruska
+(freesound.org/s/167556/). Both were trimmed, faded, converted to mono and
+level-adjusted for FixDock. No other third-party asset is bundled.
 The app icon (Resources/AppIcon.png) and the menu bar mark
 (Resources/Icons/fixdock-mark.svg) were drawn for FixDock, are covered by
 FixDock's GPL-3.0-or-later license, and contain no upstream artwork.

@@ -52,6 +52,8 @@ private struct ScreenshotSettingsTab: View {
     @AppStorage(DefaultsKey.screenshotColorFormat) private var colorFormat =
         ScreenshotSupport.ColorFormat.default.rawValue
     @AppStorage(DefaultsKey.screenshotLoupeAtStart) private var loupeAtStart = true
+    @AppStorage(DefaultsKey.screenshotCaptureSounds) private var captureSounds = true
+    @AppStorage(DefaultsKey.screenshotSnapToLines) private var snapToLines = true
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -103,6 +105,16 @@ private struct ScreenshotSettingsTab: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+            }
+
+            Section(s.screenshotOverlayTitle) {
+                Toggle(s.screenshotCaptureSounds, isOn: $captureSounds)
+                if captureSounds {
+                    Text(s.screenshotCaptureSoundsNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Toggle(s.screenshotSnapToLines, isOn: $snapToLines)
             }
 
             Section(s.screenshotLoupeTitle) {
