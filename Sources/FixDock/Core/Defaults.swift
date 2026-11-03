@@ -69,12 +69,14 @@ enum DefaultsKey {
     static let screenshotFullScreenShortcutEnabled = "screenshotFullScreenShortcutEnabled"
     /// Folder path for saved captures; empty means the Desktop.
     static let screenshotSaveFolder = "screenshotSaveFolder"
+    /// Auto-save: every capture written to the folder as it is taken. Off,
+    /// a file is written only from the pin's Save.
     static let screenshotSaveToFile = "screenshotSaveToFile"
     static let screenshotCopyToClipboard = "screenshotCopyToClipboard"
-    /// After a capture, a preview offers Save; the file is written only then.
+    /// "Pin the capture on screen". The legacy key name is kept so no
+    /// defaults migration is needed.
     static let screenshotShowPreview = "screenshotShowPreview"
-    /// Seconds before an untouched preview closes; 0 keeps it open.
-    static let screenshotPreviewCloseSeconds = "screenshotPreviewCloseSeconds"
+    /// The recorder preview's corner.
     static let screenshotPreviewPosition = "screenshotPreviewPosition"
     /// `ScreenshotSupport.ColorFormat` raw value for the overlay loupe and C.
     static let screenshotColorFormat = "screenshotColorFormat"
@@ -163,10 +165,9 @@ enum Defaults {
             DefaultsKey.inputSwitchLongPressCapsLock: true,
             DefaultsKey.screenshotOverlayShortcutEnabled: true,
             DefaultsKey.screenshotFullScreenShortcutEnabled: true,
-            DefaultsKey.screenshotSaveToFile: true,
+            DefaultsKey.screenshotSaveToFile: false,
             DefaultsKey.screenshotCopyToClipboard: true,
             DefaultsKey.screenshotShowPreview: true,
-            DefaultsKey.screenshotPreviewCloseSeconds: 0,
             DefaultsKey.screenshotPreviewPosition: ScreenshotSupport.PreviewPosition.bottomRight.rawValue,
             DefaultsKey.screenshotColorFormat: ScreenshotSupport.ColorFormat.default.rawValue,
             DefaultsKey.screenshotLoupeAtStart: true,

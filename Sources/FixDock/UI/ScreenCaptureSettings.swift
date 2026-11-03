@@ -45,13 +45,10 @@ struct ScreenCaptureSettingsPage: View {
 private struct ScreenshotSettingsTab: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
-    @AppStorage(DefaultsKey.screenshotSaveToFile) private var saveToFile = true
+    @AppStorage(DefaultsKey.screenshotSaveToFile) private var saveToFile = false
     @AppStorage(DefaultsKey.screenshotCopyToClipboard) private var copyToClipboard = true
     @AppStorage(DefaultsKey.screenshotSaveFolder) private var saveFolder = ""
     @AppStorage(DefaultsKey.screenshotShowPreview) private var showPreview = true
-    @AppStorage(DefaultsKey.screenshotPreviewCloseSeconds) private var closeSeconds = 0
-    @AppStorage(DefaultsKey.screenshotPreviewPosition) private var position =
-        ScreenshotSupport.PreviewPosition.bottomRight.rawValue
     @AppStorage(DefaultsKey.screenshotColorFormat) private var colorFormat =
         ScreenshotSupport.ColorFormat.default.rawValue
     @AppStorage(DefaultsKey.screenshotLoupeAtStart) private var loupeAtStart = true
@@ -80,26 +77,8 @@ private struct ScreenshotSettingsTab: View {
                     Text(s.screenshotPreviewSavesOnly)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker(s.screenshotPreviewPositionTitle, selection: $position) {
-                        ForEach(ScreenshotSupport.PreviewPosition.allCases) { choice in
-                            Text(positionTitle(choice)).tag(choice.rawValue)
-                        }
-                    }
-                    Picker(s.screenshotPreviewCloseTitle, selection: $closeSeconds) {
-                        ForEach(ScreenshotSupport.previewCloseChoices, id: \.self) { seconds in
-                            Text(seconds == 0 ? s.screenshotPreviewCloseNever
-                                 : String(format: s.screenshotPreviewCloseAfter, seconds))
-                                .tag(seconds)
-                        }
-                    }
-                    if closeSeconds > 0 {
-                        Text(s.screenshotPreviewCloseWarning)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                } else {
-                    Toggle(s.screenshotSaveToFile, isOn: $saveToFile)
                 }
+                Toggle(s.screenshotSaveToFile, isOn: $saveToFile)
                 HStack {
                     Text(s.screenshotFolder)
                     Spacer(minLength: 8)
@@ -153,16 +132,6 @@ private struct ScreenshotSettingsTab: View {
         }
         .formStyle(.grouped)
         .onAppear { permissions.refresh() }
-    }
-
-    private func positionTitle(_ position: ScreenshotSupport.PreviewPosition) -> String {
-        switch position {
-        case .automatic: return s.screenshotPreviewPositionAutomatic
-        case .bottomRight: return s.screenshotPreviewPositionBottomRight
-        case .bottomLeft: return s.screenshotPreviewPositionBottomLeft
-        case .topRight: return s.screenshotPreviewPositionTopRight
-        case .topLeft: return s.screenshotPreviewPositionTopLeft
-        }
     }
 
     private static let formatExample = ScreenshotSupport.PixelColor(red: 255, green: 128, blue: 0)
