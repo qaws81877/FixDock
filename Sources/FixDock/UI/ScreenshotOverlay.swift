@@ -51,6 +51,7 @@ final class ScreenshotOverlayController {
     private var globalKeyMonitor: Any?
     private var finished = false
     private var noticeWork: DispatchWorkItem?
+    private var snapGridsRequested = false
     fileprivate var spaceIsDown = false
 
     init(frozen: [CGDirectDisplayID: CGImage], windows: [ScreenshotSupport.PickableWindow]) {
@@ -77,6 +78,29 @@ final class ScreenshotOverlayController {
         ScreenshotOverlayView.hiddenCursor.set()
         installKeyMonitors()
         panels.forEach { $0.overlayView.pointerMoved(to: $0.mouseLocationInView) }
+        buildSnapGridsIfNeeded()
+    }
+
+    /// One luma grid per display, built off the main thread; until a
+    /// display's grid arrives its selection does not snap.
+    private func buildSnapGridsIfNeeded() {
+        guard !snapGridsRequested, options.tool != .recording,
+              UserDefaults.standard.bool(forKey: DefaultsKey.screenshotSnapToLines)
+        else { return }
+        snapGridsRequested = true
+        for panel in panels {
+            let image = panel.frozenImage
+            let size = panel.screenFrame.size
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, weak panel] in
+                let grid = ScreenshotLineSnap.LumaGrid(image: image, width: Int(size.width.rounded()),
+                                                       height: Int(size.height.rounded()))
+                DispatchQueue.main.async {
+                    guard let self, let panel, let grid, self.panels.contains(where: { $0 === panel })
+                    else { return }
+                    panel.overlayView.snapGridReady(grid, pointer: panel.mouseLocationInView)
+                }
+            }
+        }
     }
 
     func cancel() {
@@ -101,8 +125,8 @@ final class ScreenshotOverlayController {
             finish(.recording(panel.recordingRegion(for: local, windowID: window.id)))
             return
         }
-        let mainHeight = NSScreen.screens.first?.frame.height ?? 0
-        let anchor = ScreenshotSupport.flipped(window.frame, mainScreenHeight: mainHeight)
+        let anchor = panel.screenRect(for: window.frame)
+        ScreenshotSound.shutter.play()
         closePanels()
         Task { @MainActor in
             let image = await ScreenshotCaptureEngine.captureWindow(window.id)
@@ -117,6 +141,7 @@ final class ScreenshotOverlayController {
             finish(.recording(panel.recordingRegion(for: localRect, windowID: nil)))
             return
         }
+        ScreenshotSound.shutter.play()
         if options.scrolling {
             finish(.scrolling(displayID: panel.displayID, localRect: localRect))
             return
@@ -135,6 +160,7 @@ final class ScreenshotOverlayController {
             finish(.recording(panel.recordingRegion(for: whole, windowID: nil)))
             return
         }
+        ScreenshotSound.shutter.play()
         finish(.image(panel.frozenImage, anchor: panel.screenFrame))
     }
 
@@ -212,6 +238,7 @@ final class ScreenshotOverlayController {
             return
         }
         options.tool = tool
+        buildSnapGridsIfNeeded()
     }
 
     func stepLoupe(backward: Bool = false) {
@@ -252,7 +279,8 @@ final class ScreenshotOverlayController {
         let target = CGPoint(x: location.x + delta.x * step, y: mainHeight - (location.y + delta.y * step))
         CGWarpMouseCursorPosition(target)
         CGAssociateMouseAndMouseCursorPosition(1)
-        panels.forEach { $0.overlayView.pointerMoved(to: $0.mouseLocationInView) }
+        // Nudging places the pointer one pixel at a time, so it never snaps.
+        panels.forEach { $0.overlayView.pointerMoved(to: $0.mouseLocationInView, snapping: false) }
         if let panel = panelUnderMouse() { pointerEntered(panel) }
     }
 
@@ -313,7 +341,10 @@ final class ScreenshotOverlayController {
         keyMonitor = nil
         globalKeyMonitor = nil
         noticeWork?.cancel()
-        panels.forEach { $0.orderOut(nil) }
+        panels.forEach {
+            $0.overlayView.dropSnapGrid()
+            $0.orderOut(nil)
+        }
         panels.removeAll()
         NSCursor.arrow.set()
     }
@@ -429,13 +460,31 @@ final class ScreenshotOverlayView: NSView {
     private let windows: [ScreenshotSupport.PickableWindow]
     private var pointer: CGPoint?
     private var hoverWindow: ScreenshotSupport.PickableWindow?
-    private var dragStart: CGPoint?
-    private var dragEnd: CGPoint?
-    private var lastDragPoint: CGPoint?
+    private var drag: Drag?
+    private var snapGrid: ScreenshotLineSnap.LumaGrid?
+    /// False after an arrow-key nudge, until the mouse moves again.
+    private var pointerSnaps = true
     private var options: ScreenshotOverlayOptions { controller.options }
     private var optionsWatch: AnyCancellable?
 
-    var isDragging: Bool { dragStart != nil }
+    /// One press of the mouse. Click or drag is decided on the raw pointer,
+    /// so a corner that snapped a few points away cannot turn a click on a
+    /// window into a region.
+    private struct Drag {
+        /// Where the press was, moved along with the selection under Space.
+        var press: CGPoint
+        /// The raw pointer at the last event.
+        var last: CGPoint
+        /// The selection's corners, snapped to lines where there are any.
+        var start: CGPoint
+        var end: CGPoint
+        /// The focus beep has played for this drag.
+        var beeped = false
+
+        var isClick: Bool { ScreenshotSupport.isClick(from: press, to: last) }
+    }
+
+    var isDragging: Bool { drag != nil }
 
     /// Scrolling capture is a screenshot mode; with the recording tool a
     /// click still picks a window.
@@ -470,16 +519,44 @@ final class ScreenshotOverlayView: NSView {
 
     // MARK: Pointer
 
-    func pointerMoved(to point: CGPoint) {
+    /// The window under the pointer is found at the raw point; the drawn
+    /// pointer, where the next corner goes, is the snapped one.
+    func pointerMoved(to point: CGPoint, snapping: Bool = true) {
         guard bounds.contains(point) else {
             clearPointer()
             return
         }
-        pointer = point
+        pointerSnaps = snapping
+        pointer = snapping ? snapped(point) : point
         if !isDragging {
             hoverWindow = scrollingCapture ? nil : ScreenshotSupport.window(at: point, in: windows)
         }
         needsDisplay = true
+    }
+
+    // MARK: Snapping
+
+    func snapGridReady(_ grid: ScreenshotLineSnap.LumaGrid, pointer location: CGPoint) {
+        snapGrid = grid
+        if !isDragging, pointer != nil { pointerMoved(to: location, snapping: pointerSnaps) }
+    }
+
+    func dropSnapGrid() {
+        snapGrid = nil
+    }
+
+    private func snapped(_ point: CGPoint) -> CGPoint {
+        guard let snapGrid, options.tool != .recording else { return point }
+        let snap = ScreenshotLineSnap.snap(point, in: snapGrid)
+        return CGPoint(x: snap.x.map { CGFloat($0) } ?? point.x, y: snap.y.map { CGFloat($0) } ?? point.y)
+    }
+
+    /// A dragged corner that snapped onto the start's line on one axis would
+    /// leave a selection with no width or height there; that axis stays raw.
+    private func snappedEnd(_ point: CGPoint, start: CGPoint) -> CGPoint {
+        let end = snapped(point)
+        return CGPoint(x: end.x == start.x && point.x != start.x ? point.x : end.x,
+                       y: end.y == start.y && point.y != start.y ? point.y : end.y)
     }
 
     func clearPointer() {
@@ -517,36 +594,38 @@ final class ScreenshotOverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        dragStart = point
-        dragEnd = point
-        lastDragPoint = point
-        pointer = point
+        let corner = pointerSnaps ? snapped(point) : point
+        drag = Drag(press: point, last: point, start: corner, end: corner)
+        pointer = corner
         needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard var drag else { return }
         let point = convert(event.locationInWindow, from: nil)
-        if controller.spaceIsDown, let last = lastDragPoint, let start = dragStart, let end = dragEnd {
-            let dx = point.x - last.x
-            let dy = point.y - last.y
-            dragStart = CGPoint(x: start.x + dx, y: start.y + dy)
-            dragEnd = CGPoint(x: end.x + dx, y: end.y + dy)
+        if controller.spaceIsDown {
+            let delta = CGPoint(x: point.x - drag.last.x, y: point.y - drag.last.y)
+            drag.press = CGPoint(x: drag.press.x + delta.x, y: drag.press.y + delta.y)
+            drag.start = CGPoint(x: drag.start.x + delta.x, y: drag.start.y + delta.y)
+            drag.end = CGPoint(x: drag.end.x + delta.x, y: drag.end.y + delta.y)
         } else {
-            dragEnd = point
+            drag.end = snappedEnd(point, start: drag.start)
         }
-        lastDragPoint = point
-        pointer = point
+        drag.last = point
+        if !drag.beeped, !drag.isClick, options.tool != .recording {
+            drag.beeped = true
+            ScreenshotSound.focus.play()
+        }
+        self.drag = drag
+        pointer = drag.end
         hoverWindow = nil
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard let start = dragStart, let panel else { return }
-        let end = dragEnd ?? start
-        dragStart = nil
-        dragEnd = nil
-        lastDragPoint = nil
-        if ScreenshotSupport.isClick(from: start, to: end) {
+        guard let drag, let panel else { return }
+        self.drag = nil
+        if drag.isClick {
             let point = convert(event.locationInWindow, from: nil)
             if !scrollingCapture, let window = ScreenshotSupport.window(at: point, in: windows) {
                 controller.pickWindow(window, on: panel)
@@ -555,7 +634,7 @@ final class ScreenshotOverlayView: NSView {
             }
             return
         }
-        let rect = ScreenshotSupport.clamp(ScreenshotSupport.rect(from: start, to: end), to: bounds)
+        let rect = ScreenshotSupport.clamp(ScreenshotSupport.rect(from: drag.start, to: drag.end), to: bounds)
         controller.pickRegion(rect, on: panel)
     }
 
@@ -566,9 +645,8 @@ final class ScreenshotOverlayView: NSView {
     // MARK: Drawing
 
     private var selection: CGRect? {
-        guard let start = dragStart, let end = dragEnd, !ScreenshotSupport.isClick(from: start, to: end)
-        else { return nil }
-        return ScreenshotSupport.clamp(ScreenshotSupport.rect(from: start, to: end), to: bounds)
+        guard let drag, !drag.isClick else { return nil }
+        return ScreenshotSupport.clamp(ScreenshotSupport.rect(from: drag.start, to: drag.end), to: bounds)
     }
 
     override func draw(_ dirtyRect: NSRect) {
