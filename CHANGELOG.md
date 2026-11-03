@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.4
+
+- Screenshot pins: every capture now stays on screen as a pin where it was taken, at its own size (shrunk when larger than about half the screen). The corner preview card is gone. Drag to move, drag an edge to resize. A floating bar under the selected pin has Save (and Save As), Copy, Share, Extract Text, Edit, QR when a code was found, a handle to drag the image into other apps, Settings (opacity, shortcuts, Close All) and Close; the right-click menu has the same items. While a pin is selected: ⌘S save, ⇧⌘S Save As, ⌘C copy, ⌘E edit, ⌘T extract text, ⌘W or Esc close. A new capture hides the previous pin; closing the top one brings back the one under it (up to 20). Editing hides the pin and brings it back with the edit. "Show preview" is now "Pin the capture on screen" (on by default), and "Save as a PNG file" is off by default.
+- A window captured on a second display is pinned on that display, not the main one.
+- Capture sounds: a short focus beep when a drag starts and a shutter when a window, area or whole screen is captured. They follow the system alert volume and sound effects output, and can be turned off in Settings › Screen capture (on by default). The sounds are CC0 clips from Freesound, credited in NOTICE.
+- Snap to lines: while you drag a capture area, its corners snap to horizontal and vertical lines within a few points, such as window edges and table rules. Turn it off in Settings › Screen capture (on by default).
+- Feedback moved to Settings › General › Feedback, with Bug and Features & Ideas tabs. Send posts the report to the FixDock developer through a small relay; Copy still keeps it on this Mac. Nothing is sent until you press Send. What is sent and who sees it is in PRIVACY.md.
+
 ## 1.0.3
 
 - Quit protection and text snippets now say why they hear no keys. While another app holds secure input (a password field, a sign-in window, Terminal's Secure Keyboard Entry), macOS hides typing from both, so ⌘Q passes straight through and snippets do not expand; their Settings pages now show this with the app macOS names. A keyboard monitor macOS refuses to start is shown and retried every few seconds. Both are written to the log (category `keyTaps`).
