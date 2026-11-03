@@ -26,6 +26,8 @@ Invariants:
   when the person presses Send in the feedback sheet. The Discord webhooks
   live only in the relay's Cloudflare secrets, never in the app or the repo.
   No other endpoint, no upstream update feed, no analytics or telemetry.
+  A change to the endpoints also updates the network sentence in README's
+  English and Korean introductions.
 - `LICENSE` byte-identical to upstream; `NOTICE` keeps the upstream credit and
   only gains entries (forks, bundled third-party assets with their license).
 - No Vorssaint name, logo, bundle id, signing identity or domain
