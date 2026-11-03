@@ -203,6 +203,16 @@ struct Strings {
     let feedbackCopyButton: String
     let feedbackCopied: String
     let feedbackClose: String
+    let feedbackSectionCaption: String
+    let feedbackKindBug: String
+    let feedbackKindIdea: String
+    let feedbackIdeaPrompt: String
+    let feedbackIncludeTechInfo: String
+    let feedbackIdeaNotice: String
+    let feedbackSendButton: String
+    let feedbackSending: String
+    let feedbackSent: String
+    let feedbackSendFailed: String
     let snippetsUnreadable: String
     let snippetsAddButton: String
     let snippetsNewTitle: String
@@ -963,14 +973,24 @@ struct Strings {
         keyTapSecureInputExitedFormat: "Secure input is still on, but %@, the app macOS names for it, has quit. If it does not clear, log out and back in.",
         keyTapUnknownApp: "an unknown app",
         keyTapStartFailed: "macOS refused FixDock's keyboard monitor although Accessibility is on. FixDock retries every few seconds. If this stays, remove FixDock in System Settings › Privacy & Security › Accessibility and add it again.",
-        feedbackButton: "Feedback…",
+        feedbackButton: "Send Feedback…",
         feedbackTitle: "Feedback",
-        feedbackCaption: "Write what happened, then copy. The copy holds your note, which tools are on, and recent keyboard monitor events (secure input, taps that stopped). It has no typed text and no snippet contents. FixDock sends nothing; paste it wherever you want.",
-        feedbackCommentPrompt: "What happened?",
-        feedbackPreviewLabel: "What will be copied",
+        feedbackCaption: "The copy holds your note, app and macOS versions, Mac model, language, which tools are on, and recent keyboard monitor events (secure input, taps that stopped). It has no typed text and no snippet contents. Send delivers exactly this to the FixDock developer's Discord through FixDock's own relay; Copy keeps it on this Mac.",
+        feedbackCommentPrompt: "What went wrong?",
+        feedbackPreviewLabel: "What will be sent",
         feedbackCopyButton: "Copy",
         feedbackCopied: "Copied",
         feedbackClose: "Close",
+        feedbackSectionCaption: "Report a bug or share an idea.",
+        feedbackKindBug: "Bug",
+        feedbackKindIdea: "Features & Ideas",
+        feedbackIdeaPrompt: "What would you like to share?",
+        feedbackIncludeTechInfo: "Include technical info (app and macOS versions, Mac model, language)",
+        feedbackIdeaNotice: "Send delivers your text to the FixDock developer's Discord through FixDock's own relay. Technical info is added only when the box is checked. Nothing else is collected. Every idea is read, but not every one can be built.",
+        feedbackSendButton: "Send",
+        feedbackSending: "Sending…",
+        feedbackSent: "Sent. Thank you!",
+        feedbackSendFailed: "Could not send. Copy it and open an issue on GitHub.",
         snippetsUnreadable: "The saved snippets could not be read, so editing is off to keep them from being overwritten.",
         snippetsAddButton: "Add snippet",
         snippetsNewTitle: "New snippet",
@@ -1152,7 +1172,7 @@ struct Strings {
         onboardingGetStarted: "Get started",
         aboutFork: "FixDock is a modified unofficial fork of vorssaint-utils. The original is GPL-3.0-or-later. Copyright (C) 2026 Vorssaint and the vorssaint-utils contributors. This build removes the original name, icon, signing identity, and update feed, and checks FixDock's own releases for updates. It is not an official release.",
         aboutLicense: "License: GNU General Public License v3.0 or later. See the LICENSE and NOTICE files.",
-        aboutNoTelemetry: "No account and no analytics. The only network use is the update check below.",
+        aboutNoTelemetry: "No account and no analytics. FixDock uses the network only for the update check below and for feedback you choose to send.",
         aboutUpstreamButton: "Original project",
         aboutRepositoryButton: "FixDock source",
         screenCapturePageTitle: "Screen capture",

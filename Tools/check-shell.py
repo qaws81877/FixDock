@@ -30,6 +30,7 @@ ALLOWED_URLS = {
     "https://github.com/qaws81877/homebrew-tap",
     "https://api.github.com/repos/qaws81877/FixDock/releases/latest",
     "https://www.gnu.org/licenses/gpl-3.0.en.html",
+    "https://fixdock-feedback.answlals1236.workers.dev",
 }
 FORBIDDEN = [
     "com." + "vorssaint",
@@ -57,6 +58,7 @@ URL_SCAN_ROOTS = [
     "SUPPORT.md",
     "PRIVACY.md",
     "Tools/uninstall.sh",
+    "Tools/feedback-relay",
 ]
 HEADER = (
     "SPDX-License-Identifier: GPL-3.0-or-later",
@@ -316,7 +318,8 @@ def main():
         )
 
     for needle, allowed in (
-        ("URLSession", ["Services/UpdateTransport.swift"]),
+        ("URLSession", ["Services/FeedbackTransport.swift", "Services/UpdateTransport.swift"]),
+        ("feedbackRelayURL", ["Core/AppInfo.swift", "Services/FeedbackTransport.swift"]),
         ("RENAME_SWAP", ["Services/Relauncher.swift"]),
         ("FIXDOCK_LOCAL_FEED", ["Services/UpdateTransport.swift"]),
         ("483JM5VB4A", ["Core/AppInfo.swift"]),

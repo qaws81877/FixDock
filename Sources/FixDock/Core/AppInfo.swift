@@ -15,8 +15,11 @@ enum AppInfo {
     static let repositoryURL = URL(string: "https://github.com/qaws81877/FixDock")!
     static let upstreamURL = URL(string: "https://github.com/vorssaint/vorssaint-utils")!
     static let licenseURL = URL(string: "https://www.gnu.org/licenses/gpl-3.0.en.html")!
-    /// The only network endpoint. Tools/check-shell.py allows this exact URL.
+    /// The update check. Tools/check-shell.py allows this exact URL.
     static let releaseFeedURL = URL(string: "https://api.github.com/repos/qaws81877/FixDock/releases/latest")!
+    /// The feedback relay (Tools/feedback-relay), sent to only when the person
+    /// presses Send. Tools/check-shell.py allows this exact URL.
+    static let feedbackRelayURL = URL(string: "https://fixdock-feedback.answlals1236.workers.dev")!
     /// Gate only: a copy signed by another team never updates itself. What a
     /// replacement must satisfy is derived from the running signature.
     static let signingTeamID = "483JM5VB4A"

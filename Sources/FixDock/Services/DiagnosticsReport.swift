@@ -12,8 +12,24 @@ import Carbon.HIToolbox
 enum DiagnosticsReport {
     /// The note on top of a `snapshot()`.
     static func compose(comment: String, snapshot: String) -> String {
-        let note = comment.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "FixDock feedback\n\nComment:\n\(note.isEmpty ? "(none)" : note)\n\n\(snapshot)"
+        "FixDock feedback\n\nComment:\n\(note(comment))\n\n\(snapshot)"
+    }
+
+    /// An idea, with `systemInfo()` only when the person opted in.
+    static func composeIdea(comment: String, systemInfo: String?) -> String {
+        let body = "FixDock idea\n\nIdea:\n\(note(comment))\n"
+        guard let systemInfo else { return body }
+        return body + "\n" + systemInfo
+    }
+
+    /// Versions, model and language: the part an idea may carry.
+    static func systemInfo() -> String {
+        [
+            "App: \(AppInfo.name) \(AppInfo.version) (\(AppInfo.buildNumber)), \(Bundle.main.bundleIdentifier ?? "no bundle id")",
+            "macOS: \(ProcessInfo.processInfo.operatingSystemVersionString), \(hardwareModel() ?? "unknown model")",
+            "Language: \(L10n.shared.language.rawValue)",
+            "Report time: \(timestamp(Date()))",
+        ].joined(separator: "\n") + "\n"
     }
 
     /// State and recent events, read once when the sheet opens. Main thread.
@@ -22,9 +38,7 @@ enum DiagnosticsReport {
         let defaults = UserDefaults.standard
         var out: [String] = []
 
-        out.append("App: \(AppInfo.name) \(AppInfo.version) (\(AppInfo.buildNumber)), \(Bundle.main.bundleIdentifier ?? "no bundle id")")
-        out.append("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString), \(hardwareModel() ?? "unknown model")")
-        out.append("Report time: \(timestamp(Date()))")
+        out.append(systemInfo().trimmingCharacters(in: .newlines))
         out.append("Accessibility: \(AXIsProcessTrusted() ? "granted" : "missing")")
         out.append("Session on screen: \(SessionActivity.shared.isActive ? "yes" : "no")")
         let installed = AppFeature.allCases.filter(\.isAvailable).map(\.rawValue)
@@ -47,6 +61,11 @@ enum DiagnosticsReport {
         out.append("Recent key tap events (oldest first, \(events.count)):")
         out.append(contentsOf: events.isEmpty ? ["(none)"] : events)
         return out.joined(separator: "\n") + "\n"
+    }
+
+    private static func note(_ comment: String) -> String {
+        let note = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+        return note.isEmpty ? "(none)" : note
     }
 
     private static func onOff(_ value: Bool) -> String { value ? "on" : "off" }

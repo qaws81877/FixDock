@@ -26,3 +26,6 @@ docs/
 *.xcodeproj
 xcuserdata/
 .swiftpm/
+
+# Wrangler local state (feedback relay)
+.wrangler/
