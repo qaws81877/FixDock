@@ -2,7 +2,7 @@
 
 Menu bar tools for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
 
-FixDock has ten tools. You install the ones you want from Settings › Features; nothing runs until it is installed.
+FixDock has eleven tools. You install the ones you want from Settings › Features; nothing runs until it is installed.
 
 ## English
 
@@ -20,10 +20,11 @@ The tools:
 8. Screenshot: capture overlay, full screen, scrolling capture, captures pinned on screen with an action bar, capture sounds, snap to lines, and an editor.
 9. Screen recorder: records a region, window or display with sound, plus an editor (trim, zoom, overlays, MP4 and GIF).
 10. Fast Korean/English switch: Caps Lock switches the input source the moment you press it, without a wrong first letter (adapted from gksdud, MIT; see NOTICE). Hold the key for half a second to switch to English and turn Caps Lock on or off.
+11. Clipboard history: Command-Shift-V opens a searchable list of text you copied earlier; Return pastes it into the app you were in. Pins stay, the rest is kept for the period you choose (30 days by default, at most 1,000 items). Passwords marked by their app, excluded apps, files and pictures are not recorded, and links are kept cleaned while the URL cleaner is on.
 
-Permissions are asked only when a tool needs them: Accessibility for quit protection, cleaning mode, text snippets and the fast Korean/English switch; Full Disk Access for the cleaner; Screen Recording for screenshot and the recorder. The recorder asks for the microphone, system audio and Accessibility only when you turn those options on. Everything the tools do stays on this Mac.
+Permissions are asked only when a tool needs them: Accessibility for quit protection, cleaning mode, text snippets and the fast Korean/English switch (clipboard history uses Accessibility only to paste, and copies instead without it); Full Disk Access for the cleaner; Screen Recording for screenshot and the recorder. The recorder asks for the microphone, system audio and Accessibility only when you turn those options on. Everything the tools do stays on this Mac.
 
-Global shortcuts: Control-Option-Command-F opens the panel. While Screenshot is installed, Control-Option-Command-4 opens the capture overlay (press 2 there to record) and Control-Option-Command-3 captures the full screen.
+Global shortcuts: Control-Option-Command-F opens the panel. While Screenshot is installed, Control-Option-Command-4 opens the capture overlay (press 2 there to record) and Control-Option-Command-3 captures the full screen. While Clipboard history is installed, Command-Shift-V opens it.
 
 ### Updates
 
@@ -106,7 +107,7 @@ Homebrew: see Install.
 
 FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정과 분석이 없습니다. 네트워크는 GitHub에서 FixDock 업데이트를 확인할 때(끌 수 있음, 업데이트 참고)와 피드백에서 보내기를 누를 때(PRIVACY.md 참고)만 씁니다.
 
-도구는 10개입니다. 설정 › 기능에서 원하는 도구만 설치합니다. 설치하기 전에는 아무것도 동작하지 않습니다.
+도구는 11개입니다. 설정 › 기능에서 원하는 도구만 설치합니다. 설치하기 전에는 아무것도 동작하지 않습니다.
 
 도구:
 
@@ -120,10 +121,11 @@ FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱�
 8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 동작 막대가 있는 화면 고정 핀, 캡처 소리, 선 맞춤, 편집기.
 9. 화면 녹화: 영역·창·디스플레이를 소리와 함께 녹화하고, 편집기(자르기, 확대, 오버레이, MP4·GIF)로 다듬습니다.
 10. 빠른 한/영 전환: Caps Lock을 누르는 순간 입력 소스가 바뀌어 첫 글자가 씹히지 않습니다 (gksdud를 수정해 사용, MIT, NOTICE 참고). 키를 0.5초 누르고 있으면 영어로 바꾸고 대문자 고정을 켜거나 끕니다.
+11. 클립보드 기록: Command-Shift-V로 예전에 복사한 글 목록을 열어 검색하고, Return으로 쓰던 앱에 붙여넣습니다. 고정한 항목은 남고, 나머지는 정한 기간(기본 30일, 최대 1,000개) 동안 보관합니다. 앱이 비밀번호로 표시한 복사, 제외한 앱, 파일과 그림은 기록하지 않고, 링크 정리가 켜져 있으면 정리된 링크로 남깁니다.
 
-권한은 도구가 필요할 때만 요청합니다. 종료·닫기 보호, 청소 모드, 상용구, 빠른 한/영 전환은 손쉬운 사용, Mac 정리는 전체 디스크 접근, 스크린샷과 화면 녹화는 화면 기록 권한을 씁니다. 화면 녹화는 마이크, 시스템 소리, 손쉬운 사용을 해당 옵션을 켤 때만 요청합니다. 도구의 모든 처리는 이 Mac 안에서만 합니다.
+권한은 도구가 필요할 때만 요청합니다. 종료·닫기 보호, 청소 모드, 상용구, 빠른 한/영 전환은 손쉬운 사용(클립보드 기록은 붙여넣을 때만 쓰고, 없으면 복사만 합니다), Mac 정리는 전체 디스크 접근, 스크린샷과 화면 녹화는 화면 기록 권한을 씁니다. 화면 녹화는 마이크, 시스템 소리, 손쉬운 사용을 해당 옵션을 켤 때만 요청합니다. 도구의 모든 처리는 이 Mac 안에서만 합니다.
 
-전역 단축키: Control-Option-Command-F는 패널을 엽니다. 스크린샷을 설치하면 Control-Option-Command-4는 캡처 오버레이를 열고(여기서 2를 누르면 녹화), Control-Option-Command-3은 전체 화면을 캡처합니다.
+전역 단축키: Control-Option-Command-F는 패널을 엽니다. 스크린샷을 설치하면 Control-Option-Command-4는 캡처 오버레이를 열고(여기서 2를 누르면 녹화), Control-Option-Command-3은 전체 화면을 캡처합니다. 클립보드 기록을 설치하면 Command-Shift-V로 엽니다.
 
 ### 업데이트
 

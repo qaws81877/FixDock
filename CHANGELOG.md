@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New tool, clipboard history (restored from upstream, text only): Command-Shift-V opens a window centred on the screen under the pointer. Type to filter, Return pastes into the app you were in, Command-Return copies, Option-P pins, Command-Delete removes, Escape closes. Without Accessibility, Return copies and says so. Pinned items stay; the rest is kept for 1, 7, 30 (default) or 90 days or forever, at most 1,000. Copies marked secret or transient by their app, copies made in excluded apps, files and pictures are not recorded; while the URL cleaner is on, links are kept cleaned. The history is `ClipboardHistory.json` in FixDock's Application Support folder. A file FixDock cannot read is left untouched and recording stops until you deal with it. Another app holding Command-Shift-V receives the key too.
+
 ## 1.0.4
 
 - Screenshot pins: every capture now stays on screen as a pin where it was taken, at its own size (shrunk when larger than about half the screen). The corner preview card is gone. Drag to move, drag an edge to resize. A floating bar under the selected pin has Save (and Save As), Copy, Share, Extract Text, Edit, QR when a code was found, a handle to drag the image into other apps, Settings (opacity, shortcuts, Close All) and Close; the right-click menu has the same items. While a pin is selected: ⌘S save, ⇧⌘S Save As, ⌘C copy, ⌘E edit, ⌘T extract text, ⌘W or Esc close. A new capture hides the previous pin; closing the top one brings back the one under it (up to 20). Editing hides the pin and brings it back with the edit. "Show preview" is now "Pin the capture on screen" (on by default), and "Save as a PNG file" is off by default.
