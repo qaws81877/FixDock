@@ -64,6 +64,8 @@ Clipboard:
   `GeneralPasteboardAccess`, calls `declareAppSource()` after
   `clearContents()`, and passes the new `changeCount` to
   `URLCleanerService.shared.ignoreChanges(upTo:)` on the main thread.
+  That call also tells clipboard history, so no writer sets a watermark
+  directly (`URLCleanerService.copy()` did until 2026-11-04).
 
 Bundle:
 
@@ -79,6 +81,10 @@ Bundle:
 
 Platform quirks:
 
+- Carbon `RegisterEventHotKey` returns noErr in every process that registers
+  the same combination, and each press reaches all of them (two holders and
+  FixDock all got one press, 2026-11-04). `HotkeyManager.failedRoles` only
+  reports a refused registration, never a clash with another app.
 - While any process holds Secure Event Input, session event taps get no
   keys: quit protection and snippets both go quiet with no warning
   (confirmed live). `kCGSSessionSecureInputPID` names the app that was

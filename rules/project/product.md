@@ -16,9 +16,11 @@ Invariants:
 
 - Bundle id `io.github.qaws81877.fixdock` (`.dev` for the developer build).
 - English and Korean only; every string in both tables.
-- Global shortcuts: the panel (Control-Option-Command-F) and, while the
+- Global shortcuts: the panel (Control-Option-Command-F); while the
   screenshot tool is installed, the capture overlay (Control-Option-Command-4)
-  and full screen (Control-Option-Command-3), all in `HotkeyRole`. Any further
+  and full screen (Control-Option-Command-3); while clipboard history is
+  installed, its window (Command-Shift-V, owner 2026-11-04, knowing it takes
+  over "Paste and Match Style"). All are in `HotkeyRole`. Any further
   global shortcut needs the owner first.
 - Two network endpoints, both in PRIVACY.md: the update check against
   FixDock's own GitHub releases (`AppInfo.releaseFeedURL`), and the feedback

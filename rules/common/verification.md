@@ -95,6 +95,12 @@ Proof:
   front, global capture chords and keys to a key pin do arrive. Read window
   state from `CGWindowListCopyWindowInfo` (bounds, onscreen) by pid; clicks
   and hovers stay owner checks.
+- The agent shell has an empty `LANG`, so `pbcopy` puts an empty string on
+  the clipboard for non-ASCII text. Use `LANG=en_US.UTF-8 pbcopy` and check
+  with `pbpaste` before judging a clipboard tool.
+- A `CGEvent` posted from the agent shell is dropped (it is not trusted for
+  Accessibility), so a global shortcut never fires from it. Shortcut presses
+  stay owner checks.
 - A click on the desktop wallpaper can trigger macOS "click wallpaper to
   reveal desktop", which slides every window, floating panels included,
   off screen until an app is activated. Do not judge window positions after
