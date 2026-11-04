@@ -1331,7 +1331,7 @@ final class ScreenshotEditorController: NSObject, NSWindowDelegate {
     func copySelectedText() {
         let text = model.selectedText
         guard !text.isEmpty else { return }
-        ScreenshotService.copyText(text)
+        ScreenshotService.copyText(text, recordInHistory: true)
         showNotice(L10n.shared.s.screenshotPreviewTextCopied)
     }
 

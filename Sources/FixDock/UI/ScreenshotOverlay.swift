@@ -265,7 +265,7 @@ final class ScreenshotOverlayController {
         }
         guard let panel = panelUnderMouse(), let color = panel.overlayView.colorUnderPointer() else { return }
         let text = options.colorFormat.text(color)
-        ScreenshotService.copyText(text)
+        ScreenshotService.copyText(text, recordInHistory: true)
         showNotice(String(format: L10n.shared.s.screenshotColorCopied, text))
     }
 

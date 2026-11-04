@@ -853,20 +853,54 @@ struct Strings {
     let clipboardHistoryProblemTooLarge: String
     let clipboardHistoryProblemNewerFormat: String
     let clipboardHistoryProblemDamaged: String
+    let clipboardHistoryProblemImagesWithoutHistory: String
+    let clipboardHistoryProblemImageFolderNotAFolder: String
     let clipboardHistoryRevealFile: String
     let clipboardHistorySearchPlaceholder: String
     let clipboardHistoryEmpty: String
     let clipboardHistoryNoMatches: String
     let clipboardHistoryPinnedSection: String
-    let clipboardHistoryRecentSection: String
     let clipboardHistoryPaste: String
     let clipboardHistoryCopy: String
     let clipboardHistoryPin: String
     let clipboardHistoryUnpin: String
     let clipboardHistoryDelete: String
-    let clipboardHistoryFooterHint: String
     let clipboardHistoryToastCopied: String
     let clipboardHistoryToastNeedsAccessibility: String
+    let clipboardHistoryToastUnavailable: String
+    let clipboardHistoryAllTypes: String
+    let clipboardHistoryKindImage: String
+    let clipboardHistoryKindText: String
+    let clipboardHistoryKindLink: String
+    let clipboardHistoryKindColor: String
+    let clipboardHistoryKindFile: String
+    let clipboardHistoryKindEmail: String
+    let clipboardHistoryEmptyImages: String
+    let clipboardHistoryEmptyText: String
+    let clipboardHistoryEmptyLinks: String
+    let clipboardHistoryEmptyColors: String
+    let clipboardHistoryEmptyFiles: String
+    let clipboardHistoryEmptyEmails: String
+    let clipboardHistoryTodaySection: String
+    let clipboardHistoryYesterdaySection: String
+    let clipboardHistoryThisWeekSection: String
+    let clipboardHistoryEarlierSection: String
+    let clipboardHistoryInfoTitle: String
+    let clipboardHistoryInfoSource: String
+    let clipboardHistoryInfoKind: String
+    let clipboardHistoryInfoCharacters: String
+    let clipboardHistoryInfoWords: String
+    let clipboardHistoryInfoDimensions: String
+    let clipboardHistoryInfoSize: String
+    let clipboardHistoryInfoPath: String
+    let clipboardHistoryInfoCopied: String
+    let clipboardHistoryPasteToFormat: String
+    let clipboardHistoryActions: String
+    let clipboardHistoryRecordsMedia: String
+    let clipboardHistoryRecordsMediaCaption: String
+    let clipboardHistoryImageBudgetTitle: String
+    let clipboardHistoryImageBudgetUnlimited: String
+    let clipboardHistoryImageBudgetCaptionFormat: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1650,7 +1684,7 @@ struct Strings {
         featureClipboardHistoryName: "Clipboard history",
         featureClipboardHistorySummary: "Press ⇧⌘V to find something you copied earlier and paste it again.",
         clipboardHistoryEnable: "Record clipboard history",
-        clipboardHistoryEnableCaption: "Text you copy is kept on this Mac only. Copies an app marks as secret or temporary, files and pictures are never saved. While the URL cleaner is on, links are saved cleaned.",
+        clipboardHistoryEnableCaption: "What you copy is kept on this Mac only. Copies an app marks as secret or temporary are never saved. While the URL cleaner is on, links are saved cleaned.",
         clipboardHistoryShortcut: "Open clipboard history",
         clipboardHistoryShortcutCaption: "While this is on, the shortcut opens the history in every app, so ⇧⌘V no longer pastes and matches style.",
         clipboardHistoryAccessibilityGranted: "Return pastes into the app you were using.",
@@ -1675,20 +1709,54 @@ struct Strings {
         clipboardHistoryProblemTooLarge: "The history file is larger than FixDock reads.",
         clipboardHistoryProblemNewerFormat: "A newer version of FixDock wrote the history file.",
         clipboardHistoryProblemDamaged: "The history file is damaged.",
+        clipboardHistoryProblemImagesWithoutHistory: "Saved history images are there, but the history file is missing.",
+        clipboardHistoryProblemImageFolderNotAFolder: "Something other than a plain folder is where the history's image folder belongs.",
         clipboardHistoryRevealFile: "Show in Finder",
         clipboardHistorySearchPlaceholder: "Search",
         clipboardHistoryEmpty: "Nothing copied yet",
         clipboardHistoryNoMatches: "No matches",
         clipboardHistoryPinnedSection: "Pinned",
-        clipboardHistoryRecentSection: "Recent",
         clipboardHistoryPaste: "Paste",
         clipboardHistoryCopy: "Copy",
         clipboardHistoryPin: "Pin",
         clipboardHistoryUnpin: "Unpin",
         clipboardHistoryDelete: "Delete",
-        clipboardHistoryFooterHint: "↩ Paste   ⌘↩ Copy   ⌥P Pin   ⌘⌫ Delete   esc Close",
         clipboardHistoryToastCopied: "Copied",
         clipboardHistoryToastNeedsAccessibility: "Copied. FixDock needs Accessibility to paste for you.",
+        clipboardHistoryToastUnavailable: "No longer available",
+        clipboardHistoryAllTypes: "All types",
+        clipboardHistoryKindImage: "Image",
+        clipboardHistoryKindText: "Text",
+        clipboardHistoryKindLink: "Link",
+        clipboardHistoryKindColor: "Color",
+        clipboardHistoryKindFile: "File",
+        clipboardHistoryKindEmail: "Email",
+        clipboardHistoryEmptyImages: "No images in history",
+        clipboardHistoryEmptyText: "No text in history",
+        clipboardHistoryEmptyLinks: "No links in history",
+        clipboardHistoryEmptyColors: "No colors in history",
+        clipboardHistoryEmptyFiles: "No files in history",
+        clipboardHistoryEmptyEmails: "No email addresses in history",
+        clipboardHistoryTodaySection: "Today",
+        clipboardHistoryYesterdaySection: "Yesterday",
+        clipboardHistoryThisWeekSection: "This week",
+        clipboardHistoryEarlierSection: "Earlier",
+        clipboardHistoryInfoTitle: "Info",
+        clipboardHistoryInfoSource: "Source",
+        clipboardHistoryInfoKind: "Kind",
+        clipboardHistoryInfoCharacters: "Characters",
+        clipboardHistoryInfoWords: "Words",
+        clipboardHistoryInfoDimensions: "Dimensions",
+        clipboardHistoryInfoSize: "Size",
+        clipboardHistoryInfoPath: "Path",
+        clipboardHistoryInfoCopied: "Copied",
+        clipboardHistoryPasteToFormat: "Paste to %@",
+        clipboardHistoryActions: "Actions",
+        clipboardHistoryRecordsMedia: "Record images and files",
+        clipboardHistoryRecordsMediaCaption: "Copied images are saved on this Mac beside the history. Copied files are saved by their location only.",
+        clipboardHistoryImageBudgetTitle: "Space for images",
+        clipboardHistoryImageBudgetUnlimited: "Unlimited",
+        clipboardHistoryImageBudgetCaptionFormat: "Pinned images are always kept. Past this, the oldest unpinned images are removed first. Unpinned images now use %@.",
         versionFormat: "Version %@"
     )
 }

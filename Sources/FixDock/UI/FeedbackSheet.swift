@@ -79,7 +79,7 @@ struct FeedbackSheet: View {
                 Button(s.feedbackClose) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(s.feedbackCopyButton) {
-                    ScreenshotService.copyText(report)
+                    ScreenshotService.copyText(report, recordInHistory: false)
                     outcome = .copied(report)
                 }
                 Button(s.feedbackSendButton) { send(report) }

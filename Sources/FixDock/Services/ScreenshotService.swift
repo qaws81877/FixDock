@@ -291,8 +291,7 @@ final class ScreenshotService: ObservableObject {
     }
 
     /// Text on the clipboard (a QR payload, recognized text, a colour), marked
-    /// as FixDock's so the URL cleaner leaves it alone.
-    static func copyText(_ text: String) {
+    static func copyText(_ text: String, recordInHistory: Bool) {
         GeneralPasteboardAccess.shared.async {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
@@ -301,6 +300,7 @@ final class ScreenshotService: ObservableObject {
             let changeCount = pasteboard.changeCount
             DispatchQueue.main.async {
                 URLCleanerService.shared.ignoreChanges(upTo: changeCount)
+                if recordInHistory { ClipboardHistoryService.ownCopy(.text(text)) }
             }
         }
     }
@@ -318,6 +318,7 @@ final class ScreenshotService: ObservableObject {
             let changeCount = pasteboard.changeCount
             DispatchQueue.main.async {
                 URLCleanerService.shared.ignoreChanges(upTo: changeCount)
+                ClipboardHistoryService.ownCopy(.png(png))
             }
         }
     }

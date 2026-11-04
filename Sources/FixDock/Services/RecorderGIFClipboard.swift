@@ -29,9 +29,11 @@ enum RecorderGIFClipboard {
               CGImageSourceGetCount(source) > 0 else { return false }
 
         let item = NSPasteboardItem()
+        var inline: Data?
         if bytes <= inlineByteLimit {
             guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe),
                   item.setData(data, forType: pasteboardType) else { return false }
+            inline = data
         }
         // A file URL lets attachment-oriented apps keep the original name,
         // while the native GIF flavor above remains the primary image payload.
@@ -42,6 +44,7 @@ enum RecorderGIFClipboard {
         let changeCount = pasteboard.changeCount
         DispatchQueue.main.async {
             URLCleanerService.shared.ignoreChanges(upTo: changeCount)
+            if let inline, pasteboard.name == .general { ClipboardHistoryService.ownCopy(.gif(inline)) }
         }
         return true
     }

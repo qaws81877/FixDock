@@ -6,8 +6,6 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Restored from upstream's clipboard settings and its apps-to-skip list,
-/// cut to what the text-only history has.
 struct ClipboardHistorySettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var service = ClipboardHistoryService.shared
@@ -16,6 +14,9 @@ struct ClipboardHistorySettings: View {
     @AppStorage(DefaultsKey.clipboardHistoryEnabled) private var enabled = false
     @AppStorage(DefaultsKey.clipboardHistoryRetentionDays) private var retentionDays =
         ClipboardHistoryRetention.default.rawValue
+    @AppStorage(DefaultsKey.clipboardHistoryRecordsMedia) private var recordsMedia = true
+    @AppStorage(DefaultsKey.clipboardHistoryImageBudgetMB) private var imageBudgetMB =
+        ClipboardHistoryImageBudget.default.rawValue
     @State private var confirmation: [UUID: Date]?
     private var s: Strings { l10n.s }
 
@@ -28,7 +29,7 @@ struct ClipboardHistorySettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let problem = service.storeProblem {
-                    ClipboardHistoryProblemView(problem: problem, fileURL: service.storeFileURL)
+                    ClipboardHistoryProblemView(problem: problem, fileURL: service.storeProblemItemURL)
                 }
             }
 
@@ -61,6 +62,20 @@ struct ClipboardHistorySettings: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Toggle(s.clipboardHistoryRecordsMedia, isOn: $recordsMedia)
+                Text(s.clipboardHistoryRecordsMediaCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker(s.clipboardHistoryImageBudgetTitle, selection: $imageBudgetMB) {
+                    ForEach(ClipboardHistoryImageBudget.allCases) { Text($0.label(s)).tag($0.rawValue) }
+                }
+                .onChange(of: imageBudgetMB) { _, _ in service.applyRetention() }
+                Text(String(format: s.clipboardHistoryImageBudgetCaptionFormat, unpinnedImageTotal))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section(s.clipboardHistoryExcludedTitle) {
                 if ignored.apps.isEmpty {
                     Text(s.clipboardHistoryExcludedNone)
@@ -69,10 +84,11 @@ struct ClipboardHistorySettings: View {
                 }
                 ForEach(ignored.apps, id: \.self) { bundleID in
                     HStack(spacing: 8) {
-                        Image(nsImage: Self.icon(for: bundleID))
+                        let app = ClipboardHistorySourceApp.info(for: bundleID)
+                        Image(nsImage: app.icon)
                             .resizable()
                             .frame(width: 20, height: 20)
-                        Text(Self.name(for: bundleID))
+                        Text(app.name)
                         Spacer()
                         Button {
                             ignored.remove(bundleID)
@@ -128,16 +144,18 @@ struct ClipboardHistorySettings: View {
         ignored.add(bundleID)
     }
 
-    /// An app removed since it was picked still shows, by its bundle id.
-    private static func name(for bundleID: String) -> String {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
-        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
-    }
-
-    private static func icon(for bundleID: String) -> NSImage {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-            return NSWorkspace.shared.icon(for: .application)
+    private var unpinnedImageTotal: String {
+        let bytes = service.entries.reduce(0) { total, entry in
+            guard !entry.isPinned, case .image(let ref) = entry.content else { return total }
+            return total + ref.byteCount
         }
-        return NSWorkspace.shared.icon(forFile: url.path)
+        return Int64(bytes).formatted(.byteCount(style: .file).locale(Locale(identifier: l10n.language.rawValue)))
+    }
+}
+
+extension ClipboardHistoryImageBudget {
+    func label(_ s: Strings) -> String {
+        guard let bytes else { return s.clipboardHistoryImageBudgetUnlimited }
+        return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
     }
 }

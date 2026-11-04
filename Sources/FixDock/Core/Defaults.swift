@@ -66,6 +66,8 @@ enum DefaultsKey {
     /// Days, 0 for forever (`ClipboardHistoryRetention`).
     static let clipboardHistoryRetentionDays = "clipboardHistoryRetentionDays"
     static let clipboardHistoryIgnoredApps = "clipboardHistoryIgnoredApps"
+    static let clipboardHistoryImageBudgetMB = "clipboardHistoryImageBudgetMB"
+    static let clipboardHistoryRecordsMedia = "clipboardHistoryRecordsMedia"
     /// Standardized paths the cleaner never removes.
     static let cleanerExceptions = "cleanerExceptions"
     static let mediaImageFormat = "mediaImageFormat"
@@ -178,6 +180,8 @@ enum Defaults {
             DefaultsKey.clipboardHistoryShortcutEnabled: true,
             DefaultsKey.clipboardHistoryRetentionDays: ClipboardHistoryRetention.default.rawValue,
             DefaultsKey.clipboardHistoryIgnoredApps: [String](),
+            DefaultsKey.clipboardHistoryImageBudgetMB: ClipboardHistoryImageBudget.default.rawValue,
+            DefaultsKey.clipboardHistoryRecordsMedia: true,
             DefaultsKey.screenshotOverlayShortcutEnabled: true,
             DefaultsKey.screenshotFullScreenShortcutEnabled: true,
             DefaultsKey.screenshotSaveToFile: false,

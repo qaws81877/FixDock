@@ -73,7 +73,7 @@ final class ScreenshotQRResultController {
     }
 
     private func copy(_ payload: String) {
-        ScreenshotService.copyText(payload)
+        ScreenshotService.copyText(payload, recordInHistory: true)
         close()
     }
 

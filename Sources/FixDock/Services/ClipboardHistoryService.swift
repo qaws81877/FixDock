@@ -5,7 +5,6 @@
 import AppKit
 import Combine
 
-/// Text-only clipboard history, restored from upstream and cut to text.
 ///
 /// It runs its own poll on the shared pasteboard lane. FixDock's own writes
 /// are left out two ways: the source mark every FixDock writer sets, and the
@@ -20,9 +19,12 @@ final class ClipboardHistoryService: ObservableObject {
     /// True while the poll runs: installed, switched on, and the file read.
     @Published private(set) var isRecording = false
 
+    @Published private(set) var pasteTargetName: String?
+
     var entries: [ClipboardHistoryEntry] { store.entries }
+    var imageLocator: ClipboardImageLocator? { store.imageLocator }
     var storeProblem: ClipboardHistoryStoreProblem? { store.problem }
-    var storeFileURL: URL? { store.fileURL }
+    var storeProblemItemURL: URL? { store.problemItemURL }
 
     /// What a Clear confirmation counts: only these go when it is confirmed.
     var unpinnedSnapshot: [UUID: Date] {
@@ -34,6 +36,7 @@ final class ClipboardHistoryService: ObservableObject {
     private static var live: ClipboardHistoryService?
     private static let pasteboardTimeout: TimeInterval = 5
     private static let urlType = NSPasteboard.PasteboardType("public.url")
+    private static let gifType = NSPasteboard.PasteboardType("com.compuserve.gif")
 
     private let store: ClipboardHistoryStore
     private var window: ClipboardHistoryWindow?
@@ -48,9 +51,14 @@ final class ClipboardHistoryService: ObservableObject {
     /// At most one write queued or running, even after its caller timed out,
     /// so a stuck provider cannot pile up choices.
     private var writeInFlight = false
-    private var pasteTarget: NSRunningApplication?
-    private var searchCache = ClipboardHistorySearchCache()
-    private var filterCache: (query: String, revision: Int, result: [ClipboardHistoryEntry])?
+    private var pasteTarget: NSRunningApplication? {
+        didSet { pasteTargetName = pasteTarget.map { $0.localizedName ?? $0.bundleIdentifier ?? "" } }
+    }
+    private var index = ClipboardHistoryIndex()
+    private var resultsCache: (query: String, filter: ClipboardHistoryFilter, revision: Int,
+                               items: [ClipboardHistoryItem])?
+    private let mediaQueue = DispatchQueue(label: "io.github.qaws81877.fixdock.clipboard-history.media",
+                                           qos: .utility)
 
     private init() {
         store = ClipboardHistoryStore(fileURL: PrivateFileStore.containerURL?
@@ -86,28 +94,53 @@ final class ClipboardHistoryService: ObservableObject {
         live?.store.flush()
     }
 
+    static func ownCopy(_ copy: ClipboardHistoryOwnCopy) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard let live, live.isRecording, let own = Bundle.main.bundleIdentifier,
+              !ClipboardIgnoredApps.shared.apps.contains(own) else { return }
+        let observedAt = Date()
+        switch copy {
+        case .text(let raw):
+            guard let text = ClipboardHistoryCapturePolicy.recordedText(plain: raw, webURL: nil,
+                                                                        cleanLink: cleanerRule) else { return }
+            live.record(.text(text), source: own, observedAt: observedAt)
+        case .png(let bytes), .gif(let bytes):
+            guard live.recordsMedia, bytes.count <= ClipboardImagePayload.maxBytes else { return }
+            live.recordImage(bytes, source: own, observedAt: observedAt)
+        }
+    }
+
     // MARK: Entries
 
     /// Ranked for the window. SwiftUI asks many times per render, so the last
-    /// result is reused until the query or the history changes.
-    func filteredEntries(matching query: String) -> [ClipboardHistoryEntry] {
+    func results(matching query: String, filter: ClipboardHistoryFilter) -> [ClipboardHistoryItem] {
         let revision = store.revision
-        if let cache = filterCache, cache.query == query, cache.revision == revision { return cache.result }
-        let entries = entries
-        let result: [ClipboardHistoryEntry]
-        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || entries.isEmpty {
-            if entries.isEmpty { searchCache.clear() }
-            result = entries
-        } else {
-            let candidates = searchCache.candidates(for: entries, stamp: revision)
-            result = ClipboardHistorySearch.rankedIndexes(candidates: candidates, matching: query)
-                .compactMap { entries.indices.contains($0) ? entries[$0] : nil }
+        if let cache = resultsCache, cache.query == query, cache.filter == filter, cache.revision == revision {
+            return cache.items
         }
-        filterCache = (query, revision, result)
-        return result
+        let entries = entries
+        if entries.isEmpty { index.clear() }
+        let items = index.results(entries, query: query, filter: filter, stamp: revision)
+            .compactMap { position -> ClipboardHistoryItem? in
+                guard entries.indices.contains(position) else { return nil }
+                let entry = entries[position]
+                return ClipboardHistoryItem(entry: entry, kind: index.kind(of: entry))
+            }
+        resultsCache = (query, filter, revision, items)
+        return items
     }
 
-    func togglePin(_ entry: ClipboardHistoryEntry) {
+    func perform(_ action: ClipboardHistoryAction, on item: ClipboardHistoryItem) {
+        switch action {
+        case .paste: choose(item.entry, .paste)
+        case .copyOnly: choose(item.entry, .copyOnly)
+        case .togglePin: togglePin(item.entry)
+        case .showInFinder: showInFinder(item.entry)
+        case .delete: remove(item.entry)
+        }
+    }
+
+    private func togglePin(_ entry: ClipboardHistoryEntry) {
         let pinned = entries.first { $0.id == entry.id }?.isPinned ?? entry.isPinned
         let now = Date()
         var fits = true
@@ -115,14 +148,14 @@ final class ClipboardHistoryService: ObservableObject {
         if !fits { NSSound.beep() }
     }
 
-    func remove(_ entry: ClipboardHistoryEntry) {
+    private func remove(_ entry: ClipboardHistoryEntry) {
         mutate { $0.remove(entry.id) }
     }
 
     func applyRetention() {
-        let retention = retention
+        let policy = retentionPolicy
         let now = Date()
-        mutate { $0.applyRetention(retention, now: now) }
+        mutate { $0.applyRetention(policy, now: now) }
     }
 
     func clearUnpinned(confirmed: [UUID: Date]) {
@@ -134,9 +167,35 @@ final class ClipboardHistoryService: ObservableObject {
         store.mutate(change)
     }
 
-    private var retention: ClipboardHistoryRetention {
-        ClipboardHistoryRetention(storedDays: UserDefaults.standard.object(
-            forKey: DefaultsKey.clipboardHistoryRetentionDays) as? Int)
+    private var recordsMedia: Bool {
+        UserDefaults.standard.bool(forKey: DefaultsKey.clipboardHistoryRecordsMedia)
+    }
+
+    private func record(_ capture: ClipboardHistoryCapture, source: String?, observedAt: Date) {
+        let policy = retentionPolicy
+        objectWillChange.send()
+        store.record(capture, source: source, now: observedAt)
+        let now = Date()
+        store.mutate { $0.applyRetention(policy, now: now) }
+    }
+
+    private func recordImage(_ bytes: Data, source: String?, observedAt: Date) {
+        mediaQueue.async { [weak self] in
+            let payload = ClipboardImagePayload.prepare(bytes: bytes)
+            DispatchQueue.main.async {
+                guard let self, let payload, self.isRecording, self.recordsMedia else { return }
+                self.record(.image(payload), source: source, observedAt: observedAt)
+            }
+        }
+    }
+
+    private var retentionPolicy: ClipboardHistoryRetentionPolicy {
+        let defaults = UserDefaults.standard
+        return ClipboardHistoryRetentionPolicy(
+            period: ClipboardHistoryRetention(storedDays: defaults.object(
+                forKey: DefaultsKey.clipboardHistoryRetentionDays) as? Int),
+            imageBudget: ClipboardHistoryImageBudget(storedMegabytes: defaults.object(
+                forKey: DefaultsKey.clipboardHistoryImageBudgetMB) as? Int))
     }
 
     // MARK: Capture
@@ -183,8 +242,9 @@ final class ClipboardHistoryService: ObservableObject {
         // Taken before the read, which may answer only after the window took
         // the keys: a copy made before it opened came from the app behind.
         let historyPanelIsKey = historyPanelClosing || window?.isKey == true
+        let recordsMedia = recordsMedia
         GeneralPasteboardAccess.shared.async(timeout: Self.pasteboardTimeout, { isExpired in
-            Self.readPasteboard(since: since, baseline: baseline, isExpired: isExpired)
+            Self.readPasteboard(since: since, baseline: baseline, recordsMedia: recordsMedia, isExpired: isExpired)
         }, then: { [weak self] read in
             guard let self else { return }
             guard let read else {
@@ -199,57 +259,85 @@ final class ClipboardHistoryService: ObservableObject {
                 self.captureState.didBaseline()
                 return
             }
-            var mark: String?
-            var remote = false
-            if case .text(_, _, _, let sourceMark, let isRemote) = read {
-                mark = sourceMark
-                remote = isRemote
-            }
+            let observedAt = Date()
+            let origin = read.origin
             // Called on every check: it also closes the window of apps that
             // were in front since the last one.
             let source = ClipboardIgnoredApps.shared.sourceSinceLastCheck(
-                declared: mark, remote: remote,
+                declared: origin?.sourceMark, remote: origin?.remote ?? false,
                 historyPanelIsKey: historyPanelIsKey, historyPanelClosing: historyPanelClosing)
             guard let accepted = ClipboardHistoryChangeCount.accepted(
                 read: read.changeCount, since: since, last: self.lastChangeCount) else { return }
             self.lastChangeCount = accepted
-            guard case .text(_, let plain, let webURL, _, _) = read,
-                  !ClipboardHistoryCapturePolicy.isOwnWrite(sourceMark: mark,
+            guard let origin,
+                  !ClipboardHistoryCapturePolicy.isOwnWrite(sourceMark: origin.sourceMark,
                                                             ownBundleID: Bundle.main.bundleIdentifier),
-                  !source.fromHistoryPanel, !source.excluded,
-                  // The tracked original stays in these locals; only the
-                  // cleaned link reaches the records.
-                  let text = ClipboardHistoryCapturePolicy.recordedText(plain: plain, webURL: webURL,
-                                                                       cleanLink: Self.cleanerRule)
-            else { return }
-            let retention = self.retention
-            let now = Date()
-            self.mutate {
-                $0.record(text, now: now)
-                $0.applyRetention(retention, now: now)
+                  !source.fromHistoryPanel, !source.excluded else { return }
+            switch read {
+            case .text(_, let plain, let webURL, _):
+                guard let text = ClipboardHistoryCapturePolicy.recordedText(plain: plain, webURL: webURL,
+                                                                           cleanLink: Self.cleanerRule)
+                else { return }
+                self.record(.text(text), source: source.bundleID, observedAt: observedAt)
+            case .files(_, let refs, _):
+                guard self.recordsMedia, !refs.isEmpty else { return }
+                self.record(.files(refs), source: source.bundleID, observedAt: observedAt)
+            case .image(_, let bytes, _):
+                guard self.recordsMedia else { return }
+                self.recordImage(bytes, source: source.bundleID, observedAt: observedAt)
+            case .unchanged, .skipped:
+                return
             }
         }, didFinish: { [weak self] _ in
             self?.captureState.finish()
         })
     }
 
-    /// Runs on the lane. A secret, transient or non-text copy is judged by
-    /// its types and its content is never read.
-    private static func readPasteboard(since: Int, baseline: Bool, isExpired: () -> Bool) -> ClipboardHistoryRead? {
+    private static func readPasteboard(since: Int, baseline: Bool, recordsMedia: Bool,
+                                       isExpired: () -> Bool) -> ClipboardHistoryRead? {
         let pasteboard = NSPasteboard.general
         let changeCount = pasteboard.changeCount
         guard !isExpired() else { return nil }
         if baseline || changeCount == since { return .unchanged(changeCount: changeCount) }
         let types = (pasteboard.types ?? []).map(\.rawValue)
-        if let skip = ClipboardHistoryCapturePolicy.skip(forTypes: types) {
-            return .skipped(changeCount: changeCount, skip)
+        var plan = ClipboardHistoryCapturePolicy.plan(forTypes: types, recordsMedia: recordsMedia)
+        if case .skip(let skip) = plan { return .skipped(changeCount: changeCount, skip) }
+        let origin = ClipboardHistoryOrigin(
+            sourceMark: pasteboard.string(forType: .source),
+            remote: types.contains(NSPasteboard.PasteboardType.remoteClipboard.rawValue))
+        if plan != .text, ClipboardHistoryCapturePolicy.isOwnWrite(sourceMark: origin.sourceMark,
+                                                                    ownBundleID: Bundle.main.bundleIdentifier) {
+            return .skipped(changeCount: changeCount, .ownWrite, origin: origin)
         }
-        let plain = pasteboard.string(forType: .string)
-        let webURL = webURLString(from: pasteboard)
-        guard !isExpired() else { return nil }
-        return .text(changeCount: changeCount, plain: plain, webURL: webURL,
-                     sourceMark: pasteboard.string(forType: .source),
-                     remote: types.contains(NSPasteboard.PasteboardType.remoteClipboard.rawValue))
+        if plan == .files {
+            let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+            let refs = ClipboardHistoryCapturePolicy.fileRefs(urls.map { ($0.path, $0.hasDirectoryPath) },
+                                                              home: NSHomeDirectory())
+            guard !isExpired() else { return nil }
+            if !refs.isEmpty { return .files(changeCount: changeCount, refs, origin: origin) }
+            plan = ClipboardHistoryCapturePolicy.plan(forTypes: types, recordsMedia: recordsMedia, realFiles: false)
+        }
+        switch plan {
+        case .image(let type):
+            guard let bytes = pasteboard.data(forType: NSPasteboard.PasteboardType(type)) else {
+                return .skipped(changeCount: changeCount, .notRecorded, origin: origin)
+            }
+            guard bytes.count <= ClipboardImagePayload.maxBytes else {
+                return .skipped(changeCount: changeCount, .tooLarge, origin: origin)
+            }
+            guard !isExpired() else { return nil }
+            return .image(changeCount: changeCount, bytes, origin: origin)
+        case .text:
+            let plain = pasteboard.string(forType: .string)
+            let webURL = webURLString(from: pasteboard)
+            guard !isExpired() else { return nil }
+            return .text(changeCount: changeCount, plain: plain, webURL: webURL, origin: origin)
+        case .skip(let skip):
+            return .skipped(changeCount: changeCount, skip, origin: origin)
+        case .files:
+            return .skipped(changeCount: changeCount, .notRecorded, origin: origin)
+        }
     }
 
     /// The link as written first, as the URL cleaner reads it, so both clean
@@ -296,13 +384,21 @@ final class ClipboardHistoryService: ObservableObject {
 
     /// Return or Command-Return. The window leaves at once; the paste waits
     /// for the write, or it would paste whatever was on the clipboard before.
-    func choose(_ entry: ClipboardHistoryEntry, _ how: ClipboardHistoryChoice) {
+    private func choose(_ entry: ClipboardHistoryEntry, _ how: ClipboardHistoryChoice) {
         let target = pasteTarget
         pasteTarget = nil
         hideWindow()
-        write(entry.text) { [weak self] changeCount in
+        write(entry.content) { [weak self] outcome in
             guard let self else { return }
-            guard let changeCount else {
+            let changeCount: Int
+            switch outcome {
+            case .written(let count):
+                changeCount = count
+            case .gone:
+                NSSound.beep()
+                Self.toast(L10n.shared.s.clipboardHistoryToastUnavailable)
+                return
+            case nil:
                 NSSound.beep()
                 return
             }
@@ -343,28 +439,108 @@ final class ClipboardHistoryService: ObservableObject {
 
     // MARK: Write and paste back
 
-    /// Lane, clear, source mark, text, change count. `didFinish` runs even
-    /// when the deadline already answered nil, and reports the count through
-    /// the funnel every FixDock writer uses.
-    private func write(_ text: String, completion: @escaping (Int?) -> Void) {
+    private enum WriteOutcome {
+        case written(changeCount: Int)
+        case gone
+    }
+
+    private enum WritePayload {
+        case text(String)
+        case data(Data, NSPasteboard.PasteboardType, tiff: Data?)
+        case file(URL)
+    }
+
+    private func write(_ content: ClipboardHistoryContent, completion: @escaping (WriteOutcome?) -> Void) {
         guard !writeInFlight else {
             completion(nil)
             return
         }
         writeInFlight = true
+        if case .text(let text) = content {
+            writeToPasteboard(.text(text), completion: completion)
+            return
+        }
+        let locator = store.imageLocator
+        mediaQueue.async { [weak self] in
+            let payload = Self.payload(for: content, locator: locator)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard let payload else {
+                    self.writeInFlight = false
+                    completion(.gone)
+                    return
+                }
+                self.writeToPasteboard(payload, completion: completion)
+            }
+        }
+    }
+
+    private static func payload(for content: ClipboardHistoryContent, locator: ClipboardImageLocator?) -> WritePayload? {
+        switch content {
+        case .text(let text):
+            return .text(text)
+        case .image(let ref):
+            guard let bytes = locator?.verifiedBytes(ref.name) else { return nil }
+            if ref.name.format == .gif { return .data(bytes, gifType, tiff: nil) }
+            return .data(bytes, .png, tiff: NSBitmapImageRep(data: bytes)?.tiffRepresentation)
+        case .file(let file):
+            guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+            return .file(URL(fileURLWithPath: file.path, isDirectory: file.isDirectory))
+        }
+    }
+
+    private func writeToPasteboard(_ payload: WritePayload, completion: @escaping (WriteOutcome?) -> Void) {
         GeneralPasteboardAccess.shared.async(timeout: Self.pasteboardTimeout, { isExpired -> (changeCount: Int, written: Bool)? in
             guard !isExpired() else { return nil }
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            pasteboard.declareAppSource()
-            let written = pasteboard.setString(text, forType: .string)
+            let written: Bool
+            switch payload {
+            case .text(let text):
+                pasteboard.declareAppSource()
+                written = pasteboard.setString(text, forType: .string)
+            case .data(let bytes, let type, let tiff):
+                pasteboard.declareAppSource()
+                written = pasteboard.setData(bytes, forType: type)
+                if written, let tiff { _ = pasteboard.setData(tiff, forType: .tiff) }
+            case .file(let url):
+                written = pasteboard.writeObjects([url as NSURL])
+                pasteboard.declareAppSource()
+            }
             return (pasteboard.changeCount, written)
         }, then: { result in
-            completion(result?.written == true ? result?.changeCount : nil)
+            completion(result?.written == true ? result.map { .written(changeCount: $0.changeCount) } : nil)
         }, didFinish: { [weak self] result in
             self?.writeInFlight = false
             if let result { URLCleanerService.shared.ignoreChanges(upTo: result.changeCount) }
         })
+    }
+
+    private func showInFinder(_ entry: ClipboardHistoryEntry) {
+        let url: URL
+        switch entry.content {
+        case .text:
+            return
+        case .image(let ref):
+            guard let locator = store.imageLocator else {
+                NSSound.beep()
+                return
+            }
+            url = locator.url(for: ref.name)
+        case .file(let file):
+            url = URL(fileURLWithPath: file.path, isDirectory: file.isDirectory)
+        }
+        mediaQueue.async {
+            let exists = FileManager.default.fileExists(atPath: url.path)
+            DispatchQueue.main.async {
+                guard exists else {
+                    NSSound.beep()
+                    Self.toast(L10n.shared.s.clipboardHistoryToastUnavailable)
+                    return
+                }
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        }
     }
 
     /// The window never activates FixDock, so the target is normally still

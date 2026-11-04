@@ -338,6 +338,13 @@ def main():
         ('"ClipboardHistory.json"', ["Core/ClipboardHistoryStore.swift"]),
         ("ClipboardHistoryRecords(", ["Core/ClipboardHistoryStore.swift"]),
         ("ClipboardHistoryStore(", ["Services/ClipboardHistoryService.swift"]),
+        ('"ClipboardHistoryImages"', ["Core/ClipboardHistoryBlobs.swift"]),
+        ("ClipboardHistoryBlobs(", ["Core/ClipboardHistoryStore.swift"]),
+        ("ClipboardHistoryLandedWrite(", ["Core/ClipboardHistoryStore.swift"]),
+        (".sweep(after:", ["Core/ClipboardHistoryStore.swift"]),
+        ("ClipboardImagePayload(", ["Core/ClipboardHistoryBlobs.swift"]),
+        ("ClipboardHistoryService.ownCopy(", ["Services/RecorderGIFClipboard.swift",
+                                              "Services/ScreenshotService.swift"]),
     ):
         found = files_with(needle)
         if found != allowed:
@@ -349,12 +356,36 @@ def main():
         text = path.read_text(encoding="utf-8")
         if "adapted from gksdud" in text and "Copyright (c) 2026 CodingNoye" not in text:
             errors += fail(f"{path.name}: gksdud-derived code must keep the CodingNoye copyright line")
-    # The clipboard history never removes, moves or renames a file.
+    # The clipboard history never removes, moves or renames a file, except one
+    # unlinkat inside ClipboardHistoryBlobs.sweep(after:), the image sweep that
+    # runs only after a durable history write. Comments count too.
+    history_store = (ROOT / "Sources/FixDock/Core/ClipboardHistoryStore.swift").read_text(encoding="utf-8")
+    if history_store.count("ClipboardHistoryLandedWrite(") != 1 or history_store.count(".sweep(after:") != 1:
+        errors += fail("ClipboardHistoryStore.swift: the landed-write token is made once and swept once, in persist()")
+    if "writeDurably(encoded.data" not in history_store:
+        errors += fail("ClipboardHistoryStore.swift: the history write before a sweep must be durable")
+    deletion = re.compile(
+        r"\b(removeItem|trashItem|unlink|unlinkat|moveItem|replaceItem|rename|renameat|renamex_np"
+        r"|renameatx_np|rmdir|removefile|exchangedata|truncate|ftruncate)\b|\bremove\s*\(\s*[a-zA-Z_.]*(path|url|URL)")
     for path in swift_files:
         if path.name.startswith("ClipboardHistory") or path.name == "ClipboardIgnoredApps.swift":
-            found = re.findall(r"\b(removeItem|trashItem|unlink|moveItem|replaceItem|rename)\b",
-                               path.read_text(encoding="utf-8"))
-            if found:
+            text = path.read_text(encoding="utf-8")
+            found = [m.group(0) for m in deletion.finditer(text)]
+            if path.name == "ClipboardHistoryBlobs.swift":
+                start = text.find("func sweep(after")
+                body = ""
+                if start >= 0 and text.count("func sweep(after") == 1:
+                    depth = 0
+                    for offset in range(text.index("{", start), len(text)):
+                        depth += {"{": 1, "}": -1}.get(text[offset], 0)
+                        if depth == 0:
+                            body = text[start:offset + 1]
+                            break
+                if found != ["unlinkat"] or body.count("unlinkat(") != 1:
+                    errors += fail("ClipboardHistoryBlobs.swift: exactly one unlinkat, inside sweep(after:), and no other deletion")
+                if "ClipboardHistory.json" in text:
+                    errors += fail("ClipboardHistoryBlobs.swift must never name the history file")
+            elif found:
                 errors += fail(f"{path.name}: the clipboard history must not use {sorted(set(found))}")
     for path in swift_files:
         if path.name.startswith("Update") and path.name != "UpdateWorkspace.swift":
@@ -380,6 +411,8 @@ def main():
     for relative, expected in (
         ("Core/ClipboardHistoryStore.swift", ["Foundation"]),
         ("Core/ClipboardHistorySupport.swift", ["CoreGraphics", "Foundation"]),
+        ("Core/ClipboardHistoryBlobs.swift", ["CryptoKit", "Foundation", "ImageIO"]),
+        ("Core/ClipboardHistoryKinds.swift", ["Foundation"]),
     ):
         found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
         if found != expected:

@@ -681,7 +681,7 @@ private final class PinWindow: OverlayPanel, NSWindowDelegate, NSSharingServiceP
         let model = TextPanelModel(text: text)
         let panel = TextPanel(model: model,
                               copyAll: { [weak self] text in
-                                  ScreenshotService.copyText(text)
+                                  ScreenshotService.copyText(text, recordInHistory: true)
                                   ScreenshotToastController.shared.show(.copied, on: self?.screen)
                               },
                               onClose: { [weak self] in self?.closeTextPanel() })
