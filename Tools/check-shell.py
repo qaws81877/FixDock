@@ -22,6 +22,7 @@ FEATURE_ORDER = [
     "screenshot",
     "screenRecorder",
     "inputSwitch",
+    "clipboardHistory",
 ]
 ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
@@ -253,9 +254,9 @@ def main():
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
         "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
         "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n"
-        "            || self == .inputSwitch\n" not in catalog
+        "            || self == .inputSwitch || self == .clipboardHistory\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder and input switch should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder, input switch and clipboard history should have a service in this step")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
@@ -332,6 +333,11 @@ def main():
         ('"kern.bootsessionuuid"', ["Services/InputSwitchSystem.swift"]),
         ("OwnKeyEvent.inputSwitchMarker", ["Services/InputSwitchService.swift"]),
         ("IOHIDSetModifierLockState", ["Services/InputSwitchCapsLock.swift"]),
+        # Clipboard history: one owner of the file, the guard's only
+        # constructor, one store (docs/clipboard-history.md, deletion guard).
+        ('"ClipboardHistory.json"', ["Core/ClipboardHistoryStore.swift"]),
+        ("ClipboardHistoryRecords(", ["Core/ClipboardHistoryStore.swift"]),
+        ("ClipboardHistoryStore(", ["Services/ClipboardHistoryService.swift"]),
     ):
         found = files_with(needle)
         if found != allowed:
@@ -343,6 +349,13 @@ def main():
         text = path.read_text(encoding="utf-8")
         if "adapted from gksdud" in text and "Copyright (c) 2026 CodingNoye" not in text:
             errors += fail(f"{path.name}: gksdud-derived code must keep the CodingNoye copyright line")
+    # The clipboard history never removes, moves or renames a file.
+    for path in swift_files:
+        if path.name.startswith("ClipboardHistory") or path.name == "ClipboardIgnoredApps.swift":
+            found = re.findall(r"\b(removeItem|trashItem|unlink|moveItem|replaceItem|rename)\b",
+                               path.read_text(encoding="utf-8"))
+            if found:
+                errors += fail(f"{path.name}: the clipboard history must not use {sorted(set(found))}")
     for path in swift_files:
         if path.name.startswith("Update") and path.name != "UpdateWorkspace.swift":
             if "removeItem" in path.read_text(encoding="utf-8"):
@@ -364,6 +377,13 @@ def main():
     pin_imports = re.findall(r"^import (\w+)", (sources / "Core/ScreenshotPinSupport.swift").read_text(encoding="utf-8"), re.M)
     if pin_imports != ["Carbon", "CoreGraphics", "Foundation", "ImageIO"]:
         errors += fail(f"ScreenshotPinSupport.swift must import only Carbon, CoreGraphics, Foundation and ImageIO, imports {pin_imports}")
+    for relative, expected in (
+        ("Core/ClipboardHistoryStore.swift", ["Foundation"]),
+        ("Core/ClipboardHistorySupport.swift", ["CoreGraphics", "Foundation"]),
+    ):
+        found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
+        if found != expected:
+            errors += fail(f"{relative} must import only {expected}, imports {found}")
     switch_system = (sources / "Services/InputSwitchSystem.swift").read_text(encoding="utf-8")
     if re.search(r"^import (AppKit|SwiftUI)", switch_system, re.M) or re.search(r"\bNS(App|Application|Workspace)\b", switch_system):
         errors += fail("InputSwitchSystem.swift must not use AppKit (it also runs headless)")

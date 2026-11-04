@@ -35,10 +35,15 @@ final class ScreenshotToastController {
     private init() {}
 
     func show(_ toast: ScreenshotToast, on screen: NSScreen?) {
+        show(text: toast.text, on: screen)
+    }
+
+    /// Any tool's one-line confirmation, such as the clipboard history's.
+    func show(text: String, on screen: NSScreen?) {
         hideWork?.cancel()
         panel?.orderOut(nil)
 
-        let host = NSHostingController(rootView: ScreenshotToastView(text: toast.text))
+        let host = NSHostingController(rootView: ScreenshotToastView(text: text))
         host.view.layoutSubtreeIfNeeded()
         let size = host.view.fittingSize
         let panel = OverlayPanel(contentRect: CGRect(origin: .zero, size: size),

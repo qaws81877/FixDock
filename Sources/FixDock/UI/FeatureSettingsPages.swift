@@ -55,6 +55,8 @@ extension AppFeature {
             return AppFeature.screenshot.isAvailable ? nil : page { ScreenCaptureSettingsPage() }
         case .inputSwitch:
             return page { InputSwitchSettings() }
+        case .clipboardHistory:
+            return page { ClipboardHistorySettings() }
         }
     }
 

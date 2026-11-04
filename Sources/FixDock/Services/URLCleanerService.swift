@@ -70,15 +70,16 @@ final class URLCleanerService: ObservableObject {
             NSPasteboard.general.declareAppSource()
             return changeCount
         }, then: { [weak self] changeCount in
-            guard let self else { return }
-            self.lastChangeCount = max(self.lastChangeCount, changeCount)
+            self?.ignoreChanges(upTo: changeCount)
         })
     }
 
-    /// Another FixDock tool wrote the pasteboard (a snippet paste or its
-    /// restore). Main thread, where the poll compares against the count.
+    /// A FixDock tool wrote the pasteboard (a snippet paste or its restore,
+    /// a history paste). Main thread, where both polls compare against the
+    /// count; the clipboard history hears it too, so it never records it.
     func ignoreChanges(upTo changeCount: Int) {
         lastChangeCount = max(lastChangeCount, changeCount)
+        ClipboardHistoryService.ownWriteSettled(upTo: changeCount)
     }
 
     func stop() {

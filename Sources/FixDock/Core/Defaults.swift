@@ -58,6 +58,14 @@ enum DefaultsKey {
     /// Developer runs only (argument domain): let the developer build own
     /// the HID mapping and id 60. Without it that build is inert for the tool.
     static let inputSwitchDeveloperClaim = "inputSwitchDeveloperClaim"
+    /// Clipboard history (upstream names). The main switch stays
+    /// unregistered so enableOnFirstInstall can tell a first install from Off.
+    static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
+    static let clipboardHistoryShortcut = "clipboardHistoryShortcut"
+    static let clipboardHistoryShortcutEnabled = "clipboardHistoryShortcutEnabled"
+    /// Days, 0 for forever (`ClipboardHistoryRetention`).
+    static let clipboardHistoryRetentionDays = "clipboardHistoryRetentionDays"
+    static let clipboardHistoryIgnoredApps = "clipboardHistoryIgnoredApps"
     /// Standardized paths the cleaner never removes.
     static let cleanerExceptions = "cleanerExceptions"
     static let mediaImageFormat = "mediaImageFormat"
@@ -167,6 +175,9 @@ enum Defaults {
             DefaultsKey.quitProtectionQuitDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
             DefaultsKey.quitProtectionCloseDoubleIntervalMs: QuitProtectionSupport.defaultDoublePressIntervalMilliseconds,
             DefaultsKey.inputSwitchLongPressCapsLock: true,
+            DefaultsKey.clipboardHistoryShortcutEnabled: true,
+            DefaultsKey.clipboardHistoryRetentionDays: ClipboardHistoryRetention.default.rawValue,
+            DefaultsKey.clipboardHistoryIgnoredApps: [String](),
             DefaultsKey.screenshotOverlayShortcutEnabled: true,
             DefaultsKey.screenshotFullScreenShortcutEnabled: true,
             DefaultsKey.screenshotSaveToFile: false,
