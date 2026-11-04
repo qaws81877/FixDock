@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
 - New tool, clipboard history (restored from upstream): Command-Shift-V opens a two-pane window centred on the screen under the pointer. On the left, a search field, a type menu (all types, image, text, link, colour, file, email) and the history grouped Pinned, Today, Yesterday, This week, Earlier; on the right, a preview and details (source app, kind, dimensions, size, path, characters, words, when it was copied). Return pastes into the app you were in, Command-Return copies, ⌘K opens the actions (paste, copy, pin, show in Finder, delete), ⌘P opens the type menu, Option-P pins, Command-Delete removes, Escape closes; a click selects, a double click pastes. Without Accessibility, Return copies and says so.
 - Text, pictures and files are recorded. Pictures are kept in FixDock's Application Support folder (pictures over 50 MB or 64 megapixels are skipped); files are kept as their location, the first 32 of a copy, and temporary files are skipped. Text with a picture beside it (a spreadsheet selection) is kept as text. The screenshot tool's copies (picture, QR, recognised text, picked colour) and the recorder's GIF copy are recorded too. Settings › Clipboard history can turn pictures and files off.
