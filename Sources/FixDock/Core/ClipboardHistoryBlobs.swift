@@ -130,6 +130,15 @@ struct ClipboardImagePayload {
     fileprivate let bytes: Data
 
     static let maxBytes = 50 * 1_024 * 1_024
+    /// Decoding costs about four bytes a pixel whatever the file size, so a
+    /// small, highly compressed image is refused by its declared size before
+    /// anything decodes it (64 MP, about 256 MB).
+    static let maxPixels = 64_000_000
+
+    static func withinPixelBudget(width: Int, height: Int) -> Bool {
+        let (pixels, overflow) = width.multipliedReportingOverflow(by: height)
+        return width > 0 && height > 0 && !overflow && pixels <= maxPixels
+    }
 
     private static let reencodedTypes: Set<String> = ["public.tiff", "public.jpeg", "public.heic"]
 
@@ -151,7 +160,8 @@ struct ClipboardImagePayload {
             stored = reencoded
             format = .png
         }
-        guard let size = pixelSize(of: stored) else { return nil }
+        guard let size = pixelSize(of: stored), withinPixelBudget(width: size.width, height: size.height)
+        else { return nil }
         let name = ClipboardBlobName(hashing: stored, format: format)
         return ClipboardImagePayload(ref: ClipboardImageRef(name: name, pixelWidth: size.width,
                                                             pixelHeight: size.height, byteCount: stored.count),
@@ -166,7 +176,7 @@ struct ClipboardImagePayload {
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, noCache) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
-              width > 0, height > 0 else { return nil }
+              withinPixelBudget(width: width, height: height) else { return nil }
         // A thumbnail at full size is the one ImageIO call that applies the
         // EXIF orientation, so the stored PNG is upright and carries none.
         let options = [
