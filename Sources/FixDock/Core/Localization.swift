@@ -825,6 +825,48 @@ struct Strings {
     let inputSwitchRestoredToDefault: String
     let inputSwitchLongPressLabel: String
     let inputSwitchLongPressCaption: String
+    let featureClipboardHistoryName: String
+    let featureClipboardHistorySummary: String
+    let clipboardHistoryEnable: String
+    let clipboardHistoryEnableCaption: String
+    let clipboardHistoryShortcut: String
+    let clipboardHistoryShortcutCaption: String
+    let clipboardHistoryAccessibilityGranted: String
+    let clipboardHistoryAccessibilityMissing: String
+    let clipboardHistoryRetentionTitle: String
+    let clipboardHistoryRetentionOneDay: String
+    let clipboardHistoryRetentionDaysFormat: String
+    let clipboardHistoryRetentionForever: String
+    let clipboardHistoryRetentionCaption: String
+    let clipboardHistoryExcludedTitle: String
+    let clipboardHistoryExcludedCaption: String
+    let clipboardHistoryExcludedNone: String
+    let clipboardHistoryExcludedAdd: String
+    let clipboardHistoryExcludedRemove: String
+    let clipboardHistoryClearUnpinned: String
+    let clipboardHistoryClearConfirmFormat: String
+    let clipboardHistoryClearConfirm: String
+    let clipboardHistoryStoreProblemTitle: String
+    let clipboardHistoryProblemNoContainer: String
+    let clipboardHistoryProblemUnreadableFormat: String
+    let clipboardHistoryProblemNotAFile: String
+    let clipboardHistoryProblemTooLarge: String
+    let clipboardHistoryProblemNewerFormat: String
+    let clipboardHistoryProblemDamaged: String
+    let clipboardHistoryRevealFile: String
+    let clipboardHistorySearchPlaceholder: String
+    let clipboardHistoryEmpty: String
+    let clipboardHistoryNoMatches: String
+    let clipboardHistoryPinnedSection: String
+    let clipboardHistoryRecentSection: String
+    let clipboardHistoryPaste: String
+    let clipboardHistoryCopy: String
+    let clipboardHistoryPin: String
+    let clipboardHistoryUnpin: String
+    let clipboardHistoryDelete: String
+    let clipboardHistoryFooterHint: String
+    let clipboardHistoryToastCopied: String
+    let clipboardHistoryToastNeedsAccessibility: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1605,6 +1647,48 @@ struct Strings {
         inputSwitchRestoredToDefault: "The original shortcut was unknown, so it was set back to macOS's default, Control-Space.",
         inputSwitchLongPressLabel: "Hold for Caps Lock",
         inputSwitchLongPressCaption: "Hold the switch key for half a second to switch to English and turn Caps Lock on or off. A short press still just switches.",
+        featureClipboardHistoryName: "Clipboard history",
+        featureClipboardHistorySummary: "Press ⇧⌘V to find something you copied earlier and paste it again.",
+        clipboardHistoryEnable: "Record clipboard history",
+        clipboardHistoryEnableCaption: "Text you copy is kept on this Mac only. Copies an app marks as secret or temporary, files and pictures are never saved. While the URL cleaner is on, links are saved cleaned.",
+        clipboardHistoryShortcut: "Open clipboard history",
+        clipboardHistoryShortcutCaption: "While this is on, the shortcut opens the history in every app, so ⇧⌘V no longer pastes and matches style.",
+        clipboardHistoryAccessibilityGranted: "Return pastes into the app you were using.",
+        clipboardHistoryAccessibilityMissing: "Without Accessibility, Return only copies. Allow it so FixDock can paste for you.",
+        clipboardHistoryRetentionTitle: "Keep items for",
+        clipboardHistoryRetentionOneDay: "1 day",
+        clipboardHistoryRetentionDaysFormat: "%d days",
+        clipboardHistoryRetentionForever: "Forever",
+        clipboardHistoryRetentionCaption: "Pinned items are always kept. Up to 1,000 other items are kept, oldest removed first.",
+        clipboardHistoryExcludedTitle: "Apps to skip",
+        clipboardHistoryExcludedCaption: "Nothing you copy while one of these apps is in front is saved to the history.",
+        clipboardHistoryExcludedNone: "No apps yet.",
+        clipboardHistoryExcludedAdd: "Add an app…",
+        clipboardHistoryExcludedRemove: "Remove",
+        clipboardHistoryClearUnpinned: "Clear Unpinned Items…",
+        clipboardHistoryClearConfirmFormat: "Remove %d unpinned items? Pinned items stay.",
+        clipboardHistoryClearConfirm: "Clear",
+        clipboardHistoryStoreProblemTitle: "The saved history can't be used, so nothing is recorded. FixDock will not change the file.",
+        clipboardHistoryProblemNoContainer: "FixDock has no Application Support folder to keep the history in.",
+        clipboardHistoryProblemUnreadableFormat: "The history file can't be read: %@",
+        clipboardHistoryProblemNotAFile: "Something other than a plain file is where the history file belongs.",
+        clipboardHistoryProblemTooLarge: "The history file is larger than FixDock reads.",
+        clipboardHistoryProblemNewerFormat: "A newer version of FixDock wrote the history file.",
+        clipboardHistoryProblemDamaged: "The history file is damaged.",
+        clipboardHistoryRevealFile: "Show in Finder",
+        clipboardHistorySearchPlaceholder: "Search",
+        clipboardHistoryEmpty: "Nothing copied yet",
+        clipboardHistoryNoMatches: "No matches",
+        clipboardHistoryPinnedSection: "Pinned",
+        clipboardHistoryRecentSection: "Recent",
+        clipboardHistoryPaste: "Paste",
+        clipboardHistoryCopy: "Copy",
+        clipboardHistoryPin: "Pin",
+        clipboardHistoryUnpin: "Unpin",
+        clipboardHistoryDelete: "Delete",
+        clipboardHistoryFooterHint: "↩ Paste   ⌘↩ Copy   ⌥P Pin   ⌘⌫ Delete   esc Close",
+        clipboardHistoryToastCopied: "Copied",
+        clipboardHistoryToastNeedsAccessibility: "Copied. FixDock needs Accessibility to paste for you.",
         versionFormat: "Version %@"
     )
 }

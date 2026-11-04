@@ -9,8 +9,8 @@ import Combine
 ///
 /// A service is created only when its binding runs, and `syncAtLaunch` skips
 /// anything that is not installed. URL cleaner, quit protection, cleaning
-/// mode, text snippets, media, AirDrop auto-zip, the cleaner, screenshot and
-/// the screen recorder are wired.
+/// mode, text snippets, media, AirDrop auto-zip, the cleaner, screenshot,
+/// the screen recorder, the fast switch and clipboard history are wired.
 final class FeatureRuntime: ObservableObject {
     static let shared = FeatureRuntime()
 
@@ -85,6 +85,7 @@ final class FeatureRuntime: ObservableObject {
         .screenshot: { ScreenshotService.shared.syncWithPreferences() },
         .screenRecorder: { ScreenRecorderService.shared.syncWithPreferences() },
         .inputSwitch: { InputSwitchService.shared.syncWithPreferences() },
+        .clipboardHistory: { ClipboardHistoryService.shared.syncWithPreferences() },
     ]
 
     /// Launch-time restore for uninstalled tools that leave system state.

@@ -315,6 +315,9 @@ private struct PanelFeatureRow: View {
             AirDropPanelRow(isEditing: isEditing, visibility: visibility)
         case .inputSwitch:
             InputSwitchPanelRow(isEditing: isEditing, visibility: visibility)
+        case .clipboardHistory:
+            // The panel never shows the history (owner); it is in no card.
+            EmptyView()
         }
     }
 }

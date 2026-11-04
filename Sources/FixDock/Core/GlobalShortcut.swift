@@ -113,6 +113,10 @@ struct GlobalShortcut: Equatable, Hashable {
     /// Control-Option-Command-3 captures the full screen, beside the overlay's 4.
     static let captureFullScreenDefault = GlobalShortcut(keyCode: Int64(kVK_ANSI_3),
                                                          modifiers: [.control, .option, .command])
+    /// Command-Shift-V opens the clipboard history (owner, knowing it takes
+    /// over "Paste and Match Style" in every app).
+    static let clipboardHistoryDefault = GlobalShortcut(keyCode: Int64(kVK_ANSI_V),
+                                                        modifiers: [.shift, .command])
 
     static func saved(for key: String, fallback: GlobalShortcut) -> GlobalShortcut {
         if let raw = UserDefaults.standard.string(forKey: key),

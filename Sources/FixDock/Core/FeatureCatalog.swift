@@ -7,7 +7,8 @@ import Foundation
 /// Features the hub can install. Declaration order is the order later steps
 /// add the real modules:
 /// URL cleaner, quit/close protection, cleaning mode, text snippets, media,
-/// AirDrop auto-zip, cleaner, screenshot, screen recorder, fast Korean/English switch.
+/// AirDrop auto-zip, cleaner, screenshot, screen recorder, fast Korean/English switch,
+/// clipboard history.
 ///
 /// Raw values match upstream vorssaint-utils where the feature existed, so a
 /// saved availability key still means the same thing when the module returns.
@@ -16,7 +17,8 @@ import Foundation
 ///
 /// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets`,
 /// `mediaTools`, `airdropAutoZip`, `cleaner`, `screenshot` and
-/// `screenRecorder` and `inputSwitch` have modules.
+/// `screenRecorder`, `inputSwitch` and `clipboardHistory` have modules.
+/// `clipboardHistory` keeps upstream's raw value and is cut to text.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection
@@ -28,6 +30,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
     case screenshot
     case screenRecorder
     case inputSwitch
+    case clipboardHistory
 
     var id: String { rawValue }
 
@@ -36,7 +39,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode
             || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip
             || self == .cleaner || self == .screenshot || self == .screenRecorder
-            || self == .inputSwitch
+            || self == .inputSwitch || self == .clipboardHistory
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
@@ -45,7 +48,9 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .quitWindowProtection, .cleaningMode, .textSnippets, .inputSwitch: return [.accessibility]
         case .cleaner: return [.fullDiskAccess]
         case .screenshot, .screenRecorder: return [.screenRecording]
-        case .urlCleaner, .mediaTools, .airdropAutoZip:
+        // The history records without a grant; only its paste needs
+        // Accessibility, and without it Return copies and says so.
+        case .urlCleaner, .mediaTools, .airdropAutoZip, .clipboardHistory:
             return []
         }
     }
@@ -60,6 +65,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .quitWindowProtection: key = DefaultsKey.quitProtectionQuitEnabled
         case .textSnippets: key = DefaultsKey.textSnippetsEnabled
         case .airdropAutoZip: key = DefaultsKey.airdropAutoZipEnabled
+        case .clipboardHistory: key = DefaultsKey.clipboardHistoryEnabled
         case .cleaningMode, .mediaTools, .cleaner,
              .screenshot, .screenRecorder:
             return
@@ -83,7 +89,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         switch self {
         case .urlCleaner:
             return .files
-        case .quitWindowProtection, .textSnippets, .inputSwitch:
+        case .quitWindowProtection, .textSnippets, .inputSwitch, .clipboardHistory:
             return .keyboard
         case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return .tools
@@ -102,6 +108,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenshot: return "camera.viewfinder"
         case .screenRecorder: return "record.circle"
         case .inputSwitch: return "globe"
+        case .clipboardHistory: return "list.clipboard"
         }
     }
 
@@ -117,6 +124,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenshot: return strings.featureScreenshotName
         case .screenRecorder: return strings.featureRecorderName
         case .inputSwitch: return strings.featureInputSwitchName
+        case .clipboardHistory: return strings.featureClipboardHistoryName
         }
     }
 
@@ -132,6 +140,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenshot: return strings.featureScreenshotSummary
         case .screenRecorder: return strings.featureRecorderSummary
         case .inputSwitch: return strings.featureInputSwitchSummary
+        case .clipboardHistory: return strings.featureClipboardHistorySummary
         }
     }
 }

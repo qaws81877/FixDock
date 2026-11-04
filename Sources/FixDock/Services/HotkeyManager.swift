@@ -15,6 +15,8 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
     case captureOverlay = 2
     /// Control-Option-Command-3 captures the display under the pointer.
     case captureFullScreen = 3
+    /// Command-Shift-V opens the clipboard history.
+    case clipboardHistory = 4
 
     var id: UInt32 { rawValue }
 
@@ -23,6 +25,7 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
         case .panel: return DefaultsKey.panelShortcut
         case .captureOverlay: return DefaultsKey.screenshotOverlayShortcut
         case .captureFullScreen: return DefaultsKey.screenshotFullScreenShortcut
+        case .clipboardHistory: return DefaultsKey.clipboardHistoryShortcut
         }
     }
 
@@ -31,14 +34,15 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
         case .panel: return .panelDefault
         case .captureOverlay: return .captureOverlayDefault
         case .captureFullScreen: return .captureFullScreenDefault
+        case .clipboardHistory: return .clipboardHistoryDefault
         }
     }
 
     var saved: GlobalShortcut { GlobalShortcut.saved(for: storageKey, fallback: fallback) }
 
-    /// Capture shortcuts exist only while the screenshot tool is installed
-    /// and its own switch is on, so an uninstalled tool leaves the
-    /// combination free for other apps.
+    /// A tool's shortcut exists only while the tool is installed and its own
+    /// switches are on, so an uninstalled tool leaves the combination free
+    /// for other apps.
     var wantsRegistration: Bool {
         let defaults = UserDefaults.standard
         switch self {
@@ -49,6 +53,10 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
         case .captureFullScreen:
             return AppFeature.screenshot.isAvailable
                 && defaults.bool(forKey: DefaultsKey.screenshotFullScreenShortcutEnabled)
+        case .clipboardHistory:
+            return AppFeature.clipboardHistory.isAvailable
+                && defaults.bool(forKey: DefaultsKey.clipboardHistoryEnabled)
+                && defaults.bool(forKey: DefaultsKey.clipboardHistoryShortcutEnabled)
         }
     }
 }
@@ -131,7 +139,7 @@ final class HotkeyManager: ObservableObject {
     private func fire(_ role: HotkeyRole) {
         switch role {
         case .panel: onActivate?()
-        case .captureOverlay, .captureFullScreen: actions[role]?()
+        case .captureOverlay, .captureFullScreen, .clipboardHistory: actions[role]?()
         }
     }
 

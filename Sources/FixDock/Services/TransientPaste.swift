@@ -124,6 +124,17 @@ final class TransientPaste {
         return snapshot
     }
 
+    /// Command-V once held modifiers are released, if the pasteboard still
+    /// holds `changeCount` (a copy made meanwhile belongs to the person). No
+    /// snapshot and no restore: what was written stays on the clipboard.
+    static func postPaste(expectingChangeCount changeCount: Int, completion: @escaping (Bool) -> Void) {
+        var posted = false
+        postPasteWhenModifiersReleased(attempt: 0, expectedChangeCount: changeCount, willPost: nil,
+                                       didPost: { posted = true }, didFail: nil) {
+            completion(posted)
+        }
+    }
+
     private static func postPasteWhenModifiersReleased(attempt: Int,
                                                        expectedChangeCount: Int,
                                                        willPost: (() -> Void)?,
