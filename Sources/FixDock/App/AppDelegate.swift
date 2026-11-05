@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var updateAttention: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // First: a copy opened from the disk image may move itself into
+        // /Applications and quit before it registers anything here.
+        if InstallMover.offerIfNeeded() { return }
         installMainMenu()
         NotificationCenter.default.addObserver(
             self,
