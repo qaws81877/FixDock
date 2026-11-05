@@ -864,6 +864,9 @@ extension Strings {
         installMoveNotWritableMessage: "이 계정은 응용 프로그램 폴더에 앱을 추가할 수 없습니다. 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하고 관리자 이름과 암호를 입력하거나, 관리자에게 요청하세요.",
         installMoveFailedTitle: "FixDock을 옮기지 못했습니다",
         installMoveFailedMessageFormat: "응용 프로그램 폴더의 내용은 그대로입니다. 대신 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하세요. (%@)",
+        installMoveChangedMessageFormat: "응용 프로그램 폴더가 바뀌었을 수 있습니다. 그곳에 FixDock이 있었다면 그 복사본은 휴지통에 있습니다. 휴지통에서 되돌리거나 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하세요. (%@)",
+        installMoveOpenFailedTitle: "FixDock을 열지 못했습니다",
+        installMoveOpenFailedMessageFormat: "FixDock은 응용 프로그램 폴더에 있지만 열리지 않았습니다. 그 폴더에서 직접 여세요. (%@)",
         installMoveStillRunning: "설치된 FixDock이 종료되지 않았습니다",
         installMoveOK: "확인",
         versionFormat: "버전 %@"

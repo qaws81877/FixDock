@@ -913,6 +913,9 @@ struct Strings {
     let installMoveNotWritableMessage: String
     let installMoveFailedTitle: String
     let installMoveFailedMessageFormat: String
+    let installMoveChangedMessageFormat: String
+    let installMoveOpenFailedTitle: String
+    let installMoveOpenFailedMessageFormat: String
     let installMoveStillRunning: String
     let installMoveOK: String
     let versionFormat: String
@@ -1783,6 +1786,9 @@ struct Strings {
         installMoveNotWritableMessage: "This account can't add apps to the Applications folder. Drag FixDock onto the Applications folder in the disk image window and enter an administrator's name and password, or ask your administrator.",
         installMoveFailedTitle: "FixDock couldn't be moved",
         installMoveFailedMessageFormat: "Nothing in the Applications folder was lost. Drag FixDock onto the Applications folder in the disk image window instead. (%@)",
+        installMoveChangedMessageFormat: "The Applications folder may have changed. If FixDock was there before, that copy is in the Trash. Put it back from there, or drag FixDock onto the Applications folder in the disk image window. (%@)",
+        installMoveOpenFailedTitle: "FixDock couldn't be opened",
+        installMoveOpenFailedMessageFormat: "FixDock is in the Applications folder but didn't open. Open it from there. (%@)",
         installMoveStillRunning: "the installed FixDock did not quit",
         installMoveOK: "OK",
         versionFormat: "Version %@"

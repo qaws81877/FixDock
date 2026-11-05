@@ -25,10 +25,13 @@ enum InstallMover {
         case offer
     }
 
-    /// Pure: the bundle id, the realpath of the running bundle, and whether its
-    /// volume is read-only (a mounted disk image is).
-    static func placement(bundleID: String?, bundlePath: String, volumeIsReadOnly: Bool) -> Placement {
-        guard bundleID == AppInfo.bundleID else { return .stay }
+    /// Pure: the bundle id, the realpath of the running bundle, whether its
+    /// volume is read-only (a mounted disk image is), and whether it carries the
+    /// release's Developer ID. An ad-hoc or foreign-signed copy never replaces
+    /// the installed one, the same rule that keeps the updater inert for them.
+    static func placement(bundleID: String?, bundlePath: String, volumeIsReadOnly: Bool,
+                          releaseSigned: Bool) -> Placement {
+        guard bundleID == AppInfo.bundleID, releaseSigned else { return .stay }
         if (bundlePath as NSString).deletingLastPathComponent == installFolder { return .stay }
         if bundlePath.contains("/AppTranslocation/") { return .offer }
         if bundlePath.hasPrefix("/Volumes/"), volumeIsReadOnly { return .offer }
@@ -41,8 +44,11 @@ enum InstallMover {
         let source = Bundle.main.bundleURL
         let path = UpdateWorkspace.realPath(source.path) ?? source.path
         let readOnly = (try? source.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly ?? false
+        let signing = SigningIdentity.ofRunningApp()
+        let releaseSigned = signing.map { $0.isDeveloperIDApplication && $0.teamID == AppInfo.signingTeamID } ?? false
         guard placement(bundleID: Bundle.main.bundleIdentifier, bundlePath: path,
-                        volumeIsReadOnly: readOnly) == .offer
+                        volumeIsReadOnly: readOnly, releaseSigned: releaseSigned) == .offer,
+              let signing
         else { return false }
 
         let strings = L10n.shared.s
@@ -76,21 +82,31 @@ enum InstallMover {
             return false
         }
 
-        switch move(from: source, to: destination) {
+        switch move(from: source, to: destination, signing: signing) {
         case .moved:
             return launchAndQuit(destination)
-        case .failed(let detail):
+        case .unchanged(let detail):
             inform(strings.installMoveFailedTitle,
                    String(format: strings.installMoveFailedMessageFormat, detail))
+            return false
+        case .changed(let detail):
+            inform(strings.installMoveFailedTitle,
+                   String(format: strings.installMoveChangedMessageFormat, detail))
             return false
         }
     }
 
     // MARK: Private
 
-    private enum MoveResult { case moved, failed(String) }
+    private enum MoveResult {
+        case moved
+        /// The install path is as it was before the move started.
+        case unchanged(String)
+        /// The old copy could not be put back and is still in the Trash.
+        case changed(String)
+    }
 
-    private static func move(from source: URL, to destination: URL) -> MoveResult {
+    private static func move(from source: URL, to destination: URL, signing: SigningIdentity) -> MoveResult {
         let files = FileManager.default
         // A scratch folder on the /Applications volume, so the last step is a
         // rename and the install path never holds a half-copied bundle.
@@ -100,45 +116,61 @@ enum InstallMover {
                                     appropriateFor: URL(fileURLWithPath: installFolder, isDirectory: true),
                                     create: true)
         } catch {
-            return .failed(error.localizedDescription)
+            return .unchanged(error.localizedDescription)
         }
         defer { try? files.removeItem(at: scratch) }
         let staged = scratch.appendingPathComponent(destination.lastPathComponent, isDirectory: true)
 
-        guard run("/usr/bin/ditto", [source.path, staged.path]) else { return .failed("ditto") }
+        guard run("/usr/bin/ditto", [source.path, staged.path]) else { return .unchanged("ditto") }
 
         // The same check the updater makes before a swap: this copy's own
-        // designated requirement, and notarization for a Developer ID copy.
-        guard let identity = SigningIdentity.ofRunningApp() else { return .failed("codesign") }
-        let status = identity.isDeveloperIDApplication
-            ? identity.checkReplacement(at: staged)
-            : identity.checkSameIdentity(at: staged)
-        guard status == errSecSuccess else { return .failed("codesign \(status)") }
+        // designated requirement, and notarization.
+        let status = signing.checkReplacement(at: staged)
+        guard status == errSecSuccess else { return .unchanged("codesign \(status)") }
 
         // This copy already passed Gatekeeper to be running. Without this the
         // copy keeps the disk image's quarantine and is translocated on launch.
         _ = run("/usr/bin/xattr", ["-d", "-r", "com.apple.quarantine", staged.path])
 
-        guard quitOtherCopies(of: destination) else { return .failed(L10n.shared.s.installMoveStillRunning) }
+        guard quitOtherCopies(of: destination) else { return .unchanged(L10n.shared.s.installMoveStillRunning) }
 
-        var trashed: NSURL?
+        var trashedURL: NSURL?
         if files.fileExists(atPath: destination.path) {
             do {
-                try files.trashItem(at: destination, resultingItemURL: &trashed)
+                try files.trashItem(at: destination, resultingItemURL: &trashedURL)
             } catch {
-                return .failed(error.localizedDescription)
+                return .unchanged(error.localizedDescription)
             }
         }
+        let trashed = trashedURL as URL?
+
+        /// Puts the old copy back once the install path is empty again.
+        func restore(_ detail: String) -> MoveResult {
+            guard !files.fileExists(atPath: destination.path) else { return .changed(detail) }
+            guard let trashed else { return .unchanged(detail) }
+            do {
+                try files.moveItem(at: trashed, to: destination)
+                return .unchanged(detail)
+            } catch {
+                return .changed(detail)
+            }
+        }
+
         do {
             try files.moveItem(at: staged, to: destination)
-            return .moved
         } catch {
-            // Put the old copy back where it was.
-            if let trashed = trashed as URL?, !files.fileExists(atPath: destination.path) {
-                try? files.moveItem(at: trashed, to: destination)
-            }
-            return .failed(error.localizedDescription)
+            return restore(error.localizedDescription)
         }
+
+        // Nothing stays at the install path unless it passed the check there.
+        let installed = signing.checkReplacement(at: destination)
+        guard installed == errSecSuccess else {
+            // Aside into the scratch folder, then the old copy goes back.
+            guard (try? files.moveItem(at: destination, to: staged)) != nil
+            else { return .changed("codesign \(installed)") }
+            return restore("codesign \(installed)")
+        }
+        return .moved
     }
 
     /// Asks a FixDock already running from the install path to quit, and
@@ -173,9 +205,11 @@ enum InstallMover {
         NSWorkspace.shared.openApplication(at: bundle, configuration: configuration) { _, error in
             DispatchQueue.main.async {
                 if let error {
-                    InstallMover.inform(L10n.shared.s.installMoveFailedTitle,
-                                        String(format: L10n.shared.s.installMoveFailedMessageFormat,
+                    // The copy is in place; only the launch failed.
+                    InstallMover.inform(L10n.shared.s.installMoveOpenFailedTitle,
+                                        String(format: L10n.shared.s.installMoveOpenFailedMessageFormat,
                                                error.localizedDescription))
+                    NSWorkspace.shared.activateFileViewerSelecting([bundle])
                 }
                 NSApp.terminate(nil)
             }
