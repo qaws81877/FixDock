@@ -53,6 +53,53 @@ final class L10n: ObservableObject {
     }
 }
 
+/// The privacy list names as the running System Settings shows them. Each
+/// rename has its own threshold; Screen Recording has none because its
+/// current name covers every supported macOS. Decided once per process.
+///
+/// Every Korean name and grant form ends in a final consonant (사용, 접근,
+/// 녹음, 권한), so the particles in the table (을/이/에서) fit both eras. A
+/// rename to a vowel-final name must re-check every Korean entry.
+struct PermissionListNames {
+    let accessibility: String
+    let screenRecording: String
+    let fullDiskAccess: String
+    /// Korean running text names a grant with 권한 exactly once.
+    private let grantWord: String?
+
+    var accessibilityGrant: String { grant(accessibility) }
+    var screenRecordingGrant: String { grant(screenRecording) }
+    var fullDiskAccessGrant: String { grant(fullDiskAccess) }
+
+    private func grant(_ name: String) -> String {
+        guard let word = grantWord, !name.hasSuffix(word) else { return name }
+        return name + " " + word
+    }
+
+    static let en = PermissionListNames(
+        accessibility: renamed(since: 27, from: "Accessibility", to: "Device Control and Data Access"),
+        screenRecording: "Screen & System Audio Recording",
+        fullDiskAccess: "Full Disk Access",
+        grantWord: nil)
+
+    static let ko = PermissionListNames(
+        accessibility: renamed(since: 27, from: "손쉬운 사용", to: "기기 제어 및 데이터 접근"),
+        screenRecording: "화면 및 시스템 오디오 녹음",
+        fullDiskAccess: renamed(since: 27, from: "전체 디스크 접근", to: "전체 디스크 접근 권한"),
+        grantWord: "권한")
+
+    private static let forcesLegacy = AppInfo.isDeveloperBuild
+        && UserDefaults.standard.bool(forKey: DefaultsKey.permissionListNamesLegacy)
+
+    private static func renamed(since major: Int, from old: String, to new: String) -> String {
+        let renamed = !forcesLegacy && ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: major, minorVersion: 0, patchVersion: 0))
+        return renamed ? new : old
+    }
+}
+
+private let enNames = PermissionListNames.en
+
 struct Strings {
     let statusTooltip: String
     let menuSettings: String
@@ -379,6 +426,14 @@ struct Strings {
     let guideStaleHint: String
     let guideStartOver: String
     let guideClose: String
+    let guideDragLead: String
+    let guideCaseMissingTitle: String
+    let guideCaseMissingAction: String
+    let guideCaseOffTitle: String
+    let guideCaseOffAction: String
+    let guideCaseStuckTitle: String
+    let guideCaseStuckAction: String
+    let guideDragConfirm: String
     let onboardingWelcomeTitle: String
     let onboardingWelcomeBody: String
     let onboardingLanguageTitle: String
@@ -954,7 +1009,7 @@ struct Strings {
         launchAtLoginNeedsApplications: "Move FixDock to /Applications, then turn this on again.",
         launchAtLoginNeedsApproval: "macOS is waiting for approval. Turn FixDock on in System Settings → General → Login Items.",
         relaunch: "Relaunch FixDock",
-        featuresIntro: "Install only the tools you want. A tool asks for its permission when you install it: Accessibility for the keyboard tools, Full Disk Access for the cleaner, Screen Recording for screenshot and the recorder.",
+        featuresIntro: "Install only the tools you want. A tool asks for its permission when you install it: \(enNames.accessibility) for the keyboard tools, \(enNames.fullDiskAccess) for the cleaner, \(enNames.screenRecording) for screenshot and the recorder.",
         featuresInstall: "Install",
         featuresRemove: "Remove",
         featuresInstallAll: "Install all",
@@ -1011,8 +1066,8 @@ struct Strings {
         disclosureExpanded: "Expanded",
         disclosureCollapsed: "Collapsed",
         quitProtectionIntro: "Configure each shortcut independently. The original action passes only after the selected confirmation.",
-        quitProtectionAccessibilityCaption: "Protection uses Accessibility to observe only ⌘Q and ⌘W globally.",
-        quitProtectionNeedsAccessibility: "Protection is off until FixDock has Accessibility.",
+        quitProtectionAccessibilityCaption: "Protection uses \(enNames.accessibility) to observe only ⌘Q and ⌘W globally.",
+        quitProtectionNeedsAccessibility: "Protection is off until FixDock has \(enNames.accessibility).",
         quitProtectionActiveNow: "Protecting",
         quitProtectionEnabled: "Protect this shortcut",
         quitProtectionEnabledCaption: "Other Command shortcuts continue to work normally.",
@@ -1046,7 +1101,7 @@ struct Strings {
         cleaningModeStartNow: "Lock keyboard now",
         cleaningModePanelCaption: "Locks the keyboard so you can clean safely.",
         cleaningModeUnlockCaption: "Press Escape 5 times to end it. The setting below decides what the mouse can do.",
-        cleaningModeNeedsAccessibility: "Cleaning mode needs Accessibility to lock the keyboard.",
+        cleaningModeNeedsAccessibility: "Cleaning mode needs \(enNames.accessibility) to lock the keyboard.",
         cleaningModeOverlayTitle: "Keyboard locked for cleaning",
         cleaningModeOverlaySubtitle: "Press Escape 5 times to unlock",
         cleaningModeOverlayUnlock: "Unlock",
@@ -1063,12 +1118,12 @@ struct Strings {
         snippetsEnable: "Expand snippets while typing",
         snippetsEnableCaption: "Type a trigger anywhere and it becomes its text. Everything stays on this Mac.",
         snippetsSecureNote: "Password fields are left alone. Text with a line break is pasted, and the clipboard is put back right after.",
-        snippetsNeedsAccessibility: "Snippets do not expand until FixDock has Accessibility.",
+        snippetsNeedsAccessibility: "Snippets do not expand until FixDock has \(enNames.accessibility).",
         snippetsActiveNow: "Active",
         keyTapSecureInputFormat: "Secure input is on (macOS names %@). While it is on, macOS shows typing to no other app, so this feature does not see keys. It comes back when that app turns it off: close its password or sign-in field, or quit it.",
         keyTapSecureInputExitedFormat: "Secure input is still on, but %@, the app macOS names for it, has quit. If it does not clear, log out and back in.",
         keyTapUnknownApp: "an unknown app",
-        keyTapStartFailed: "macOS refused FixDock's keyboard monitor although Accessibility is on. FixDock retries every few seconds. If this stays, remove FixDock in System Settings › Privacy & Security › Accessibility and add it again.",
+        keyTapStartFailed: "macOS refused FixDock's keyboard monitor although \(enNames.accessibility) is on. FixDock retries every few seconds. If this stays, remove FixDock in System Settings › Privacy & Security › \(enNames.accessibility) and add it again.",
         feedbackButton: "Send Feedback…",
         feedbackTitle: "Feedback",
         feedbackCaption: "The copy holds your note, app and macOS versions, Mac model, language, which tools are on, and recent keyboard monitor events (secure input, taps that stopped). It has no typed text and no snippet contents. Send delivers exactly this to the FixDock developer's Discord through FixDock's own relay; Copy keeps it on this Mac.",
@@ -1162,11 +1217,11 @@ struct Strings {
         airdropOpenDownloads: "Open Downloads",
         airdropNotifyDoneFormat: "%d photos zipped into %@.",
         airdropNotifyFailed: "The batch could not be zipped. The photos were left in Downloads.",
-        permissionFullDiskAccess: "Full Disk Access",
+        permissionFullDiskAccess: enNames.fullDiskAccess,
         permissionFullDiskAccessDetail: "The cleaner uses this to read caches, device backups and the Trash. A grant applies after a relaunch.",
         cleanerIntro: "Find caches, logs and other data you can remove. Nothing is removed until you check it and confirm.",
         cleanerPermanentNote: "Removal is permanent and cannot be undone.",
-        cleanerNeedsFullDiskAccess: "The cleaner needs Full Disk Access before it can scan.",
+        cleanerNeedsFullDiskAccess: "The cleaner needs \(enNames.fullDiskAccess) before it can scan.",
         cleanerHomeUnusable: "The home folder could not be read safely, so the scan did not start.",
         cleanerScan: "Scan",
         cleanerScanning: "Scanning…",
@@ -1229,16 +1284,16 @@ struct Strings {
         mediaErrorLocation: "The location could not be removed, so nothing was saved.",
         mediaErrorWrite: "Could not save next to the original.",
         shortcutTitle: "Open the panel",
-        shortcutCaption: "Works without Accessibility. The default is Control-Option-Command-F.",
+        shortcutCaption: "Works without \(enNames.accessibility). The default is Control-Option-Command-F.",
         shortcutRecord: "Record shortcut",
         shortcutRecording: "Press the new shortcut.",
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "The keyboard tools need Accessibility: quit and close protection, cleaning mode and text snippets. The cleaner needs Full Disk Access. Screenshots need Screen Recording. Nothing else in this build needs a permission.",
-        permissionAccessibility: "Accessibility",
+        permissionsIntro: "The keyboard tools need \(enNames.accessibility): quit and close protection, cleaning mode and text snippets. The cleaner needs \(enNames.fullDiskAccess). Screenshots need \(enNames.screenRecording). Nothing else in this build needs a permission.",
+        permissionAccessibility: enNames.accessibility,
         permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, and text snippets to see triggers and type their text.",
-        permissionScreenRecording: "Screen Recording",
+        permissionScreenRecording: enNames.screenRecording,
         permissionScreenRecordingDetail: "The screenshot tool needs this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
         permissionRequest: "Request…",
@@ -1253,13 +1308,21 @@ struct Strings {
         guideStaleHint: "A switch left by an older copy stays on while this copy is still blocked.",
         guideStartOver: "Start over",
         guideClose: "Close",
+        guideDragLead: "Check the list, then follow the line that matches.",
+        guideCaseMissingTitle: "Not in the list",
+        guideCaseMissingAction: "Drag the FixDock icon onto the list.",
+        guideCaseOffTitle: "In the list, switched off",
+        guideCaseOffAction: "Turn its switch on.",
+        guideCaseStuckTitle: "On, but nothing changes",
+        guideCaseStuckAction: "If more than one FixDock is listed, each row belongs to a different copy. Start over removes this copy's entry; then drag the icon in.",
+        guideDragConfirm: "Confirm with Touch ID or your password in System Settings.",
         onboardingWelcomeTitle: "FixDock",
         onboardingWelcomeBody: "A menu bar app for a repair bench. Install only the tools you want from Settings › Features; each asks for a permission only when it needs one. Control-Option-Command-F opens the panel. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and sends no analytics. Its only network use is checking GitHub for FixDock updates, which you can turn off in Settings › About.",
         onboardingLanguageTitle: "Language",
         onboardingFeaturesTitle: "Tools",
         onboardingFeaturesBody: "Install the tools you want now, or later in Settings › Features. A tool does nothing until it is installed.",
         onboardingPermissionsTitle: "Permissions",
-        onboardingPermissionsBody: "A tool asks for a permission only when you install it or turn on an option that needs one. The keyboard tools need Accessibility: quit and close protection watches ⌘Q and ⌘W, cleaning mode blocks keys only while it is on, and text snippets look for your triggers. The cleaner needs Full Disk Access to list caches and logs and removes only what you check. Screenshot and the screen recorder need Screen Recording and read the screen only while you capture or record; the microphone and system audio are used only when you turn them on. Nothing leaves your Mac. FixDock shows a small guide beside System Settings when it asks.",
+        onboardingPermissionsBody: "A tool asks for a permission only when you install it or turn on an option that needs one. The keyboard tools need \(enNames.accessibility): quit and close protection watches ⌘Q and ⌘W, cleaning mode blocks keys only while it is on, and text snippets look for your triggers. The cleaner needs \(enNames.fullDiskAccess) to list caches and logs and removes only what you check. Screenshot and the screen recorder need \(enNames.screenRecording) and read the screen only while you capture or record; the microphone and system audio are used only when you turn them on. Nothing leaves your Mac. For these three, FixDock opens the list in System Settings and shows a card with its icon: drag the icon into the list, or turn its switch on if it is already there.",
         onboardingFinishTitle: "The icon is in the menu bar",
         onboardingFinishBody: "Click it for the panel. Control-Option-Command-F opens it from anywhere. Right-click the icon for Settings and Quit.",
         onboardingContinue: "Continue",
@@ -1294,8 +1357,8 @@ struct Strings {
         screenshotScrollingHeight: "%ld px so far",
         screenshotScrollingDone: "Done",
         screenshotScrollingSkipped: "%ld frames did not line up and were skipped. Scroll more slowly.",
-        screenshotNeedsPermission: "Screenshots need the Screen Recording permission.",
-        screenshotGrantPermission: "Allow Screen Recording…",
+        screenshotNeedsPermission: "Screenshots need the \(enNames.screenRecording) permission.",
+        screenshotGrantPermission: "Allow \(enNames.screenRecording)…",
         screenshotShortcutsTitle: "Shortcuts",
         screenshotShortcutOverlay: "Capture overlay",
         screenshotShortcutFullScreen: "Full screen at once",
@@ -1490,7 +1553,7 @@ struct Strings {
         recorderPointerToggle: "Record the pointer and clicks",
         recorderPointerCaption: "Kept beside the recording for the editor to draw. Off: the system pointer is recorded into the movie instead.",
         recorderTypingToggle: "Record when you type",
-        recorderTypingCaption: "Only the moments keys were pressed, never which keys. Needs Accessibility.",
+        recorderTypingCaption: "Only the moments keys were pressed, never which keys. Needs \(enNames.accessibility).",
         recorderStartHint: "Press Control-Option-Command-4, then 2. Drag an area, click a window or press Return for the whole screen.",
         recorderStopHint: "Stop with the indicator at the top of the screen or Control-Option-Command-4.",
         recorderNeedsScreenshot: "Recording starts from the capture overlay, which comes with the Screenshot tool. Install Screenshot in Features to record.",
@@ -1680,7 +1743,7 @@ struct Strings {
         inputSwitchKeyRightControl: "Right Control ⌃",
         inputSwitchCapsLockWarning: "While this is on, Caps Lock no longer locks capitals. Type capitals with Shift.",
         inputSwitchShortcutCaption: "While this is on, the key sends an F-key and macOS's \"Select the previous input source\" shortcut is set to that F-key. Turning it off, quitting or uninstalling FixDock puts both back.",
-        inputSwitchNeedsAccessibility: "Allow Accessibility so FixDock can switch on press.",
+        inputSwitchNeedsAccessibility: "Allow \(enNames.accessibility) so FixDock can switch on press.",
         inputSwitchActiveNow: "Switching on press",
         inputSwitchStatusLiveFormat: "On: %@ switches through %@.",
         inputSwitchStatusPreparing: "Getting ready…",
@@ -1705,7 +1768,7 @@ struct Strings {
         clipboardHistoryShortcut: "Open clipboard history",
         clipboardHistoryShortcutCaption: "While this is on, the shortcut opens the history in every app, so ⇧⌘V no longer pastes and matches style.",
         clipboardHistoryAccessibilityGranted: "Return pastes into the app you were using.",
-        clipboardHistoryAccessibilityMissing: "Without Accessibility, Return only copies. Allow it so FixDock can paste for you.",
+        clipboardHistoryAccessibilityMissing: "Without \(enNames.accessibility), Return only copies. Allow it so FixDock can paste for you.",
         clipboardHistoryRetentionTitle: "Keep items for",
         clipboardHistoryRetentionOneDay: "1 day",
         clipboardHistoryRetentionDaysFormat: "%d days",
@@ -1739,7 +1802,7 @@ struct Strings {
         clipboardHistoryUnpin: "Unpin",
         clipboardHistoryDelete: "Delete",
         clipboardHistoryToastCopied: "Copied",
-        clipboardHistoryToastNeedsAccessibility: "Copied. FixDock needs Accessibility to paste for you.",
+        clipboardHistoryToastNeedsAccessibility: "Copied. FixDock needs \(enNames.accessibility) to paste for you.",
         clipboardHistoryToastUnavailable: "No longer available",
         clipboardHistoryAllTypes: "All types",
         clipboardHistoryKindImage: "Image",

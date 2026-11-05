@@ -58,6 +58,9 @@ enum DefaultsKey {
     /// Developer runs only (argument domain): let the developer build own
     /// the HID mapping and id 60. Without it that build is inert for the tool.
     static let inputSwitchDeveloperClaim = "inputSwitchDeveloperClaim"
+    /// Developer runs only (argument domain): name the permissions as macOS
+    /// did before the System Settings rename, to read both eras on one Mac.
+    static let permissionListNamesLegacy = "permissionListNamesLegacy"
     /// Clipboard history (upstream names). The main switch stays
     /// unregistered so enableOnFirstInstall can tell a first install from Off.
     static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
