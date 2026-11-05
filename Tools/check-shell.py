@@ -387,6 +387,19 @@ def main():
                     errors += fail("ClipboardHistoryBlobs.swift must never name the history file")
             elif found:
                 errors += fail(f"{path.name}: the clipboard history must not use {sorted(set(found))}")
+    # The permission guide only reads System Settings (docs/permission-guide.md),
+    # and the rest of the app reaches it only through its three-member surface.
+    guide_path = ROOT / "Sources/FixDock/UI/PermissionGuideOverlay.swift"
+    guide = guide_path.read_text(encoding="utf-8")
+    for needle in ("AXUIElementPerformAction", "AXUIElementSetAttributeValue"):
+        if needle in guide:
+            errors += fail(f"PermissionGuideOverlay.swift must not use {needle}")
+    for path in swift_files:
+        if path == guide_path:
+            continue
+        if re.search(r"PermissionGuideOverlay\.(?!shared\.show\(|shared\.dismiss\(|suppressed\b)",
+                     path.read_text(encoding="utf-8")):
+            errors += fail(f"{path.relative_to(ROOT)} uses PermissionGuideOverlay beyond shared.show(, shared.dismiss( and suppressed")
     for path in swift_files:
         if path.name.startswith("Update") and path.name != "UpdateWorkspace.swift":
             if "removeItem" in path.read_text(encoding="utf-8"):
