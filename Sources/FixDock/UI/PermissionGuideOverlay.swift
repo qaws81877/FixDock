@@ -268,7 +268,7 @@ private struct SettingsLocator {
     private var windowNumber: CGWindowID?
     private var lastFrame: CGRect?
     private var axWindow: AXUIElement?
-    private var listRead: (area: Sighting.ListArea, at: Date)?
+    private var listRead: (area: Sighting.ListArea, frame: CGRect, at: Date)?
 
     static var settingsIsFrontmost: Bool {
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID
@@ -303,8 +303,10 @@ private struct SettingsLocator {
             if axWindow == nil { axWindow = Self.axWindow(pid: pid, matching: main.bounds) }
             if let axWindow {
                 sheetOpen = sheetOpen || Self.hasSheet(axWindow)
-                if !settled || listRead.map({ Date().timeIntervalSince($0.at) >= Self.listRereadAfter }) ?? true {
-                    listRead = (Self.readList(window: axWindow), Date())
+                // A moving window shows no dim, so the walk waits until it settles.
+                if settled, listRead.map({ $0.frame != main.bounds
+                    || Date().timeIntervalSince($0.at) >= Self.listRereadAfter }) ?? true {
+                    listRead = (Self.readList(window: axWindow), main.bounds, Date())
                 }
                 list = listRead?.area ?? .unread
             }
