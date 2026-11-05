@@ -41,6 +41,7 @@ The Vorssaint name, logo, and signing identity are not used. See [TRADEMARKS.md]
 Requires macOS 14 or later on Apple Silicon.
 
 - **Download:** get `FixDock-<version>.zip` from the [latest release](https://github.com/qaws81877/FixDock/releases/latest), unzip it, and move `FixDock.app` to `/Applications`. The app is signed with a Developer ID and notarized by Apple, so it opens without a warning.
+- **Disk image:** open `FixDock-<version>.dmg` and drag `FixDock` onto `Applications`. Double-clicking `FixDock` inside the image works too: it offers to move itself into `/Applications` (a copy already there goes to the Trash) and opens from there. That needs an account that can write to `/Applications`; on a standard account, drag it and enter an administrator's name and password.
 - **Homebrew:**
 
   ```bash
@@ -87,7 +88,7 @@ The script builds Apple Silicon (`arm64`) only, same as upstream. It signs ad-ho
 FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
 ```
 
-With an identity the app is signed with the hardened runtime and a secure timestamp, so it can be notarized. `./Tools/notarize.sh` notarizes and staples `build/stage/FixDock.app` and writes `build/release/FixDock-<version>.zip`; it needs a notarytool keychain profile you store once in your own Terminal (see the script's header). Do not use the upstream signing identity. A self-signed copy checks for releases but never installs one; only the notarized release in `/Applications` updates in place. Publish a release as tag `v<version>` with the single asset `FixDock-<version>.zip`, created in one `gh release create` call; its notes are what the app shows before installing.
+With an identity the app is signed with the hardened runtime and a secure timestamp, so it can be notarized. `./Tools/notarize.sh` notarizes and staples `build/stage/FixDock.app` and writes `build/release/FixDock-<version>.zip`; it needs a notarytool keychain profile you store once in your own Terminal (see the script's header). Do not use the upstream signing identity. A self-signed copy checks for releases but never installs one; only the notarized release in `/Applications` updates in place. Publish a release as tag `v<version>` with the single asset `FixDock-<version>.zip`, created in one `gh release create` call; its notes are what the app shows before installing. For handing FixDock out directly, `./Tools/notarize.sh` followed by `./Tools/make-dmg.sh` (with the same `FIXDOCK_CODESIGN_IDENTITY`) writes a signed, notarized and stapled `build/release/FixDock-<version>.dmg` with the drag-to-Applications layout; the release itself keeps the single zip.
 
 Remove FixDock without touching a Vorssaint install:
 
@@ -142,6 +143,7 @@ Vorssaint 이름, 로고, 서명 신원은 쓰지 않습니다. [TRADEMARKS.md](
 Apple Silicon Mac, macOS 14 이상이 필요합니다.
 
 - **다운로드:** [최신 릴리스](https://github.com/qaws81877/FixDock/releases/latest)에서 `FixDock-<버전>.zip`을 받아 압축을 풀고, `FixDock.app`을 `/Applications`로 옮깁니다. Developer ID로 서명하고 Apple 공증을 받아 경고 없이 열립니다.
+- **디스크 이미지:** `FixDock-<버전>.dmg`를 열고 `FixDock`을 `Applications`로 드래그합니다. 이미지 안의 `FixDock`을 더블클릭해도 됩니다. `/Applications`로 스스로 옮길지 묻고(이미 있던 복사본은 휴지통으로 갑니다) 그 위치에서 다시 엽니다. `/Applications`에 쓸 수 있는 계정이어야 하며, 일반 계정이면 드래그한 뒤 관리자 이름과 암호를 입력하세요.
 - **Homebrew:**
 
   ```bash
@@ -188,7 +190,7 @@ Apple Silicon (`arm64`)만 빌드합니다. 서명은 ad-hoc입니다. 본인 �
 FIXDOCK_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
 ```
 
-신원을 주면 hardened runtime과 보안 타임스탬프로 서명해서 공증할 수 있습니다. `./Tools/notarize.sh`가 `build/stage/FixDock.app`을 공증·스테이플하고 `build/release/FixDock-<버전>.zip`을 만듭니다. notarytool 키체인 프로필이 필요하며, 본인 터미널에서 한 번 저장합니다(스크립트 머리말 참고). 업스트림 서명 신원은 쓰지 마세요. 직접 서명한 복사본은 릴리스를 확인만 하고 설치하지 않습니다. 공증된 릴리스를 `/Applications`에 두었을 때만 그 자리에서 업데이트합니다. 릴리스는 태그 `v<버전>`과 단일 자산 `FixDock-<버전>.zip`으로, `gh release create` 한 번에 만듭니다. 릴리스 노트는 앱이 설치 전에 보여 주는 내용입니다.
+신원을 주면 hardened runtime과 보안 타임스탬프로 서명해서 공증할 수 있습니다. `./Tools/notarize.sh`가 `build/stage/FixDock.app`을 공증·스테이플하고 `build/release/FixDock-<버전>.zip`을 만듭니다. notarytool 키체인 프로필이 필요하며, 본인 터미널에서 한 번 저장합니다(스크립트 머리말 참고). 업스트림 서명 신원은 쓰지 마세요. 직접 서명한 복사본은 릴리스를 확인만 하고 설치하지 않습니다. 공증된 릴리스를 `/Applications`에 두었을 때만 그 자리에서 업데이트합니다. 릴리스는 태그 `v<버전>`과 단일 자산 `FixDock-<버전>.zip`으로, `gh release create` 한 번에 만듭니다. 릴리스 노트는 앱이 설치 전에 보여 주는 내용입니다. 직접 나눠 줄 때는 `./Tools/notarize.sh` 다음에 같은 `FIXDOCK_CODESIGN_IDENTITY`로 `./Tools/make-dmg.sh`를 실행하면, 드래그 설치 배치로 서명·공증·스테이플한 `build/release/FixDock-<버전>.dmg`가 만들어집니다. 릴리스 자체는 zip 하나를 그대로 유지합니다.
 
 Vorssaint 설치는 건드리지 않고 FixDock만 지우려면:
 

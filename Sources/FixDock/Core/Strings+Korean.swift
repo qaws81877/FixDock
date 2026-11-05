@@ -852,6 +852,23 @@ extension Strings {
         clipboardHistoryImageBudgetTitle: "이미지 저장 공간",
         clipboardHistoryImageBudgetUnlimited: "무제한",
         clipboardHistoryImageBudgetCaptionFormat: "고정한 이미지는 항상 보관합니다. 이 크기를 넘으면 고정하지 않은 이미지를 오래된 것부터 지웁니다. 지금 고정하지 않은 이미지 사용량: %@",
+        installMoveTitle: "FixDock을 응용 프로그램 폴더로 옮길까요?",
+        installMoveMessage: "FixDock이 디스크 이미지에서 실행 중입니다. 응용 프로그램 폴더에 있어야 스스로 업데이트하고 로그인 시 열 수 있습니다.",
+        installMoveMessageReplacing: "FixDock이 디스크 이미지에서 실행 중입니다. 응용 프로그램 폴더에 있는 기존 복사본은 휴지통으로 옮기고 이 복사본으로 바꿉니다. 그 위치에서 스스로 업데이트하고 로그인 시 열 수 있습니다.",
+        installMoveConfirm: "응용 프로그램으로 옮기기",
+        installMoveLater: "나중에",
+        installMoveNewerTitle: "더 새로운 FixDock이 설치되어 있습니다",
+        installMoveNewerMessageFormat: "응용 프로그램 폴더에 FixDock %@이(가) 이미 있습니다. 그 복사본을 열까요?",
+        installMoveOpenInstalled: "설치된 복사본 열기",
+        installMoveNotWritableTitle: "응용 프로그램 폴더에 쓸 수 없습니다",
+        installMoveNotWritableMessage: "이 계정은 응용 프로그램 폴더에 앱을 추가할 수 없습니다. 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하고 관리자 이름과 암호를 입력하거나, 관리자에게 요청하세요.",
+        installMoveFailedTitle: "FixDock을 옮기지 못했습니다",
+        installMoveFailedMessageFormat: "응용 프로그램 폴더의 내용은 그대로입니다. 대신 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하세요. (%@)",
+        installMoveChangedMessageFormat: "응용 프로그램 폴더가 바뀌었을 수 있습니다. 그곳에 FixDock이 있었다면 그 복사본은 휴지통에 있습니다. 휴지통에서 되돌리거나 디스크 이미지 창에서 FixDock을 응용 프로그램 폴더로 드래그하세요. (%@)",
+        installMoveOpenFailedTitle: "FixDock을 열지 못했습니다",
+        installMoveOpenFailedMessageFormat: "FixDock은 응용 프로그램 폴더에 있지만 열리지 않았습니다. 그 폴더에서 직접 여세요. (%@)",
+        installMoveStillRunning: "설치된 FixDock이 종료되지 않았습니다",
+        installMoveOK: "확인",
         versionFormat: "버전 %@"
     )
 }

@@ -901,6 +901,23 @@ struct Strings {
     let clipboardHistoryImageBudgetTitle: String
     let clipboardHistoryImageBudgetUnlimited: String
     let clipboardHistoryImageBudgetCaptionFormat: String
+    let installMoveTitle: String
+    let installMoveMessage: String
+    let installMoveMessageReplacing: String
+    let installMoveConfirm: String
+    let installMoveLater: String
+    let installMoveNewerTitle: String
+    let installMoveNewerMessageFormat: String
+    let installMoveOpenInstalled: String
+    let installMoveNotWritableTitle: String
+    let installMoveNotWritableMessage: String
+    let installMoveFailedTitle: String
+    let installMoveFailedMessageFormat: String
+    let installMoveChangedMessageFormat: String
+    let installMoveOpenFailedTitle: String
+    let installMoveOpenFailedMessageFormat: String
+    let installMoveStillRunning: String
+    let installMoveOK: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1757,6 +1774,23 @@ struct Strings {
         clipboardHistoryImageBudgetTitle: "Space for images",
         clipboardHistoryImageBudgetUnlimited: "Unlimited",
         clipboardHistoryImageBudgetCaptionFormat: "Pinned images are always kept. Past this, the oldest unpinned images are removed first. Unpinned images now use %@.",
+        installMoveTitle: "Move FixDock to Applications?",
+        installMoveMessage: "FixDock is running from the disk image. In the Applications folder it updates itself and can open at login.",
+        installMoveMessageReplacing: "FixDock is running from the disk image. The copy already in the Applications folder is moved to the Trash and replaced with this one, which then updates itself and can open at login.",
+        installMoveConfirm: "Move to Applications",
+        installMoveLater: "Not Now",
+        installMoveNewerTitle: "A newer FixDock is installed",
+        installMoveNewerMessageFormat: "The Applications folder already has FixDock %@. Open that copy instead?",
+        installMoveOpenInstalled: "Open Installed Copy",
+        installMoveNotWritableTitle: "FixDock can't write to Applications",
+        installMoveNotWritableMessage: "This account can't add apps to the Applications folder. Drag FixDock onto the Applications folder in the disk image window and enter an administrator's name and password, or ask your administrator.",
+        installMoveFailedTitle: "FixDock couldn't be moved",
+        installMoveFailedMessageFormat: "Nothing in the Applications folder was lost. Drag FixDock onto the Applications folder in the disk image window instead. (%@)",
+        installMoveChangedMessageFormat: "The Applications folder may have changed. If FixDock was there before, that copy is in the Trash. Put it back from there, or drag FixDock onto the Applications folder in the disk image window. (%@)",
+        installMoveOpenFailedTitle: "FixDock couldn't be opened",
+        installMoveOpenFailedMessageFormat: "FixDock is in the Applications folder but didn't open. Open it from there. (%@)",
+        installMoveStillRunning: "the installed FixDock did not quit",
+        installMoveOK: "OK",
         versionFormat: "Version %@"
     )
 }

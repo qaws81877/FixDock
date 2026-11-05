@@ -112,9 +112,14 @@ Platform quirks:
 - A bundle swapped in by rename(2) has no quarantine flag and never gets
   Gatekeeper's first-launch check, so the updater checks the signature and
   notarization itself. The installed app is swapped only by `Relauncher`
-  (`RENAME_SWAP`, pinned by `check-shell.py`), and removals under the update
-  workspace only by `UpdateWorkspace.sweep`.
-  Any change to `Relauncher` keeps one rule: nothing stays at the install
+  (`RENAME_SWAP`, pinned by `check-shell.py`) and, for a first install from
+  a disk image, by `InstallMover` (owner decision 2026-11-05). `InstallMover`
+  offers only for a copy signed with the release's Developer ID, moves the
+  existing copy to the Trash (never deletes it), checks the new copy before
+  clearing quarantine and again at the install path, and puts the old copy
+  back on any failure. Removals under the update workspace only by
+  `UpdateWorkspace.sweep`.
+  Any change to `Relauncher` or `InstallMover` keeps one rule: nothing stays at the install
   path unless it passed the identity check there; otherwise it is moved
   aside, never deleted, and nothing is opened. Judge security-review
   findings against that rule instead of flipping between "restore" and

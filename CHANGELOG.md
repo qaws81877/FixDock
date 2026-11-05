@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Opened from a disk image (or from a copy macOS runs from a temporary location), FixDock offers to move itself into `/Applications` before it starts anything, and reopens from there. A copy already in `/Applications` is moved to the Trash first, never deleted, and put back if the move fails; a newer installed copy is opened instead. Only a copy signed with the release's Developer ID offers this. The new copy must be notarized and carry the same signature, checked before the move and again in `/Applications`, before it is opened. On an account that cannot write to `/Applications`, FixDock says so and keeps running from the image.
+- `Tools/make-dmg.sh` packs the notarized app into a drag-to-install disk image beside an Applications shortcut, then signs, notarizes and staples the image.
+
 ## 1.0.5
 
 - New tool, clipboard history (restored from upstream): Command-Shift-V opens a two-pane window centred on the screen under the pointer. On the left, a search field, a type menu (all types, image, text, link, colour, file, email) and the history grouped Pinned, Today, Yesterday, This week, Earlier; on the right, a preview and details (source app, kind, dimensions, size, path, characters, words, when it was copied). Return pastes into the app you were in, Command-Return copies, ⌘K opens the actions (paste, copy, pin, show in Finder, delete), ⌘P opens the type menu, Option-P pins, Command-Delete removes, Escape closes; a click selects, a double click pastes. Without Accessibility, Return copies and says so.
