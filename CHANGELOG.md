@@ -1,9 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.0.6
 
 - Opened from a disk image (or from a copy macOS runs from a temporary location), FixDock offers to move itself into `/Applications` before it starts anything, and reopens from there. A copy already in `/Applications` is moved to the Trash first, never deleted, and put back if the move fails; a newer installed copy is opened instead. Only a copy signed with the release's Developer ID offers this. The new copy must be notarized and carry the same signature, checked before the move and again in `/Applications`, before it is opened. On an account that cannot write to `/Applications`, FixDock says so and keeps running from the image.
 - `Tools/make-dmg.sh` packs the notarized app into a drag-to-install disk image beside an Applications shortcut, then signs, notarizes and staples the image.
+- Permission guide: when a tool needs Device Control and Data Access (Accessibility), Screen & System Audio Recording or Full Disk Access, FixDock opens that System Settings pane and shows a card beside the window; dragging the running app's icon from the card into the list adds it. The list area is highlighted when the window is found, and the highlight never blocks clicks or drops. Permission names follow the running macOS in Settings, the panel, onboarding and the guide.
+- Settings: Permissions is a tab under Settings › Features. A card above the tool list shows the installed count on a bar, with Install all and Remove all on its right. A collapsible App category at the bottom of the sidebar holds Shortcut, About, Update log and Advanced.
+- Settings › Update log shows each release's changes in English or Korean from `Sources/FixDock/Core/Changelog.swift`; `Tools/check-shell.py` fails while its first entry is not the `Info.plist` version.
+- Settings › Advanced: export the app's settings to an XML property list and import one back. Import checks the file, asks first, writes a safety copy of the current settings to `SettingsBackups/` in FixDock's Application Support folder, writes only portable keys (tool availability through `FeatureRuntime`) and restarts. Remove all permissions runs `tccutil reset All` on FixDock's own bundle id after a confirmation and restarts.
+- Releases attach `FixDock-<version>.dmg` beside the zip; the updater still reads only the zip.
 
 ## 1.0.5
 

@@ -18,9 +18,9 @@
 # Finder, which asks once for Automation permission; FIXDOCK_DMG_NO_LAYOUT=1
 # skips it (the image then opens with Finder's default view).
 #
-# The image is for handing out directly (a shared drive, a team chat). The
-# GitHub release keeps its single asset FixDock-<version>.zip, which is all
-# the in-app updater reads; a copy installed from the image updates from it.
+# The image is attached to the GitHub release beside FixDock-<version>.zip and
+# can be handed out directly. The in-app updater reads only the zip; a copy
+# installed from the image updates from it.
 set -euo pipefail
 umask 022
 cd "$(dirname "$0")/.."
@@ -40,7 +40,9 @@ if [[ ! -d "$APP" ]]; then
     exit 1
 fi
 /usr/bin/codesign --verify --deep --strict "$APP"
-if ! /usr/bin/codesign -dvv "$APP" 2>&1 | grep -q "Authority=Developer ID Application"; then
+# Read the signature first: under pipefail, grep -q exiting early fails codesign with SIGPIPE.
+SIGNATURE=$(/usr/bin/codesign -dvv "$APP" 2>&1)
+if ! print -r -- "$SIGNATURE" | grep -q "Authority=Developer ID Application"; then
     echo "✗ $APP is not signed with a Developer ID Application identity." >&2
     exit 1
 fi
