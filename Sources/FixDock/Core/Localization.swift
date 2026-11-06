@@ -974,6 +974,7 @@ struct Strings {
     let installMoveStillRunning: String
     let installMoveOK: String
     let groupApp: String
+    let featuresInstalledCountFormat: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1856,6 +1857,7 @@ struct Strings {
         installMoveStillRunning: "the installed FixDock did not quit",
         installMoveOK: "OK",
         groupApp: "App",
+        featuresInstalledCountFormat: "Installed tools %d / %d",
         versionFormat: "Version %@"
     )
 }

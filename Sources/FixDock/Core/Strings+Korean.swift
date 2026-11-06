@@ -880,6 +880,7 @@ extension Strings {
         installMoveStillRunning: "설치된 FixDock이 종료되지 않았습니다",
         installMoveOK: "확인",
         groupApp: "앱",
+        featuresInstalledCountFormat: "설치된 기능 %d / %d",
         versionFormat: "버전 %@"
     )
 }

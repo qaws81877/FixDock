@@ -203,10 +203,36 @@ private struct FeaturesSettingsPage: View {
             .fixedSize()
             .frame(maxWidth: .infinity)
             switch navigator.featuresTab {
-            case .features: FeatureHubList(showsInstallButtons: true)
-            case .permissions: PermissionsTab()
+            case .features:
+                InstalledSummaryCard()
+                FeatureHubList(showsInstallButtons: true, showsBulkButtons: false)
+            case .permissions:
+                PermissionsTab()
             }
         }
+    }
+}
+
+private struct InstalledSummaryCard: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var runtime = FeatureRuntime.shared
+
+    var body: some View {
+        let strings = l10n.s
+        let tools = AppFeature.allCases.filter(\.hasService)
+        let installed = tools.filter(\.isAvailable).count
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(format: strings.featuresInstalledCountFormat, installed, tools.count))
+                    .font(.headline)
+                    .monospacedDigit()
+                ProgressView(value: Double(installed), total: Double(tools.count))
+                    .progressViewStyle(.linear)
+            }
+            Spacer(minLength: 8)
+            FeatureBulkButtons()
+        }
+        .settingsCard()
     }
 }
 
