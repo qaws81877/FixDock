@@ -77,5 +77,5 @@ if /usr/bin/zipinfo -1 "$ZIP" | grep -qv '^FixDock\.app/'; then
 fi
 echo "✓ Notarized and stapled: $ZIP"
 shasum -a 256 "$ZIP"
-echo "Release: tag v$VERSION with the single asset FixDock-$VERSION.zip, created together in"
+echo "Next: ./Tools/make-dmg.sh, then tag v$VERSION with FixDock-$VERSION.zip and FixDock-$VERSION.dmg, created together in"
 echo "one gh release create call. The release notes are shown in the app before installing."

@@ -20,6 +20,23 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.0.6", date: "2026-11-06",
+            english: [
+                "**Install from a disk image.** Download `FixDock-1.0.6.dmg` from the release, open it and drag FixDock onto Applications. Double-clicking FixDock inside the image also works: it offers to move itself into Applications (a copy already there goes to the Trash) and reopens from there.",
+                "**Permission guide.** When a tool needs Device Control and Data Access, Screen & System Audio Recording or Full Disk Access, FixDock opens that page in System Settings with a card beside it. Drag the FixDock icon from the card into the list and switch it on. Permission names now match the System Settings on your Mac.",
+                "**Settings reorganized.** Permissions is now a tab in Settings › Features. Above the tool list, a bar shows how many tools are installed, with Install all and Remove all beside it. Shortcut, About, Update log and Advanced moved into a new App category at the bottom of the sidebar.",
+                "**Update log.** Settings › Update log lists what changed in each version.",
+                "**Advanced.** Settings › Advanced can export FixDock's settings to a file and import them back (the current settings are saved first, then FixDock restarts). Remove all permissions resets every permission given to FixDock and restarts it.",
+            ],
+            korean: [
+                "**디스크 이미지로 설치.** 릴리스에서 `FixDock-1.0.6.dmg`를 받아 열고 FixDock을 Applications로 드래그합니다. 이미지 안의 FixDock을 더블클릭해도 됩니다. 응용 프로그램 폴더로 스스로 옮길지 묻고(이미 있던 복사본은 휴지통으로 갑니다) 그 위치에서 다시 엽니다.",
+                "**권한 안내.** 도구에 기기 제어 및 데이터 접근, 화면 및 시스템 오디오 녹음, 전체 디스크 접근 권한이 필요하면 시스템 설정의 해당 화면을 열고 옆에 안내 카드를 띄웁니다. 카드의 FixDock 아이콘을 목록으로 끌어다 놓고 켜면 됩니다. 권한 이름도 이 Mac의 시스템 설정과 같게 바뀌었습니다.",
+                "**설정 정리.** 권한은 설정 › 기능의 탭으로 옮겼습니다. 도구 목록 위에 설치된 도구 수를 막대로 보여 주고, 옆에 모두 설치와 모두 제거 버튼이 있습니다. 단축키, 정보, 업데이트 로그, 고급은 사이드바 맨 아래 새 \"앱\" 카테고리로 옮겼습니다.",
+                "**업데이트 로그.** 설정 › 업데이트 로그에서 버전별 변경사항을 볼 수 있습니다.",
+                "**고급.** 설정 › 고급에서 FixDock 설정을 파일로 내보내고 다시 가져올 수 있습니다(가져오기 전에 지금 설정을 먼저 저장하고, 끝나면 다시 시작합니다). 모든 권한 제거는 FixDock에 준 권한을 모두 초기화하고 다시 시작합니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.0.5", date: "2026-11-04",
             english: [
                 "**Clipboard history (new tool).** Install it from Settings › Features. Command-Shift-V opens what you copied earlier: text, pictures and files. A search field, a type menu (image, text, link, colour, file, email), a list grouped by day, and a preview with details (source app, kind, dimensions, size, path, when it was copied).",
