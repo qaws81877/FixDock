@@ -20,6 +20,17 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.0.7", date: "2026-11-07",
+            english: [
+                "**Settings toolbar.** The sidebar button and Back/Forward now sit together right of the window buttons, with the current page's name beside them. Command-[ and Command-] go back and forward, Control-Command-S shows or hides the sidebar.",
+                "**Search Settings.** Type in the field at the top of the sidebar to find a page or a setting on it, such as \"backup\" or \"microphone\". English words work in the Korean interface too. Choose a result to open its page.",
+            ],
+            korean: [
+                "**설정 툴바.** 사이드바 버튼과 뒤로/앞으로 버튼이 창 버튼 오른쪽에 함께 있고, 그 옆에 현재 페이지 이름이 보입니다. Command-[와 Command-]로 뒤로/앞으로 가고, Control-Command-S로 사이드바를 보이거나 숨깁니다.",
+                "**설정 검색.** 사이드바 맨 위 검색창에 입력하면 페이지와 그 안의 설정 항목(예: \"백업\", \"마이크\")을 찾습니다. 한국어 화면에서 영어로 검색해도 됩니다. 결과를 고르면 그 페이지가 열립니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.0.6", date: "2026-11-06",
             english: [
                 "**Install from a disk image.** Download `FixDock-1.0.6.dmg` from the release, open it and drag FixDock onto Applications. Double-clicking FixDock inside the image also works: it offers to move itself into Applications (a copy already there goes to the Trash) and reopens from there.",

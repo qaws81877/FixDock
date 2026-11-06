@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.7
+
+- Settings has a native toolbar. The sidebar toggle and Back/Forward sit in one capsule right of the window buttons, followed by the current page's name, which is also the window title. Command-[ and Command-] go back and forward, Control-Command-S shows or hides the sidebar. History records page changes only, not the Features tab, drops pages whose tool was removed, and starts empty each time the window opens.
+- A search field at the top of the Settings sidebar finds pages and the labels on them (card titles, toggles, section names, tools and permissions), in the app's language and in English. Results replace the sidebar while you type; choosing one opens its page. The labels come from a typed index in `Sources/FixDock/UI/SettingsSearch.swift`, which every page and tool must fill.
+
 ## 1.0.6
 
 - Opened from a disk image (or from a copy macOS runs from a temporary location), FixDock offers to move itself into `/Applications` before it starts anything, and reopens from there. A copy already in `/Applications` is moved to the Trash first, never deleted, and put back if the move fails; a newer installed copy is opened instead. Only a copy signed with the release's Developer ID offers this. The new copy must be notarized and carry the same signature, checked before the move and again in `/Applications`, before it is opened. On an account that cannot write to `/Applications`, FixDock says so and keeps running from the image.
