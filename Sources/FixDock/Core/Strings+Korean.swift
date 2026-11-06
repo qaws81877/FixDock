@@ -881,6 +881,7 @@ extension Strings {
         installMoveOK: "확인",
         groupApp: "앱",
         featuresInstalledCountFormat: "설치된 기능 %d / %d",
+        tabUpdateLog: "업데이트 로그",
         versionFormat: "버전 %@"
     )
 }

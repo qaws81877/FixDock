@@ -975,6 +975,7 @@ struct Strings {
     let installMoveOK: String
     let groupApp: String
     let featuresInstalledCountFormat: String
+    let tabUpdateLog: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1858,6 +1859,7 @@ struct Strings {
         installMoveOK: "OK",
         groupApp: "App",
         featuresInstalledCountFormat: "Installed tools %d / %d",
+        tabUpdateLog: "Update log",
         versionFormat: "Version %@"
     )
 }

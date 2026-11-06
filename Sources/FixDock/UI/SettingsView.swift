@@ -88,6 +88,7 @@ struct SettingsView: View {
         case .shell(.features): FeaturesSettingsPage()
         case .shell(.shortcut): ShortcutRecorder().settingsCard()
         case .shell(.about): AboutSettingsPage()
+        case .shell(.updateLog): UpdateLogPage()
         case .feature(let page): page.body()
         }
     }
@@ -318,5 +319,46 @@ private struct AboutSettingsPage: View {
             }
         }
         .settingsCard()
+    }
+}
+
+/// Each release's changes from `Changelog`, in the app's language.
+private struct UpdateLogPage: View {
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = l10n.s
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(Changelog.entries, id: \.version) { entry in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(String(format: strings.versionFormat, entry.version))
+                            .font(.headline)
+                        Spacer(minLength: 8)
+                        Text(entry.date)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    ForEach(Array(items(of: entry).enumerated()), id: \.offset) { _, item in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("•").foregroundStyle(.secondary)
+                            Text(ReleaseNotesText.inline(item))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .settingsCard()
+            }
+        }
+        .textSelection(.enabled)
+    }
+
+    private func items(of entry: ChangelogEntry) -> [String] {
+        switch l10n.language {
+        case .enUS: return entry.english
+        case .ko: return entry.korean
+        }
     }
 }
