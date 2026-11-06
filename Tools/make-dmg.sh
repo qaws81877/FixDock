@@ -40,7 +40,9 @@ if [[ ! -d "$APP" ]]; then
     exit 1
 fi
 /usr/bin/codesign --verify --deep --strict "$APP"
-if ! /usr/bin/codesign -dvv "$APP" 2>&1 | grep -q "Authority=Developer ID Application"; then
+# Read the signature first: under pipefail, grep -q exiting early fails codesign with SIGPIPE.
+SIGNATURE=$(/usr/bin/codesign -dvv "$APP" 2>&1)
+if ! print -r -- "$SIGNATURE" | grep -q "Authority=Developer ID Application"; then
     echo "✗ $APP is not signed with a Developer ID Application identity." >&2
     exit 1
 fi
