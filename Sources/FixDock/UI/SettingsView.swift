@@ -33,27 +33,26 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func sidebarSection(_ section: SidebarSection, _ strings: Strings) -> some View {
-        switch section.id {
-        case .app:
+        if let title = section.id.title(strings) {
             Section {
-                destinationRows(section.destinations, strings)
-            }
-        case .category(let group):
-            Section {
-                categoryHeader(group, strings)
-                if navigator.isExpanded(group) {
+                sectionHeader(section.id, title: title, strings)
+                if navigator.isExpanded(section.id) {
                     destinationRows(section.destinations, strings)
                 }
+            }
+        } else {
+            Section {
+                destinationRows(section.destinations, strings)
             }
         }
     }
 
     /// Tap gesture rather than `DisclosureHeaderRow`: a Button in this sidebar
     /// List did not receive clicks, while tap-gesture rows do.
-    private func categoryHeader(_ group: FeatureGroup, _ strings: Strings) -> some View {
-        let expanded = navigator.isExpanded(group)
+    private func sectionHeader(_ id: SidebarSection.ID, title: String, _ strings: Strings) -> some View {
+        let expanded = navigator.isExpanded(id)
         return HStack(spacing: 8) {
-            Text(group.title(strings))
+            Text(title)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
@@ -66,7 +65,7 @@ struct SettingsView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.18)) {
-                navigator.expansion(of: group).wrappedValue.toggle()
+                navigator.expansion(of: id).wrappedValue.toggle()
             }
         }
         .accessibilityElement(children: .combine)
@@ -86,9 +85,8 @@ struct SettingsView: View {
     private func page(for destination: SettingsDestination) -> some View {
         switch destination {
         case .shell(.general): GeneralSettingsPage()
-        case .shell(.features): FeatureHubList(showsInstallButtons: true)
+        case .shell(.features): FeaturesSettingsPage()
         case .shell(.shortcut): ShortcutRecorder().settingsCard()
-        case .shell(.permissions): PermissionsSettingsPage()
         case .shell(.about): AboutSettingsPage()
         case .feature(let page): page.body()
         }
@@ -187,7 +185,34 @@ private struct GeneralSettingsPage: View {
     }
 }
 
-private struct PermissionsSettingsPage: View {
+/// Settings only. Onboarding shows `FeatureHubList` on its own.
+private struct FeaturesSettingsPage: View {
+    @ObservedObject private var navigator = SettingsNavigator.shared
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = l10n.s
+        VStack(alignment: .leading, spacing: 16) {
+            Picker(strings.tabFeatures, selection: navigator.featuresTabSelection) {
+                ForEach(FeaturesTab.allCases) { tab in
+                    Text(tab.title(strings)).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .frame(maxWidth: .infinity)
+            switch navigator.featuresTab {
+            case .features: FeatureHubList(showsInstallButtons: true)
+            case .permissions: PermissionsTab()
+            }
+        }
+    }
+}
+
+/// `setPageVisible` follows this view's onAppear and onDisappear, which fire
+/// on a tab or page switch but not when the reused window closes.
+private struct PermissionsTab: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
     @ObservedObject private var runtime = FeatureRuntime.shared

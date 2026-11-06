@@ -879,6 +879,7 @@ extension Strings {
         installMoveOpenFailedMessageFormat: "FixDock은 응용 프로그램 폴더에 있지만 열리지 않았습니다. 그 폴더에서 직접 여세요. (%@)",
         installMoveStillRunning: "설치된 FixDock이 종료되지 않았습니다",
         installMoveOK: "확인",
+        groupApp: "앱",
         versionFormat: "버전 %@"
     )
 }

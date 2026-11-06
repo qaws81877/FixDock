@@ -973,6 +973,7 @@ struct Strings {
     let installMoveOpenFailedMessageFormat: String
     let installMoveStillRunning: String
     let installMoveOK: String
+    let groupApp: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1854,6 +1855,7 @@ struct Strings {
         installMoveOpenFailedMessageFormat: "FixDock is in the Applications folder but didn't open. Open it from there. (%@)",
         installMoveStillRunning: "the installed FixDock did not quit",
         installMoveOK: "OK",
+        groupApp: "App",
         versionFormat: "Version %@"
     )
 }

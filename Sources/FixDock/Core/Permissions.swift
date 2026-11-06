@@ -189,9 +189,10 @@ final class Permissions: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    /// The guide and the permissions page ask for a short poll. With nothing
-    /// on screen the app does not keep waking to re-read TCC. Each caller
-    /// sets its own flag, so a repeated onAppear cannot leave the timer stuck.
+    /// The guide and the Features › Permissions tab ask for a short poll.
+    /// With nothing on screen the app does not keep waking to re-read TCC.
+    /// Each caller sets its own flag, so a repeated onAppear cannot leave the
+    /// timer stuck.
     func setPageVisible(_ visible: Bool) {
         pageVisible = visible
         updatePoll()

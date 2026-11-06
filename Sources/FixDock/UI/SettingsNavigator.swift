@@ -5,31 +5,51 @@
 import Combine
 import SwiftUI
 
-/// App pages present in every build. Declaration order is sidebar order.
+/// App pages present in every build. Declaration order is sidebar order
+/// within each block.
 enum ShellPage: String, CaseIterable, Identifiable, Hashable {
-    case general, features, shortcut, permissions, about
+    case general, features, shortcut, about
 
     var id: String { rawValue }
+
+    /// The untitled top block or the App category at the bottom.
+    var section: SidebarSection.ID {
+        switch self {
+        case .general, .features: return .main
+        case .shortcut, .about: return .app
+        }
+    }
 
     func title(_ strings: Strings) -> String {
         switch self {
         case .general: return strings.tabGeneral
         case .features: return strings.tabFeatures
         case .shortcut: return strings.tabShortcut
-        case .permissions: return strings.tabPermissions
         case .about: return strings.tabAbout
         }
     }
 
     /// Symbols from the upstream settings sidebar (`SettingsDirectory`).
-    /// Upstream had no permissions page; `hand.raised` is its permission glyph.
     var symbolName: String {
         switch self {
         case .general: return "gearshape"
         case .features: return "square.grid.2x2"
         case .shortcut: return "command"
-        case .permissions: return "hand.raised"
         case .about: return "info.circle"
+        }
+    }
+}
+
+/// The Features page's sub-tabs. Permissions lives here, not in the sidebar.
+enum FeaturesTab: String, CaseIterable, Identifiable, Hashable {
+    case features, permissions
+
+    var id: String { rawValue }
+
+    func title(_ strings: Strings) -> String {
+        switch self {
+        case .features: return strings.tabFeatures
+        case .permissions: return strings.tabPermissions
         }
     }
 }
@@ -58,9 +78,20 @@ enum SettingsDestination: Hashable {
 /// so no other file can produce an empty category header.
 struct SidebarSection: Identifiable {
     enum ID: Hashable {
-        /// Shell pages. Never collapses. Flat untitled block above categories (L1).
-        case app
+        /// General and Features. Never collapses. Flat untitled block on top (L1).
+        case main
         case category(FeatureGroup)
+        /// App-level pages, the last block. Collapses like a category.
+        case app
+
+        /// Nil for the untitled main block.
+        func title(_ strings: Strings) -> String? {
+            switch self {
+            case .main: return nil
+            case .category(let group): return group.title(strings)
+            case .app: return strings.groupApp
+            }
+        }
     }
 
     let id: ID
@@ -90,7 +121,10 @@ final class SettingsNavigator: ObservableObject {
     /// May sit inside a collapsed category; collapse never moves it.
     @Published private(set) var destination: SettingsDestination = .shell(.general)
 
-    @Published private var collapsed: Set<FeatureGroup> = []
+    /// Which sub-tab the Features page shows.
+    @Published private(set) var featuresTab: FeaturesTab = .features
+
+    @Published private var collapsed: Set<SidebarSection.ID> = []
 
     private var installWatch: AnyCancellable?
 
@@ -110,29 +144,42 @@ final class SettingsNavigator: ObservableObject {
         )
     }
 
-    func isExpanded(_ group: FeatureGroup) -> Bool {
-        !collapsed.contains(group)
+    /// For the Features page's sub-tab picker.
+    var featuresTabSelection: Binding<FeaturesTab> {
+        Binding(
+            get: { self.featuresTab },
+            set: { self.featuresTab = $0 }
+        )
     }
 
-    /// For the sidebar `DisclosureHeaderRow`. Collapse never moves the selection.
-    func expansion(of group: FeatureGroup) -> Binding<Bool> {
+    func isExpanded(_ section: SidebarSection.ID) -> Bool {
+        !collapsed.contains(section)
+    }
+
+    /// For the sidebar's tap-gesture header rows. Collapse never moves the
+    /// selection.
+    func expansion(of section: SidebarSection.ID) -> Binding<Bool> {
         Binding(
-            get: { self.isExpanded(group) },
+            get: { self.isExpanded(section) },
             set: { expanded in
                 if expanded {
-                    self.collapsed.remove(group)
+                    self.collapsed.remove(section)
                 } else {
-                    self.collapsed.insert(group)
+                    self.collapsed.insert(section)
                 }
             }
         )
     }
 
-    /// Programmatic navigation. No-op when unreachable. Expands the target's category.
-    func open(_ destination: SettingsDestination) {
+    /// Programmatic navigation. No-op when unreachable. Expands the block
+    /// that holds the target. Opening Features always shows `tab`.
+    func open(_ destination: SettingsDestination, tab: FeaturesTab = .features) {
         guard isReachable(destination) else { return }
-        if case .feature(let page) = destination {
-            collapsed.remove(page.feature.group)
+        if let section = sections.first(where: { $0.destinations.contains(destination) }) {
+            collapsed.remove(section.id)
+        }
+        if destination == .shell(.features) {
+            featuresTab = tab
         }
         self.destination = destination
     }
@@ -172,15 +219,13 @@ final class SettingsNavigator: ObservableObject {
         }
     }
 
-    /// L1: untitled shell block first, then non-empty feature categories (P1:
-    /// only installed features that have a settings page).
+    /// L1: untitled main block first, then non-empty feature categories (P1:
+    /// only installed features that have a settings page), then App.
     private static func buildSections() -> [SidebarSection] {
-        var result: [SidebarSection] = [
-            SidebarSection(
-                id: .app,
-                destinations: ShellPage.allCases.map { .shell($0) }
-            )
-        ]
+        func shellPages(in section: SidebarSection.ID) -> [SettingsDestination] {
+            ShellPage.allCases.filter { $0.section == section }.map { .shell($0) }
+        }
+        var result = [SidebarSection(id: .main, destinations: shellPages(in: .main))]
         for group in FeatureGroup.allCases {
             let destinations = group.features.compactMap { feature -> SettingsDestination? in
                 guard feature.isAvailable, let page = feature.settingsPage else { return nil }
@@ -190,6 +235,7 @@ final class SettingsNavigator: ObservableObject {
                 result.append(SidebarSection(id: .category(group), destinations: destinations))
             }
         }
+        result.append(SidebarSection(id: .app, destinations: shellPages(in: .app)))
         return result
     }
 }
