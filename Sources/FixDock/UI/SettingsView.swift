@@ -77,7 +77,7 @@ struct SettingsView: View {
     private func destinationRows(_ destinations: [SettingsDestination], _ strings: Strings) -> some View {
         ForEach(destinations, id: \.self) { destination in
             Label(destination.title(strings), systemImage: destination.symbolName)
-                .tag(destination)
+                .tag(SidebarRow.destination(destination))
         }
     }
 
