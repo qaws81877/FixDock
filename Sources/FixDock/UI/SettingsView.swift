@@ -89,6 +89,7 @@ struct SettingsView: View {
         case .shell(.shortcut): ShortcutRecorder().settingsCard()
         case .shell(.about): AboutSettingsPage()
         case .shell(.updateLog): UpdateLogPage()
+        case .shell(.advanced): AdvancedSettingsPage()
         case .feature(let page): page.body()
         }
     }

@@ -882,6 +882,18 @@ extension Strings {
         groupApp: "앱",
         featuresInstalledCountFormat: "설치된 기능 %d / %d",
         tabUpdateLog: "업데이트 로그",
+        tabAdvanced: "고급",
+        advancedCancel: "취소",
+        backupTitle: "설정 백업",
+        backupCaption: "FixDock 설정을 파일로 저장하거나 파일에서 되돌립니다. 설치한 도구, 도구별 옵션, 상용구, 단축키가 들어갑니다. 창 위치, 업데이트 확인 기록, 이 Mac의 권한은 들어가지 않습니다.",
+        backupExport: "내보내기…",
+        backupImport: "가져오기…",
+        backupExportFailed: "설정 파일을 저장하지 못했습니다.",
+        backupImportInvalid: "FixDock 설정 백업 파일이 아니거나 더 새로운 FixDock에서 만든 파일입니다. 아무것도 바꾸지 않았습니다.",
+        backupImportConfirmTitle: "이 파일에서 설정을 가져올까요?",
+        backupImportConfirmMessageFormat: "파일에 든 설정이 지금 설정을 덮어쓰고 FixDock이 다시 시작됩니다. 지금 설정은 먼저 %@에 저장합니다.",
+        backupImportConfirm: "가져오고 다시 시작",
+        backupSafetyFailed: "지금 설정을 먼저 저장하지 못해서 아무것도 가져오지 않았습니다.",
         versionFormat: "버전 %@"
     )
 }

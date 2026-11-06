@@ -976,6 +976,18 @@ struct Strings {
     let groupApp: String
     let featuresInstalledCountFormat: String
     let tabUpdateLog: String
+    let tabAdvanced: String
+    let advancedCancel: String
+    let backupTitle: String
+    let backupCaption: String
+    let backupExport: String
+    let backupImport: String
+    let backupExportFailed: String
+    let backupImportInvalid: String
+    let backupImportConfirmTitle: String
+    let backupImportConfirmMessageFormat: String
+    let backupImportConfirm: String
+    let backupSafetyFailed: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1860,6 +1872,18 @@ struct Strings {
         groupApp: "App",
         featuresInstalledCountFormat: "Installed tools %d / %d",
         tabUpdateLog: "Update log",
+        tabAdvanced: "Advanced",
+        advancedCancel: "Cancel",
+        backupTitle: "Settings backup",
+        backupCaption: "Save FixDock's settings to a file, or bring them back from one: installed tools, each tool's options, snippets and shortcuts. Window positions, update checks and this Mac's permissions stay out.",
+        backupExport: "Export…",
+        backupImport: "Import…",
+        backupExportFailed: "The settings file could not be saved.",
+        backupImportInvalid: "This file is not a FixDock settings backup, or a newer FixDock made it. Nothing was changed.",
+        backupImportConfirmTitle: "Import settings from this file?",
+        backupImportConfirmMessageFormat: "The settings in the file overwrite the current ones, and FixDock relaunches. The current settings are saved first in %@.",
+        backupImportConfirm: "Import and Relaunch",
+        backupSafetyFailed: "The current settings could not be saved first, so nothing was imported.",
         versionFormat: "Version %@"
     )
 }

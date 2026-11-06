@@ -8,7 +8,7 @@ import SwiftUI
 /// App pages present in every build. Declaration order is sidebar order
 /// within each block.
 enum ShellPage: String, CaseIterable, Identifiable, Hashable {
-    case general, features, shortcut, about, updateLog
+    case general, features, shortcut, about, updateLog, advanced
 
     var id: String { rawValue }
 
@@ -16,7 +16,7 @@ enum ShellPage: String, CaseIterable, Identifiable, Hashable {
     var section: SidebarSection.ID {
         switch self {
         case .general, .features: return .main
-        case .shortcut, .about, .updateLog: return .app
+        case .shortcut, .about, .updateLog, .advanced: return .app
         }
     }
 
@@ -27,6 +27,7 @@ enum ShellPage: String, CaseIterable, Identifiable, Hashable {
         case .shortcut: return strings.tabShortcut
         case .about: return strings.tabAbout
         case .updateLog: return strings.tabUpdateLog
+        case .advanced: return strings.tabAdvanced
         }
     }
 
@@ -38,6 +39,7 @@ enum ShellPage: String, CaseIterable, Identifiable, Hashable {
         case .shortcut: return "command"
         case .about: return "info.circle"
         case .updateLog: return "list.bullet.rectangle"
+        case .advanced: return "slider.horizontal.3"
         }
     }
 }
