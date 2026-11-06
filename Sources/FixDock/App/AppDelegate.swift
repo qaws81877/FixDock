@@ -185,9 +185,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     func openSettings() {
         closePopover()
         SettingsNavigator.shared.resetExpansion()
+        // Callers open their page first, so an open window keeps its history.
+        if settingsWindow?.isVisible != true {
+            SettingsNavigator.shared.resetHistoryAndSearch()
+        }
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
-        window.title = L10n.shared.s.settingsTitle
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
@@ -311,7 +314,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     @objc private func languageChanged() {
         installMainMenu()
         statusItem?.button?.toolTip = statusTooltip
-        settingsWindow?.title = L10n.shared.s.settingsTitle
         onboardingWindow?.title = L10n.shared.s.onboardingWelcomeTitle
     }
 
@@ -428,12 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     }
 
     private func makeSettingsWindow() -> NSWindow {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 780, height: 540))
-        window.minSize = NSSize(width: 680, height: 440)
-        window.title = L10n.shared.s.settingsTitle
-        window.isReleasedWhenClosed = false
+        let window = SettingsWindow()
         window.delegate = self
         return window
     }

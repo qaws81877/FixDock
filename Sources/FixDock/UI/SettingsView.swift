@@ -3,7 +3,31 @@
 // Copyright (C) 2026 FixDock contributors
 
 import AppKit
+import Combine
 import SwiftUI
+
+/// The Settings window. The toolbar shows the current page's title, as in
+/// System Settings: a hosted view's `navigationTitle` did not reach the
+/// window, so the window title follows the navigator.
+final class SettingsWindow: NSWindow {
+    private var titleWatch: AnyCancellable?
+
+    convenience init() {
+        let host = NSHostingController(rootView: SettingsView())
+        host.sceneBridgingOptions = [.toolbars]
+        self.init(contentViewController: host)
+        // Full size content gives the sidebar the window's full height.
+        styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        setContentSize(NSSize(width: 780, height: 540))
+        minSize = NSSize(width: 680, height: 440)
+        isReleasedWhenClosed = false
+        titleWatch = SettingsNavigator.shared.$destination
+            .combineLatest(L10n.shared.$language)
+            .sink { [weak self] destination, language in
+                self?.title = destination.title(Strings.localized(language))
+            }
+    }
+}
 
 struct SettingsView: View {
     @ObservedObject private var navigator = SettingsNavigator.shared
@@ -11,24 +35,98 @@ struct SettingsView: View {
 
     var body: some View {
         let strings = l10n.s
-        HStack(spacing: 0) {
-            // Category headers are untagged rows, not Section headers: on
-            // macOS 27, List(selection:) hid Section headers.
-            List(selection: navigator.selection) {
-                ForEach(navigator.sections) { section in
-                    sidebarSection(section, strings)
-                }
-            }
-            .listStyle(.sidebar)
-            .frame(width: 180)
-            Divider()
+        NavigationSplitView(columnVisibility: $navigator.columnVisibility) {
+            sidebar(strings)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 280)
+                // A hosted split view opened its sidebar at 144 pt, ignoring
+                // the ideal width above.
+                .frame(minWidth: 200)
+                .searchable(text: $navigator.searchQuery, placement: .sidebar,
+                            prompt: Text(strings.settingsSearchPrompt))
+                .toolbar(removing: .sidebarToggle)
+        } detail: {
             ScrollView {
                 page(for: navigator.destination)
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .toolbar {
+                // One group, so the toggle and Back/Forward share one capsule
+                // with the title after it.
+                ToolbarItemGroup(placement: .navigation) {
+                    navigationButtons(strings)
+                }
+            }
         }
         .frame(minWidth: 720, minHeight: 480)
+    }
+
+    @ViewBuilder
+    private func navigationButtons(_ strings: Strings) -> some View {
+        let sidebarLabel = navigator.columnVisibility == .detailOnly ? strings.settingsShowSidebar : strings.settingsHideSidebar
+        Button {
+            withAnimation { navigator.toggleSidebar() }
+        } label: {
+            Label(sidebarLabel, systemImage: "sidebar.left")
+        }
+        .help(sidebarLabel)
+        .keyboardShortcut("s", modifiers: [.command, .control])
+        Button {
+            navigator.goBack()
+        } label: {
+            Label(strings.settingsBack, systemImage: "chevron.left")
+        }
+        .help(strings.settingsBack)
+        .keyboardShortcut("[", modifiers: .command)
+        .disabled(!navigator.canGoBack)
+        Button {
+            navigator.goForward()
+        } label: {
+            Label(strings.settingsForward, systemImage: "chevron.right")
+        }
+        .help(strings.settingsForward)
+        .keyboardShortcut("]", modifiers: .command)
+        .disabled(!navigator.canGoForward)
+    }
+
+    private func sidebar(_ strings: Strings) -> some View {
+        let results = navigator.isSearching ? navigator.searchResults(strings) : []
+        // Category headers are untagged rows, not Section headers: on
+        // macOS 27, List(selection:) hid Section headers.
+        return List(selection: navigator.selection) {
+            if navigator.isSearching {
+                ForEach(results, id: \.self) { item in
+                    resultRow(item, strings)
+                        .tag(SidebarRow.result(item))
+                }
+            } else {
+                ForEach(navigator.sections) { section in
+                    sidebarSection(section, strings)
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .overlay {
+            if navigator.isSearching, results.isEmpty {
+                ContentUnavailableView(
+                    String(format: strings.settingsSearchNoResultsFormat, navigator.searchQuery),
+                    systemImage: "magnifyingglass"
+                )
+            }
+        }
+    }
+
+    private func resultRow(_ item: SettingsSearchItem, _ strings: Strings) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title(strings))
+                Text(item.location(strings))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: item.destination.symbolName)
+        }
     }
 
     @ViewBuilder
