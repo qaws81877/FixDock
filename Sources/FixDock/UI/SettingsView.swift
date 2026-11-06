@@ -16,8 +16,9 @@ final class SettingsWindow: NSWindow {
         let host = NSHostingController(rootView: SettingsView())
         host.sceneBridgingOptions = [.toolbars]
         self.init(contentViewController: host)
-        // Full size content gives the sidebar the window's full height.
-        styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        // No full size content: with it the toolbar capsule sits past the
+        // sidebar, not next to the traffic lights.
+        styleMask = [.titled, .closable, .miniaturizable, .resizable]
         setContentSize(NSSize(width: 780, height: 540))
         minSize = NSSize(width: 680, height: 440)
         isReleasedWhenClosed = false
