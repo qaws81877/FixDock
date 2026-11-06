@@ -973,6 +973,27 @@ struct Strings {
     let installMoveOpenFailedMessageFormat: String
     let installMoveStillRunning: String
     let installMoveOK: String
+    let groupApp: String
+    let featuresInstalledCountFormat: String
+    let tabUpdateLog: String
+    let tabAdvanced: String
+    let advancedCancel: String
+    let backupTitle: String
+    let backupCaption: String
+    let backupExport: String
+    let backupImport: String
+    let backupExportFailed: String
+    let backupImportInvalid: String
+    let backupImportConfirmTitle: String
+    let backupImportConfirmMessageFormat: String
+    let backupImportConfirm: String
+    let backupSafetyFailed: String
+    let resetPermissionsCaption: String
+    let resetPermissionsButton: String
+    let resetPermissionsConfirmTitle: String
+    let resetPermissionsConfirmMessage: String
+    let resetPermissionsConfirm: String
+    let resetPermissionsFailed: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1854,6 +1875,27 @@ struct Strings {
         installMoveOpenFailedMessageFormat: "FixDock is in the Applications folder but didn't open. Open it from there. (%@)",
         installMoveStillRunning: "the installed FixDock did not quit",
         installMoveOK: "OK",
+        groupApp: "App",
+        featuresInstalledCountFormat: "Installed tools %d / %d",
+        tabUpdateLog: "Update log",
+        tabAdvanced: "Advanced",
+        advancedCancel: "Cancel",
+        backupTitle: "Settings backup",
+        backupCaption: "Save FixDock's settings to a file, or bring them back from one: installed tools, each tool's options, snippets and shortcuts. Window positions, update checks and this Mac's permissions stay out.",
+        backupExport: "Export…",
+        backupImport: "Import…",
+        backupExportFailed: "The settings file could not be saved.",
+        backupImportInvalid: "This file is not a FixDock settings backup, or a newer FixDock made it. Nothing was changed.",
+        backupImportConfirmTitle: "Import settings from this file?",
+        backupImportConfirmMessageFormat: "The settings in the file overwrite the current ones, and FixDock relaunches. The current settings are saved first in %@.",
+        backupImportConfirm: "Import and Relaunch",
+        backupSafetyFailed: "The current settings could not be saved first, so nothing was imported.",
+        resetPermissionsCaption: "Reset every permission macOS has given FixDock, for example after a grant stopped working. Each tool asks again when it needs one.",
+        resetPermissionsButton: "Remove All Permissions…",
+        resetPermissionsConfirmTitle: "Remove all of FixDock's permissions?",
+        resetPermissionsConfirmMessage: "FixDock's \(enNames.accessibility), \(enNames.screenRecording), \(enNames.fullDiskAccess), Microphone and system audio recording grants are reset, and FixDock relaunches. Tools that need them stop working until you allow them again.",
+        resetPermissionsConfirm: "Remove and Relaunch",
+        resetPermissionsFailed: "FixDock's permissions could not be reset.",
         versionFormat: "Version %@"
     )
 }

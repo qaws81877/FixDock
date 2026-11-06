@@ -5,9 +5,11 @@
 import SwiftUI
 
 /// The feature catalog as a list. Settings and onboarding both show install
-/// buttons when `showsInstallButtons` is true.
+/// buttons when `showsInstallButtons` is true. Settings draws its own bulk
+/// buttons in the summary card above the list.
 struct FeatureHubList: View {
     var showsInstallButtons: Bool
+    var showsBulkButtons = true
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var runtime = FeatureRuntime.shared
 
@@ -19,13 +21,8 @@ struct FeatureHubList: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    Button(strings.featuresInstallAll) {
-                        runtime.setAvailable(Array(AppFeature.allCases), true)
-                    }
-                    Button(strings.featuresRemoveAll) {
-                        runtime.setAvailable(Array(AppFeature.allCases), false)
-                    }
+                if showsBulkButtons {
+                    FeatureBulkButtons()
                 }
                 if runtime.needsRestartToUnload {
                     HStack {
@@ -51,6 +48,22 @@ struct FeatureHubList: View {
             }
         }
         .id(runtime.revision)
+    }
+}
+
+struct FeatureBulkButtons: View {
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = l10n.s
+        HStack(spacing: 8) {
+            Button(strings.featuresInstallAll) {
+                FeatureRuntime.shared.setAvailable(Array(AppFeature.allCases), true)
+            }
+            Button(strings.featuresRemoveAll) {
+                FeatureRuntime.shared.setAvailable(Array(AppFeature.allCases), false)
+            }
+        }
     }
 }
 

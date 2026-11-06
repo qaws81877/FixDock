@@ -459,6 +459,39 @@ def main():
     if "CFBundleDisplayName" not in keys:
         errors += fail("Info.plist is missing a display name")
 
+    # The update log (Settings › Update log) gains an entry with every release.
+    top = list(plist.getroot().find("dict"))
+    bundle_version = next(
+        (top[i + 1].text for i, node in enumerate(top[:-1])
+         if node.tag == "key" and node.text == "CFBundleShortVersionString"),
+        None,
+    )
+    changelog = (sources / "Core/Changelog.swift").read_text(encoding="utf-8")
+    if re.findall(r"^import (\w+)", changelog, re.M) != ["Foundation"]:
+        errors += fail("Changelog.swift must import only Foundation")
+    chunks = changelog.split("ChangelogEntry(")[1:]
+    versions = []
+    for chunk in chunks:
+        head = re.match(r'\s*version: "(\d+)\.(\d+)\.(\d+)", date: "(\d{4}-\d{2}-\d{2})",', chunk)
+        if not head:
+            errors += fail(f"Changelog.swift: an entry does not start with version: \"x.y.z\", date: \"yyyy-MM-dd\": {chunk[:60]!r}")
+            continue
+        version = tuple(int(part) for part in head.groups()[:3])
+        versions.append(version)
+        label = ".".join(map(str, version))
+        for language in ("english", "korean"):
+            if not re.search(language + r':\s*\[\s*"', chunk):
+                errors += fail(f"Changelog.swift: {label} has no {language} items")
+    if not versions:
+        errors += fail("Changelog.swift has no entries")
+    elif ".".join(map(str, versions[0])) != bundle_version:
+        errors += fail(
+            f"Changelog.swift starts at {'.'.join(map(str, versions[0]))} but Info.plist is {bundle_version}; "
+            "add this version's entry in English and Korean before tagging"
+        )
+    if any(newer <= older for newer, older in zip(versions, versions[1:])):
+        errors += fail("Changelog.swift versions must be unique and newest first")
+
     build = (ROOT / "build.sh").read_text(encoding="utf-8")
     if "io.github.qaws81877.fixdock" not in build:
         errors += fail("build.sh does not set the FixDock bundle id")
