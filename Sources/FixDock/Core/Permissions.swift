@@ -176,6 +176,42 @@ final class Permissions: ObservableObject {
         }
     }
 
+    /// Settings › Advanced: drops every TCC entry of this app, and only this
+    /// app (`tccutil reset All <own bundle id>`). Answers on the main thread
+    /// with nil on success, else what went wrong. Without a bundle id it
+    /// does nothing and never answers.
+    func resetAll(completion: @escaping (_ failure: String?) -> Void) {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            task.arguments = ["reset", "All", bundleID]
+            let errors = Pipe()
+            task.standardOutput = FileHandle.nullDevice
+            task.standardError = errors
+            var failure: String?
+            do {
+                try task.run()
+                let message = errors.fileHandleForReading.readDataToEndOfFile()
+                task.waitUntilExit()
+                if task.terminationStatus != 0 {
+                    let text = String(decoding: message, as: UTF8.self)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    failure = text.isEmpty ? "tccutil exit status \(task.terminationStatus)" : text
+                }
+            } catch {
+                failure = error.localizedDescription
+            }
+            DispatchQueue.main.async {
+                if failure == nil {
+                    UserDefaults.standard.removeObject(forKey: DefaultsKey.recorderSystemAudioTapVerified)
+                }
+                self?.refresh()
+                completion(failure)
+            }
+        }
+    }
+
     func openSettings(for kind: PermissionKind) {
         let pane: String
         switch kind {

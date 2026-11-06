@@ -33,6 +33,46 @@ struct AdvancedSettingsPage: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .settingsCard()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(strings.tabPermissions).font(.headline)
+                Text(strings.resetPermissionsCaption)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(strings.resetPermissionsButton, role: .destructive) {
+                    confirmResetPermissions()
+                }
+                .disabled(bundleID == nil)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .settingsCard()
+        }
+    }
+
+    /// The owner approved this reset for Settings › Advanced. Its guard: a
+    /// confirmation naming every grant, `tccutil` on this app's own bundle id
+    /// only, and a relaunch only after it succeeded.
+    private func confirmResetPermissions() {
+        let strings = l10n.s
+        let confirm = NSAlert()
+        confirm.alertStyle = .warning
+        confirm.messageText = strings.resetPermissionsConfirmTitle
+        confirm.informativeText = strings.resetPermissionsConfirmMessage
+        confirm.addButton(withTitle: strings.resetPermissionsConfirm)
+        confirm.addButton(withTitle: strings.advancedCancel)
+        confirm.buttons.first?.hasDestructiveAction = true
+        guard confirm.runModal() == .alertFirstButtonReturn else { return }
+        Permissions.shared.resetAll { failure in
+            guard let failure else {
+                appDelegate()?.relaunch()
+                return
+            }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = L10n.shared.s.resetPermissionsFailed
+            alert.informativeText = failure
+            alert.runModal()
         }
     }
 }

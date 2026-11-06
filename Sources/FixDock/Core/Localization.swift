@@ -988,6 +988,12 @@ struct Strings {
     let backupImportConfirmMessageFormat: String
     let backupImportConfirm: String
     let backupSafetyFailed: String
+    let resetPermissionsCaption: String
+    let resetPermissionsButton: String
+    let resetPermissionsConfirmTitle: String
+    let resetPermissionsConfirmMessage: String
+    let resetPermissionsConfirm: String
+    let resetPermissionsFailed: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1884,6 +1890,12 @@ struct Strings {
         backupImportConfirmMessageFormat: "The settings in the file overwrite the current ones, and FixDock relaunches. The current settings are saved first in %@.",
         backupImportConfirm: "Import and Relaunch",
         backupSafetyFailed: "The current settings could not be saved first, so nothing was imported.",
+        resetPermissionsCaption: "Reset every permission macOS has given FixDock, for example after a grant stopped working. Each tool asks again when it needs one.",
+        resetPermissionsButton: "Remove All Permissions…",
+        resetPermissionsConfirmTitle: "Remove all of FixDock's permissions?",
+        resetPermissionsConfirmMessage: "FixDock's \(enNames.accessibility), \(enNames.screenRecording), \(enNames.fullDiskAccess), Microphone and system audio recording grants are reset, and FixDock relaunches. Tools that need them stop working until you allow them again.",
+        resetPermissionsConfirm: "Remove and Relaunch",
+        resetPermissionsFailed: "FixDock's permissions could not be reset.",
         versionFormat: "Version %@"
     )
 }
