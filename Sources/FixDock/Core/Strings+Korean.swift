@@ -21,7 +21,6 @@ extension Strings {
         panelEmptyTitle: "아직 설치한 도구가 없습니다",
         panelEmptyBody: "설정에서 도구를 고르세요. 링크 정리는 이 빌드에서 동작합니다. 나머지는 이후 빌드를 위해 저장됩니다.",
         panelNotInBuild: "이 빌드에는 없음",
-        settingsTitle: "FixDock 설정",
         tabGeneral: "일반",
         tabFeatures: "기능",
         tabShortcut: "단축키",
@@ -900,6 +899,12 @@ extension Strings {
         resetPermissionsConfirmMessage: "FixDock의 \(koNames.accessibility), \(koNames.screenRecording), \(koNames.fullDiskAccess), 마이크, 시스템 오디오 녹음 권한을 초기화하고 FixDock을 다시 시작합니다. 다시 허용할 때까지 이 권한이 필요한 도구는 동작하지 않습니다.",
         resetPermissionsConfirm: "제거하고 다시 시작",
         resetPermissionsFailed: "FixDock의 권한을 초기화하지 못했습니다.",
+        settingsSearchPrompt: "설정 검색",
+        settingsSearchNoResultsFormat: "“%@”에 대한 결과 없음",
+        settingsBack: "뒤로",
+        settingsForward: "앞으로",
+        settingsShowSidebar: "사이드바 보기",
+        settingsHideSidebar: "사이드바 가리기",
         versionFormat: "버전 %@"
     )
 }

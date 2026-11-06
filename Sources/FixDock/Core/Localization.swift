@@ -114,7 +114,6 @@ struct Strings {
     let panelEmptyTitle: String
     let panelEmptyBody: String
     let panelNotInBuild: String
-    let settingsTitle: String
     let tabGeneral: String
     let tabFeatures: String
     let tabShortcut: String
@@ -994,6 +993,12 @@ struct Strings {
     let resetPermissionsConfirmMessage: String
     let resetPermissionsConfirm: String
     let resetPermissionsFailed: String
+    let settingsSearchPrompt: String
+    let settingsSearchNoResultsFormat: String
+    let settingsBack: String
+    let settingsForward: String
+    let settingsShowSidebar: String
+    let settingsHideSidebar: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1017,7 +1022,6 @@ struct Strings {
         panelEmptyTitle: "Nothing installed yet",
         panelEmptyBody: "Open Settings to choose tools. URL cleaner runs in this build. The others are saved for a later build.",
         panelNotInBuild: "Not in this build",
-        settingsTitle: "FixDock Settings",
         tabGeneral: "General",
         tabFeatures: "Features",
         tabShortcut: "Shortcut",
@@ -1896,6 +1900,12 @@ struct Strings {
         resetPermissionsConfirmMessage: "FixDock's \(enNames.accessibility), \(enNames.screenRecording), \(enNames.fullDiskAccess), Microphone and system audio recording grants are reset, and FixDock relaunches. Tools that need them stop working until you allow them again.",
         resetPermissionsConfirm: "Remove and Relaunch",
         resetPermissionsFailed: "FixDock's permissions could not be reset.",
+        settingsSearchPrompt: "Search Settings",
+        settingsSearchNoResultsFormat: "No Results for “%@”",
+        settingsBack: "Back",
+        settingsForward: "Forward",
+        settingsShowSidebar: "Show Sidebar",
+        settingsHideSidebar: "Hide Sidebar",
         versionFormat: "Version %@"
     )
 }

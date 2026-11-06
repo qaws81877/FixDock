@@ -78,6 +78,13 @@ enum SettingsDestination: Hashable {
     }
 }
 
+/// What a sidebar row selects: a page, or a search result (several results
+/// can open the same page, so each needs its own tag).
+enum SidebarRow: Hashable {
+    case destination(SettingsDestination)
+    case result(SettingsSearchItem)
+}
+
 /// One sidebar block, already filtered and ordered. Built only in this file,
 /// so no other file can produce an empty category header.
 struct SidebarSection: Identifiable {
@@ -110,11 +117,13 @@ struct SidebarSection: Identifiable {
 }
 
 /// Owns where Settings is and what its sidebar shows: the only writer of the
-/// selection and of sidebar collapse state. Reads availability from
-/// `FeatureRuntime`; never writes it. Main thread only, like `FeatureRuntime`.
+/// selection, the back/forward history and sidebar collapse state. Reads
+/// availability from `FeatureRuntime`; never writes it. Main thread only, like
+/// `FeatureRuntime`.
 ///
-/// Collapse resets to all-expanded whenever the settings window opens. There is
-/// no UserDefaults key for collapse.
+/// Collapse resets to all-expanded whenever the settings window opens; history
+/// and the search query reset when a closed window opens. Nothing is saved in
+/// UserDefaults.
 final class SettingsNavigator: ObservableObject {
     static let shared = SettingsNavigator()
 
@@ -130,20 +139,62 @@ final class SettingsNavigator: ObservableObject {
 
     @Published private var collapsed: Set<SidebarSection.ID> = []
 
+    /// Pages left by `open`, most recent last. Only page changes are recorded,
+    /// never the Features sub-tab. Every entry is reachable and none equals
+    /// its neighbour.
+    @Published private(set) var backStack: [SettingsDestination] = []
+    @Published private(set) var forwardStack: [SettingsDestination] = []
+
+    /// The sidebar search field. Non-blank replaces the sections with results.
+    @Published var searchQuery = "" {
+        didSet {
+            if searchQuery != oldValue { searchSelection = nil }
+        }
+    }
+
+    /// The result row last chosen for the current query.
+    @Published private var searchSelection: SettingsSearchItem?
+
+    @Published var columnVisibility: NavigationSplitViewVisibility = .all
+
     private var installWatch: AnyCancellable?
 
     private init() {
         sections = Self.buildSections()
     }
 
+    var canGoBack: Bool { !backStack.isEmpty }
+    var canGoForward: Bool { !forwardStack.isEmpty }
+
+    var isSearching: Bool {
+        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Labels on reachable pages that match the query, in sidebar order.
+    func searchResults(_ strings: Strings) -> [SettingsSearchItem] {
+        SettingsSearch.results(for: searchQuery,
+                               in: SettingsSearch.index(of: sections.flatMap(\.destinations)),
+                               strings: strings)
+    }
+
     /// For the sidebar `List(selection:)`. Ignores `nil` (click on empty
     /// space or a category header).
-    var selection: Binding<SettingsDestination?> {
+    var selection: Binding<SidebarRow?> {
         Binding(
-            get: { self.destination },
+            get: {
+                if self.isSearching { return self.searchSelection.map(SidebarRow.result) }
+                return .destination(self.destination)
+            },
             set: { newValue in
-                guard let newValue else { return }
-                self.open(newValue)
+                switch newValue {
+                case nil:
+                    return
+                case .destination(let destination):
+                    self.open(destination)
+                case .result(let item):
+                    self.searchSelection = item
+                    self.open(item.destination, tab: item.tab)
+                }
             }
         )
     }
@@ -176,14 +227,39 @@ final class SettingsNavigator: ObservableObject {
     }
 
     /// Programmatic navigation. No-op when unreachable. Expands the block
-    /// that holds the target. Opening Features always shows `tab`.
+    /// that holds the target. Opening Features always shows `tab`. A page
+    /// change is recorded for Back and drops the forward history.
     func open(_ destination: SettingsDestination, tab: FeaturesTab = .features) {
         guard isReachable(destination) else { return }
-        if let section = sections.first(where: { $0.destinations.contains(destination) }) {
-            collapsed.remove(section.id)
-        }
         if destination == .shell(.features) {
             featuresTab = tab
+        }
+        if destination != self.destination {
+            backStack.append(self.destination)
+            forwardStack.removeAll()
+        }
+        show(destination)
+    }
+
+    func goBack() {
+        guard let target = backStack.popLast() else { return }
+        forwardStack.append(destination)
+        show(target)
+    }
+
+    func goForward() {
+        guard let target = forwardStack.popLast() else { return }
+        backStack.append(destination)
+        show(target)
+    }
+
+    func toggleSidebar() {
+        columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+    }
+
+    private func show(_ destination: SettingsDestination) {
+        if let section = sections.first(where: { $0.destinations.contains(destination) }) {
+            collapsed.remove(section.id)
         }
         self.destination = destination
     }
@@ -207,11 +283,39 @@ final class SettingsNavigator: ObservableObject {
         collapsed = []
     }
 
+    /// Hook for a closed Settings window opening again. The page is unchanged.
+    func resetHistoryAndSearch() {
+        backStack = []
+        forwardStack = []
+        searchQuery = ""
+    }
+
     private func refreshFromRuntime() {
         sections = Self.buildSections()
         if !isReachable(destination) {
             destination = .shell(.features)
         }
+        backStack = Self.pruned(backStack, current: destination, keeping: isReachable)
+        forwardStack = Self.pruned(forwardStack, current: destination, keeping: isReachable)
+        if let item = searchSelection, !isReachable(item.destination) {
+            searchSelection = nil
+        }
+    }
+
+    /// Drops pages that are no longer reachable, then the repeats that leaves:
+    /// adjacent equal entries, and a top entry equal to `current` (a step that
+    /// would not move).
+    private static func pruned(_ stack: [SettingsDestination],
+                               current: SettingsDestination,
+                               keeping isReachable: (SettingsDestination) -> Bool) -> [SettingsDestination] {
+        var result: [SettingsDestination] = []
+        for destination in stack where isReachable(destination) && destination != result.last {
+            result.append(destination)
+        }
+        if result.last == current {
+            result.removeLast()
+        }
+        return result
     }
 
     private func isReachable(_ destination: SettingsDestination) -> Bool {
