@@ -35,8 +35,9 @@ Git:
 - A release ends with the Homebrew tap: in qaws81877/homebrew-tap, set
   `version` and `sha256` (the release asset's digest) in
   `Casks/fixdock.rb`, then `brew audit --cask --online --strict`.
-- Publish with one `gh release create v<version> build/release/FixDock-<version>.zip --target <full SHA>`;
-  a short SHA is refused ("Release.target_commitish is invalid").
+- Publish with one `gh release create v<version> build/release/FixDock-<version>.zip build/release/FixDock-<version>.dmg --target <full SHA>`
+  (the DMG from `Tools/make-dmg.sh` after `Tools/notarize.sh`, owner 2026-11-05;
+  the updater reads only the zip). A short SHA is refused ("Release.target_commitish is invalid").
 - Stacked PRs: retarget the child with `gh pr edit <N> --base main` before
   merging its base with `--delete-branch`; deleting the base through the
   API closes the child instead of retargeting it.
@@ -107,6 +108,11 @@ Platform quirks:
 - On macOS 27, `List(selection:)` in the Settings sidebar hides Section
   headers, and a `Button` in that `List` gets no clicks. Use a plain `List`
   with `onTapGesture` rows.
+- A SwiftUI window hosted by `NSHostingController` (Settings, `SettingsWindow`):
+  with `.fullSizeContentView` a `.navigation` toolbar group sits past the
+  sidebar instead of next to the traffic lights, and `navigationTitle` never
+  reaches the window (`host.title` stays nil). Leave full size content off and
+  set `window.title` yourself.
 - `standardizedFileURL` and `resolvingSymlinksInPath` drop a `/private`
   prefix. Compare real paths with `realpath(3)`, never with those.
 - A bundle swapped in by rename(2) has no quarantine flag and never gets
