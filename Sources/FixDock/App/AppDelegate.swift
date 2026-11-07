@@ -189,8 +189,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         if settingsWindow?.isVisible != true {
             SettingsNavigator.shared.resetHistoryAndSearch()
         }
+        let wasVisible = settingsWindow?.isVisible == true
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
+        if !wasVisible {
+            (window as? SettingsWindow)?.fitHeightToSidebar()
+        }
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()

@@ -28,6 +28,39 @@ final class SettingsWindow: NSWindow {
                 self?.title = destination.title(Strings.localized(language))
             }
     }
+
+    /// Grows the window so the whole expanded sidebar fits, down to the App
+    /// block's last row (Advanced), within the screen's visible height.
+    /// Never shrinks below the current size. Call before showing the window.
+    func fitHeightToSidebar() {
+        contentView?.layoutSubtreeIfNeeded()
+        guard let table = Self.sidebarTable(in: contentView),
+              let scroll = table.enclosingScrollView,
+              table.numberOfRows > 0 else { return }
+        let lastRow = table.rect(ofRow: table.numberOfRows - 1)
+        let insets = scroll.contentInsets
+        let needed = lastRow.maxY + insets.top + insets.bottom + 8
+        let extra = ceil(needed - scroll.frame.height)
+        guard extra > 0 else { return }
+        var target = frame
+        target.size.height += extra
+        if let visible = (screen ?? NSScreen.main)?.visibleFrame {
+            target.size.height = min(target.size.height, visible.height)
+        }
+        target.origin.y = frame.maxY - target.size.height
+        setFrame(target, display: false)
+    }
+
+    /// The sidebar List's table: the first one in the view tree, since the
+    /// split view puts the sidebar column before the detail.
+    private static func sidebarTable(in view: NSView?) -> NSTableView? {
+        guard let view else { return nil }
+        if let table = view as? NSTableView { return table }
+        for child in view.subviews {
+            if let table = sidebarTable(in: child) { return table }
+        }
+        return nil
+    }
 }
 
 struct SettingsView: View {
