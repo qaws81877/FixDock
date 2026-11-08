@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var popoverOutsideClickMonitor: Any?
     private var popoverKeyMonitor: Any?
     private var popoverResignObserver: NSObjectProtocol?
-    private var settingsWindow: NSWindow?
+    private var settingsWindow: SettingsWindow?
     private var onboardingWindow: NSWindow?
     private var updateWindow: NSWindow?
     private var updateAttention: AnyCancellable?
@@ -192,11 +192,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         let wasVisible = settingsWindow?.isVisible == true
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
-        if !wasVisible {
-            (window as? SettingsWindow)?.fitHeightToSidebar()
+        if wasVisible {
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            window.showFittingSidebar()
         }
-        window.center()
-        window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         if case .feature(let page) = SettingsNavigator.shared.destination, page.feature == .mediaTools {
             MediaService.shared.setVisible(true, on: .settings)
@@ -433,7 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         NSApp.mainMenu = main
     }
 
-    private func makeSettingsWindow() -> NSWindow {
+    private func makeSettingsWindow() -> SettingsWindow {
         let window = SettingsWindow()
         window.delegate = self
         return window

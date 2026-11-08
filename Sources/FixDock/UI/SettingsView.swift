@@ -29,14 +29,28 @@ final class SettingsWindow: NSWindow {
             }
     }
 
-    /// Grows the window so the whole expanded sidebar fits, down to the App
-    /// block's last row (Advanced), within the screen's visible height.
-    /// Never shrinks below the current size. Call before showing the window.
-    func fitHeightToSidebar() {
+    /// Shows the window centred and tall enough for the whole expanded
+    /// sidebar. The sidebar List gets its rows on the run loop turn after
+    /// layout (on screen or not), so the window is measured and shown then.
+    func showFittingSidebar() {
+        contentView?.layoutSubtreeIfNeeded()
+        DispatchQueue.main.async { [self] in
+            fitHeightToSidebar()
+            center()
+            makeKeyAndOrderFront(nil)
+        }
+    }
+
+    /// Grows the window so the sidebar fits down to the App block's last row
+    /// (Advanced), within the screen's visible height. Never shrinks it.
+    private func fitHeightToSidebar() {
         contentView?.layoutSubtreeIfNeeded()
         guard let table = Self.sidebarTable(in: contentView),
               let scroll = table.enclosingScrollView,
-              table.numberOfRows > 0 else { return }
+              table.numberOfRows > 0 else {
+            NSLog("Settings: sidebar not measured, window keeps its height")
+            return
+        }
         let lastRow = table.rect(ofRow: table.numberOfRows - 1)
         let insets = scroll.contentInsets
         let needed = lastRow.maxY + insets.top + insets.bottom + 8
