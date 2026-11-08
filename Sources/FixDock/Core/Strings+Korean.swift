@@ -217,7 +217,7 @@ extension Strings {
         mediaVideoMediumCaption: "최대 720p. 화질과 용량의 균형",
         mediaVideoHighCaption: "최대 540p. 작은 파일, 낮은 화질",
         mediaTargetSizeLabel: "목표 크기",
-        mediaMegabytesFormat: "%d MB",
+        mediaMegabytesUnit: "MB",
         mediaTargetSizeCaption: "이 크기 아래로 맞춰 인코딩하고, 필요하면 해상도를 낮춥니다. MP4, H.264.",
         mediaVideoDropHint: "여기에 동영상을 놓거나 눌러서 고르세요.",
         mediaVideoPrivacyNote: "결과에는 위치와 같은 개인 메타데이터가 들어가지 않습니다.",

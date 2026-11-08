@@ -49,14 +49,44 @@ enum VideoCompressionSupport {
     /// Bits a pixel needs before H.264 starts smearing detail.
     private static let targetBitsPerPixel = 0.07
 
-    /// The `avconvert` preset for a level: low compression keeps up to 1080p,
-    /// medium 720p, high 540p. The presets never upscale a smaller source.
-    static func avconvertPreset(_ level: CompressionPreset) -> String {
+    /// The longest edge a level keeps: low compression up to 1080p, medium
+    /// 720p, high 540p. A smaller source is never upscaled.
+    static func maxDimension(_ level: CompressionPreset) -> Int {
         switch level {
-        case .low: return "Preset1920x1080"
-        case .medium: return "Preset1280x720"
-        case .high: return "Preset960x540"
+        case .low: return 1920
+        case .medium: return 1280
+        case .high: return 960
         }
+    }
+
+    /// The H.264 rate a level spends at most on video.
+    static func levelVideoBitRate(_ level: CompressionPreset) -> Int {
+        switch level {
+        case .low: return 8_000_000
+        case .medium: return 4_000_000
+        case .high: return 2_000_000
+        }
+    }
+
+    /// Share of the source's video rate the result may use. Without it a
+    /// phone's HEVC recording, which already spends about what a fixed
+    /// preset does, came back as large as it went in.
+    static let sourceBitRateShare = 0.8
+    static let minimumLevelVideoBitRate = 100_000
+    static let levelAudioBitRate = 128_000
+
+    /// The resolution mode's plan: the level's size cap, and a video rate
+    /// below both the level's rate and the source's own.
+    static func resolutionPlan(level: CompressionPreset, sourceSize: CGSize,
+                               sourceVideoBitRate: Double, hasAudio: Bool) -> VideoSizePlan {
+        var video = levelVideoBitRate(level)
+        if sourceVideoBitRate.isFinite, sourceVideoBitRate > 0 {
+            video = min(video, max(minimumLevelVideoBitRate,
+                                   Int(sourceVideoBitRate * sourceBitRateShare)))
+        }
+        return VideoSizePlan(size: scaledEvenSize(source: sourceSize, maxDimension: maxDimension(level)),
+                             videoBitRate: video,
+                             audioBitRate: hasAudio ? levelAudioBitRate : 0)
     }
 
     static func sanitizedTargetMegabytes(_ value: Int) -> Int {
@@ -123,10 +153,4 @@ enum VideoCompressionSupport {
     }
 
     private static func even(_ value: Int) -> Int { value - value % 2 }
-
-    /// `avconvert` reports no fraction, so the resolution mode estimates one
-    /// from the elapsed time and holds short of done.
-    static func estimatedProgress(elapsed: TimeInterval, duration: Double) -> Double {
-        min(0.95, elapsed / max(1, duration * 0.75))
-    }
 }

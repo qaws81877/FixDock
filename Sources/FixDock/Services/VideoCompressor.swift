@@ -15,10 +15,10 @@ enum VideoCompressionError: Error, Equatable {
 }
 
 /// Video compression for the Media tool, adapted from upstream's
-/// MediaService and MediaVideoTargetEncoder. The resolution mode drives
-/// `/usr/bin/avconvert`, whose metadata filter keeps location and other
-/// private metadata out of the result; the file-size mode reads into an
-/// AVAssetWriter, which copies no source metadata at all. Both write MP4.
+/// MediaService and MediaVideoTargetEncoder. Both modes read into an
+/// AVAssetWriter, which copies no source metadata (location included), and
+/// write H.264 MP4. The resolution mode caps the size and the rate in one
+/// pass; the file-size mode derives both from the target.
 /// Blocking; callers run it off the main thread.
 enum VideoCompressor {
     struct Source {
@@ -28,6 +28,7 @@ enum VideoCompressor {
         let naturalSize: CGSize
         let preferredTransform: CGAffineTransform
         let frameRate: Double
+        let videoBitRate: Double
         let duration: Double
     }
 
@@ -38,9 +39,10 @@ enum VideoCompressor {
         guard source.duration > 0 else { throw VideoCompressionError.unsupported }
         switch sizing {
         case .resolution(let level):
-            try runAVConvert(url, preset: VideoCompressionSupport.avconvertPreset(level),
-                             duration: source.duration, to: destination,
-                             isCancelled: isCancelled, progress: progress)
+            let plan = VideoCompressionSupport.resolutionPlan(level: level, sourceSize: source.naturalSize,
+                                                              sourceVideoBitRate: source.videoBitRate,
+                                                              hasAudio: !source.audioTracks.isEmpty)
+            try runPass(source, plan: plan, to: destination, isCancelled: isCancelled, progress: progress)
         case .fileSize(let bytes):
             try encode(source, targetBytes: bytes, to: destination,
                        isCancelled: isCancelled, progress: progress)
@@ -61,6 +63,7 @@ enum VideoCompressor {
                           naturalSize: try await track.load(.naturalSize),
                           preferredTransform: try await track.load(.preferredTransform),
                           frameRate: Double(try await track.load(.nominalFrameRate)),
+                          videoBitRate: Double(try await track.load(.estimatedDataRate)),
                           duration: try await asset.load(.duration).seconds)
         }
         switch result {
@@ -82,36 +85,7 @@ enum VideoCompressor {
         return box.value ?? .failure(VideoCompressionError.failed)
     }
 
-    // MARK: - Resolution mode
-
-    private static func runAVConvert(_ url: URL, preset: String, duration: Double, to destination: URL,
-                                     isCancelled: () -> Bool, progress: (Double) -> Void) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/avconvert")
-        process.arguments = ["--source", url.path, "--preset", preset,
-                             "--output", destination.path, "--replace"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { throw VideoCompressionError.failed }
-        let started = Date()
-        while process.isRunning {
-            if isCancelled() {
-                process.terminate()
-                process.waitUntilExit()
-                try? FileManager.default.removeItem(at: destination)
-                throw VideoCompressionError.cancelled
-            }
-            progress(VideoCompressionSupport.estimatedProgress(elapsed: Date().timeIntervalSince(started),
-                                                               duration: duration))
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-        guard process.terminationStatus == 0 else {
-            try? FileManager.default.removeItem(at: destination)
-            throw VideoCompressionError.failed
-        }
-    }
-
-    // MARK: - File-size mode
+    // MARK: - Encoding
 
     /// Up to three passes; each one that overshoots hands the next a smaller
     /// scale. Throws `targetTooSmall` rather than leave a file over the size.
