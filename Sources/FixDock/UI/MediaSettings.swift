@@ -202,6 +202,11 @@ struct MediaVideoOptions: View {
     @AppStorage(DefaultsKey.mediaVideoSizing) private var sizing = VideoSizingMode.resolution.rawValue
     @AppStorage(DefaultsKey.mediaVideoTargetMegabytes) private var megabytes = VideoCompressionSupport.defaultTargetMegabytes
 
+    private var targetMegabytes: Binding<Int> {
+        Binding(get: { VideoCompressionSupport.sanitizedTargetMegabytes(megabytes) },
+                set: { megabytes = VideoCompressionSupport.sanitizedTargetMegabytes($0) })
+    }
+
     var body: some View {
         let s = l10n.s
         VStack(alignment: .leading, spacing: 8) {
@@ -223,9 +228,15 @@ struct MediaVideoOptions: View {
                     HStack {
                         Text(s.mediaTargetSizeLabel)
                         Spacer()
-                        Text(String(format: s.mediaMegabytesFormat,
-                                    VideoCompressionSupport.sanitizedTargetMegabytes(megabytes)))
+                        // A number typed here is kept in range; anything else
+                        // reverts to the saved size when the field commits.
+                        TextField(s.mediaTargetSizeLabel, value: targetMegabytes,
+                                  format: .number.grouping(.never))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
                             .monospacedDigit()
+                            .frame(width: 56)
+                        Text(s.mediaMegabytesUnit)
                     }
                 }
                 Text(s.mediaTargetSizeCaption)

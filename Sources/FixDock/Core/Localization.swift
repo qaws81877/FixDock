@@ -310,7 +310,7 @@ struct Strings {
     let mediaVideoMediumCaption: String
     let mediaVideoHighCaption: String
     let mediaTargetSizeLabel: String
-    let mediaMegabytesFormat: String
+    let mediaMegabytesUnit: String
     let mediaTargetSizeCaption: String
     let mediaVideoDropHint: String
     let mediaVideoPrivacyNote: String
@@ -1218,7 +1218,7 @@ struct Strings {
         mediaVideoMediumCaption: "Up to 720p. Balanced quality and file size.",
         mediaVideoHighCaption: "Up to 540p. Smaller file, lower quality.",
         mediaTargetSizeLabel: "Target size",
-        mediaMegabytesFormat: "%d MB",
+        mediaMegabytesUnit: "MB",
         mediaTargetSizeCaption: "The video is encoded to fit under this size, lowering the resolution if it has to. MP4, H.264.",
         mediaVideoDropHint: "Drop videos here, or click to choose.",
         mediaVideoPrivacyNote: "Location and other private metadata are left out of the result.",
