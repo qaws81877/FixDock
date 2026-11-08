@@ -113,6 +113,11 @@ Platform quirks:
   sidebar instead of next to the traffic lights, and `navigationTitle` never
   reaches the window (`host.title` stays nil). Leave full size content off and
   set `window.title` yourself.
+- The Settings sidebar `List` (an `NSOutlineView`) gets its rows on the run
+  loop turn after layout, on screen or not (2026-11-08: 0 rows right after
+  `layoutSubtreeIfNeeded` on a hidden window, 25 one turn later);
+  `displayIfNeeded` does not fill it sooner. Measure on that turn, then show
+  (`SettingsWindow.showFittingSidebar`).
 - `standardizedFileURL` and `resolvingSymlinksInPath` drop a `/private`
   prefix. Compare real paths with `realpath(3)`, never with those.
 - A bundle swapped in by rename(2) has no quarantine flag and never gets

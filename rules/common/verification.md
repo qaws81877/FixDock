@@ -56,6 +56,14 @@ Gates, in order, before calling a change done:
   check for `✓ Bundle ready` and the bundle's modification time.
 - SourceKit "Cannot find … in scope" right after an edit is often stale.
   The result of `swift build` decides.
+- Layout checks of Settings or the panel depend on which tools are
+  installed. Read the owner's `featureAvailable.*` keys (read only) and give
+  the dev build the same set (`launch.sh --fresh <ids…>`); a short sidebar
+  hid the cut-off Advanced row (2026-11-08).
+- The verify-fixdock `launch.sh` sends the dev build's stdout and stderr to
+  `build/verify/app.log`, and `NSLog` then writes there, not to `log show`
+  or `log stream` (2026-11-08). Read temporary `NSLog` lines from that file
+  and remove them before committing.
 
 Proof:
 
@@ -101,6 +109,10 @@ Proof:
 - A `CGEvent` posted from the agent shell is dropped (it is not trusted for
   Accessibility), so a global shortcut never fires from it. Shortcut presses
   stay owner checks.
+  Mouse clicks did arrive on 2026-11-08: `osascript` `click menu bar item 1
+  of menu bar 2` of the dev process opened its panel (the panel is not in
+  the AX tree), and a `CGEvent` click at the "Settings…" button opened
+  Settings. Try that before handing a click to the owner.
 - A click on the desktop wallpaper can trigger macOS "click wallpaper to
   reveal desktop", which slides every window, floating panels included,
   off screen until an app is activated. Do not judge window positions after
