@@ -89,21 +89,44 @@ enum HangulTwoSet {
     /// Backspaces that erase `typed`, which the field shows as the input
     /// method composed it, starting from a committed boundary.
     static func backspaces<S: Sequence>(erasing typed: S) -> Int where S.Element == Character {
-        var committed = 0
-        var initial: Character?
-        var vowel: [Character] = []
-        var final: [Character] = []
-        func commit() {
+        var composer = Composer()
+        for character in typed { composer.type(character) }
+        return composer.committed + composer.composing
+    }
+
+    /// Whether `next`, typed after `context`, joins the syllable the input
+    /// method is still composing from `context` (or takes its last
+    /// consonant), rather than starting a new character.
+    static func joins<S: Sequence>(_ next: Character, after context: S) -> Bool where S.Element == Character {
+        var composer = Composer()
+        for character in context { composer.type(character) }
+        return composer.type(next)
+    }
+
+    /// 2-Set composition, counting what a backspace takes: a whole committed
+    /// character, or one key of the syllable still being composed.
+    private struct Composer {
+        private(set) var committed = 0
+        private var initial: Character?
+        private var vowel: [Character] = []
+        private var final: [Character] = []
+
+        var composing: Int { (initial == nil ? 0 : 1) + vowel.count + final.count }
+
+        private mutating func commit() {
             if initial != nil || !vowel.isEmpty { committed += 1 }
             initial = nil
             vowel = []
             final = []
         }
-        for character in typed {
+
+        /// Answers whether the character joined the syllable being composed.
+        @discardableResult
+        mutating func type(_ character: Character) -> Bool {
             guard isJamo(character) else {
                 commit()
                 committed += 1
-                continue
+                return false
             }
             if vowels.contains(character) {
                 if let moved = final.last {
@@ -112,24 +135,63 @@ enum HangulTwoSet {
                     commit()
                     initial = moved
                     vowel = [character]
+                    return true
                 } else if vowel.count == 1, compoundVowels.contains(String(vowel + [character])) {
                     vowel.append(character)
+                    return true
                 } else if vowel.isEmpty, initial != nil {
                     vowel = [character]
-                } else {
-                    commit()
-                    vowel = [character]
+                    return true
                 }
-            } else if initial != nil, !vowel.isEmpty, final.isEmpty, !neverFinal.contains(character) {
+                commit()
+                vowel = [character]
+                return false
+            }
+            if initial != nil, !vowel.isEmpty, final.isEmpty, !neverFinal.contains(character) {
                 final = [character]
+                return true
             } else if final.count == 1, compoundFinals.contains(String(final + [character])) {
                 final.append(character)
-            } else {
-                commit()
-                initial = character
+                return true
             }
+            commit()
+            initial = character
+            return false
         }
-        return committed + (initial == nil ? 0 : 1) + vowel.count + final.count
+    }
+
+    private static let initials = Array("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
+    private static let medials = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅛ", "ㅜ",
+                                  "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅠ", "ㅡ", "ㅡㅣ", "ㅣ"]
+    private static let finals = ["", "ㄱ", "ㄲ", "ㄱㅅ", "ㄴ", "ㄴㅈ", "ㄴㅎ", "ㄷ", "ㄹ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ",
+                                 "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅁ", "ㅂ", "ㅂㅅ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
+    /// Compound jamo as their keys; the rest of the letters are keys already.
+    private static let compoundJamo: [Character: String] = [
+        "ㅘ": "ㅗㅏ", "ㅙ": "ㅗㅐ", "ㅚ": "ㅗㅣ", "ㅝ": "ㅜㅓ", "ㅞ": "ㅜㅔ", "ㅟ": "ㅜㅣ", "ㅢ": "ㅡㅣ",
+        "ㄳ": "ㄱㅅ", "ㄵ": "ㄴㅈ", "ㄶ": "ㄴㅎ", "ㄺ": "ㄹㄱ", "ㄻ": "ㄹㅁ", "ㄼ": "ㄹㅂ", "ㄽ": "ㄹㅅ",
+        "ㄾ": "ㄹㅌ", "ㄿ": "ㄹㅍ", "ㅀ": "ㄹㅎ", "ㅄ": "ㅂㅅ",
+    ]
+
+    /// `text` as the 2-Set keys type it, one jamo per key, the way key events
+    /// carry it: "한" is "ㅎㅏㄴ", "ㅘ" is "ㅗㅏ". Anything else stays.
+    static func typedJamo(_ text: String) -> String {
+        var result = ""
+        for character in text.precomposedStringWithCanonicalMapping {
+            if let compound = compoundJamo[character] {
+                result += compound
+                continue
+            }
+            guard let scalar = character.unicodeScalars.first, character.unicodeScalars.count == 1,
+                  (0xAC00...0xD7A3).contains(scalar.value) else {
+                result.append(character)
+                continue
+            }
+            let index = Int(scalar.value - 0xAC00)
+            result.append(initials[index / 588])
+            result += medials[(index % 588) / 28]
+            result += finals[index % 28]
+        }
+        return result
     }
 }
 
@@ -212,8 +274,7 @@ enum TextSnippetSupport {
     static func triggerErase(screen: String, triggerCount: Int, swallowedCount: Int) -> TriggerErase {
         let shown = Array(screen.suffix(triggerCount))
         guard shown.contains(where: HangulTwoSet.isJamo) else { return .asTyped }
-        if let first = shown.first, HangulTwoSet.isJamo(first),
-           let before = screen.dropLast(triggerCount).last, HangulTwoSet.isJamo(before) {
+        if let first = shown.first, HangulTwoSet.joins(first, after: screen.dropLast(triggerCount)) {
             return .unsafe
         }
         return .backspaces(HangulTwoSet.backspaces(erasing: shown.dropLast(swallowedCount)))
@@ -228,6 +289,60 @@ enum TextSnippetSupport {
         return (snippet,
                 max(0, snippet.trigger.count - swallowed.count),
                 typedTrigger(snippet.trigger, buffer: buffer, swallowed: swallowed))
+    }
+
+    /// The snippets whose trigger holds Hangul, each trigger spelled the way
+    /// key events carry it (`HangulTwoSet.typedJamo`), to be matched against
+    /// what the field received rather than against the keys.
+    static func typedHangulTriggers(_ snippets: [TextSnippet]) -> [TextSnippet] {
+        snippets.compactMap { snippet in
+            let typed = HangulTwoSet.typedJamo(snippet.trigger)
+            guard typed.contains(where: HangulTwoSet.isJamo) else { return nil }
+            var copy = snippet
+            copy.trigger = typed
+            return copy
+        }
+    }
+
+    /// The snippet the last key completed, with the backspaces that clear its
+    /// trigger and the text they clear; nil lets the keys through.
+    /// `completed` says a trigger was typed at all, even one whose backspaces
+    /// cannot be known, so the caller starts both buffers over.
+    /// `buffer` holds the keys as Latin letters, which Latin triggers match
+    /// in either input source. `screen` holds what the field received, jamo
+    /// in Korean, which `typedTriggers` (from `typedHangulTriggers`) match.
+    /// The two buffers run character for character. The longer trigger wins;
+    /// a tie goes to the keys. `swallowed` is the completing key as each
+    /// buffer holds it, empty after a delimiter.
+    static func keyedMatch(buffer: String,
+                           screen: String,
+                           expansion: TextSnippet.Expansion,
+                           snippets: [TextSnippet],
+                           typedTriggers: [TextSnippet],
+                           swallowed: String,
+                           swallowedAsTyped: String)
+        -> (match: (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)?, completed: Bool) {
+        let keyed = expansionMatch(buffer: buffer, expansion: expansion,
+                                   snippets: snippets, swallowed: swallowed)
+        let typed = expansionMatch(buffer: screen, expansion: expansion,
+                                   snippets: typedTriggers, swallowed: swallowedAsTyped)
+        let best: (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)?
+        if let keyed, let typed {
+            best = typed.snippet.trigger.count > keyed.snippet.trigger.count ? typed : keyed
+        } else {
+            best = keyed ?? typed
+        }
+        guard let best else { return (nil, false) }
+        // A trigger typed in Korean is cleared by the composed count and never
+        // checked against a completion selection: its text is not what the
+        // field shows.
+        switch triggerErase(screen: screen,
+                            triggerCount: best.snippet.trigger.count,
+                            swallowedCount: swallowedAsTyped.count) {
+        case .asTyped: return (best, true)
+        case .backspaces(let count): return ((best.snippet, count, ""), true)
+        case .unsafe: return (nil, true)
+        }
     }
 
     /// Replaces the dynamic variables. Unknown {{tags}} pass through
