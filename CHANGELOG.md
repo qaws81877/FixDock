@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.9
+
+- Quit protection: the ⌘Q notice no longer gets stuck invisible. FixDock reused one panel for the whole run, and when the system's show fade was cut short by the key-up, the window server kept the panel at alpha 0 while AppKit believed it was 1, so later shows changed nothing. The system fade is off, each show resets the panel's level, alpha and size (and recreates a panel the window server has dropped), and 0.25 s after a show FixDock checks the window server and, if the notice is not on screen, shows it again in a new panel, once per show. Hidden panels are dropped after a display change, wake or session return. Each recovery is written to `diagnostics.log`. Short-tap timing is unchanged.
+- Text snippets: Hangul triggers (such as ㅋ1) expand again while the Korean 2-Set source is on; 1.0.8 compared only by key position and missed them. Latin triggers are matched by key position and Hangul triggers by the jamo typed, the longest trigger wins, and the characters to delete are counted with the 2-Set composition rules.
+
 ## 1.0.8
 
 - Video compression: the resolution levels (high, medium, low) now encode once with a bitrate cap that is also at most 80% of the source's, so phone videos get smaller at every level. Before, the fixed presets re-encoded at a set rate and an iPhone HEVC clip could come out as large as the original or larger. The target size can be typed as well as stepped; a typed value is clamped to 1...512 MB and text that is not a number reverts to the saved size.
