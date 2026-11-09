@@ -28,40 +28,160 @@ final class QuitProtectionHUD {
                height: minimumSize.height + (content.showsProgress ? 8 : 0))
     }
 
-    func show(title: String, detail: String, holdDeadline: Date? = nil) {
-        if panel == nil {
-            let panel = OverlayPanel(contentRect: CGRect(origin: .zero, size: size),
-                                     styleMask: [.borderless, .nonactivatingPanel],
-                                     backing: .buffered,
-                                     defer: false)
-            panel.contentView = ContentView(frame: CGRect(origin: .zero, size: size))
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.level = .statusBar
-            panel.isReleasedWhenClosed = false
-            panel.hidesOnDeactivate = false
-            panel.becomesKeyOnlyIfNeeded = true
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary,
-                                        .stationary, .ignoresCycle]
-            self.panel = panel
-        }
+    /// Answers the window server's view of a window: listed on screen, and
+    /// its alpha. Replaceable so a harness can play a stuck window.
+    var windowServerState: (Int) -> (onScreen: Bool, alpha: Double?) = { number in
+        let server = (CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(max(number, 0)))
+            as? [[String: Any]])?.first
+        return ((server?[kCGWindowIsOnscreen as String] as? Bool) ?? false,
+                server?[kCGWindowAlpha as String] as? Double)
+    }
+    /// While the screen is locked or the display sleeps, the window server
+    /// keeps answering with the last state it composited, so nothing it says
+    /// then is held against the panel.
+    var windowServerIsCurrent: () -> Bool = {
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        let locked = (session?["CGSSessionScreenIsLocked"] as? Bool) ?? false
+        return !locked && CGDisplayIsAsleep(CGMainDisplayID()) == 0
+    }
+    /// Counts shows, so a check scheduled for one show never acts on a later
+    /// one.
+    private var showGeneration = 0
+    /// Panels replaced this launch, recorded like the shows.
+    private var recordedRecoveries = 0
+    /// Long enough for the window server to list a freshly ordered window
+    /// (about 90 ms on macOS 27), short of the 0.8 s default hold.
+    private static let checkDelay: TimeInterval = 0.25
+    /// When the last hide ordered the panel out. The window server can list a
+    /// window it was just told to remove for a few frames.
+    private var hiddenAt = Date.distantPast
+    private var observers: [NSObjectProtocol] = []
 
-        guard let content = panel?.contentView as? ContentView else { return }
+    init() {
+        // A panel kept across sleep, a lock or a display change can come back
+        // as a window the window server no longer draws. While hidden it costs
+        // nothing to build again, so the next show starts from a new one.
+        let drop: (Notification) -> Void = { [weak self] note in
+            self?.discardHiddenPanel(because: note.name.rawValue)
+        }
+        observers = [
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification,
+                object: nil, queue: .main, using: drop),
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.screensDidWakeNotification,
+                object: nil, queue: .main, using: drop),
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.sessionDidBecomeActiveNotification,
+                object: nil, queue: .main, using: drop),
+        ]
+    }
+
+    deinit {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
+    }
+
+    private static func makePanel(size: CGSize) -> NSPanel {
+        let panel = OverlayPanel(contentRect: CGRect(origin: .zero, size: size),
+                                 styleMask: [.borderless, .nonactivatingPanel],
+                                 backing: .buffered,
+                                 defer: false)
+        panel.contentView = ContentView(frame: CGRect(origin: .zero, size: size))
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+        panel.becomesKeyOnlyIfNeeded = true
+        // No system fade on order in or out: a press shorter than the fade
+        // cut it off, and the window server could keep the cut-off alpha
+        // while AppKit still read 1, so later shows stayed invisible.
+        panel.animationBehavior = .none
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary,
+                                    .stationary, .ignoresCycle]
+        return panel
+    }
+
+    func show(title: String, detail: String, holdDeadline: Date? = nil) {
+        showGeneration += 1
+        if let panel, panel.windowNumber <= 0 {
+            discard(panel)
+        }
+        present(title: title, detail: detail, holdDeadline: holdDeadline)
+        recordShow()
+        let generation = showGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.checkDelay) { [weak self] in
+            self?.check(generation: generation, title: title, detail: detail,
+                        holdDeadline: holdDeadline)
+        }
+    }
+
+    /// Puts the pill up from a known state every time: whatever a previous
+    /// show, hide or check left behind is set again, not trusted.
+    private func present(title: String, detail: String, holdDeadline: Date?) {
+        if panel == nil { panel = Self.makePanel(size: size) }
+        guard let panel, let content = panel.contentView as? ContentView else { return }
         // Fill the labels first: the width comes out of them, not out of a
         // separate measurement of the same strings.
         content.update(title: title, detail: detail, showsProgress: holdDeadline != nil)
         size = Self.fittingSize(content)
-        panel?.setContentSize(size)
+        panel.setContentSize(size)
         positionPanel()
-        panel?.alphaValue = 1
-        panel?.orderFrontRegardless()
+        panel.level = .statusBar
+        panel.alphaValue = 1
+        panel.orderFrontRegardless()
         content.layoutSubtreeIfNeeded()
         content.animateProgress(until: holdDeadline)
         // Event taps can arrive between normal AppKit drawing passes. Draw now
         // so a short confirmation never waits for another app event to appear.
-        panel?.display()
-        recordShow()
+        panel.display()
+    }
+
+    /// A moment after a show, compares what AppKit holds with what the window
+    /// server draws. A pill still meant to be up that is not on screen at full
+    /// alpha is replaced by a new panel and shown again, once per show. A
+    /// hidden pill the window server still lists is dropped, so the next show
+    /// builds a new one. Either way the diagnostics journal says so.
+    private func check(generation: Int, title: String, detail: String, holdDeadline: Date?) {
+        guard generation == showGeneration, let panel, windowServerIsCurrent() else { return }
+        let state = windowServerState(panel.windowNumber)
+        let alpha = state.alpha.map { String(format: "%.2f", $0) } ?? "none"
+        if panel.isVisible {
+            guard !state.onScreen || (state.alpha ?? 0) < 0.9 else { return }
+            let old = panel.windowNumber
+            discard(panel)
+            let deadline = holdDeadline.flatMap { $0.timeIntervalSinceNow > 0 ? $0 : nil }
+            present(title: title, detail: detail, holdDeadline: deadline)
+            recordRecovery("quit HUD recovered: window \(old) shown but window server on screen "
+                + "\(state.onScreen) alpha \(alpha); new window \(self.panel?.windowNumber ?? 0)")
+        } else if state.onScreen, Date().timeIntervalSince(hiddenAt) >= 0.1 {
+            let old = panel.windowNumber
+            discard(panel)
+            recordRecovery("quit HUD recovered: window \(old) hidden but window server on screen "
+                + "alpha \(alpha); dropped for a new panel next time")
+        }
+    }
+
+    private func discardHiddenPanel(because reason: String) {
+        guard let panel, !panel.isVisible else { return }
+        discard(panel)
+        KeyTapHealth.note("quit HUD panel dropped after \(reason)")
+    }
+
+    private func discard(_ old: NSPanel) {
+        (old.contentView as? ContentView)?.stopProgress()
+        old.orderOut(nil)
+        old.close()
+        if panel === old { panel = nil }
+    }
+
+    private func recordRecovery(_ message: String) {
+        guard recordedRecoveries < Self.recordedShowLimit else { return }
+        recordedRecoveries += 1
+        KeyTapHealth.note(message, error: true)
     }
 
     /// Whether the pill actually reached the screen, right after the order and
@@ -94,6 +214,7 @@ final class QuitProtectionHUD {
     func hide() {
         (panel?.contentView as? ContentView)?.stopProgress()
         panel?.orderOut(nil)
+        hiddenAt = Date()
     }
 
     private func positionPanel() {
