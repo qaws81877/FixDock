@@ -32,6 +32,9 @@ final class TextSnippetService {
     private var activationObserver: NSObjectProtocol?
     private let inputLock = NSLock()
     private var buffer = ""
+    /// `buffer` as the field received it: the same keys, but jamo where the
+    /// Korean input method typed them, so the backspaces can be counted.
+    private var screen = ""
     private var permissionWatch: AnyCancellable?
     private var permissionPoll: Timer?
     private var tapRetry: Timer?
@@ -249,7 +252,27 @@ final class TextSnippetService {
     }
 
     private func resetBuffer() {
-        inputLock.withLock { buffer = "" }
+        inputLock.withLock {
+            buffer = ""
+            screen = ""
+        }
+    }
+
+    /// `match` with the backspaces its trigger takes in the field, or nil when
+    /// that cannot be known and the keys should go through untouched. Called
+    /// under `inputLock`. A trigger typed in Korean is cleared by the composed
+    /// count and never checked against a completion selection: its text is
+    /// not what the field shows.
+    private func erasingAsShown(_ match: (snippet: TextSnippet, deleteCount: Int, typedTrigger: String),
+                                swallowedCount: Int)
+        -> (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)? {
+        switch TextSnippetSupport.triggerErase(screen: screen,
+                                               triggerCount: match.snippet.trigger.count,
+                                               swallowedCount: swallowedCount) {
+        case .asTyped: return match
+        case .backspaces(let count): return (match.snippet, count, "")
+        case .unsafe: return nil
+        }
     }
 
     // MARK: - Tap
@@ -299,6 +322,7 @@ final class TextSnippetService {
         case kVK_Delete:
             inputLock.withLock {
                 if !buffer.isEmpty { buffer.removeLast() }
+                if !screen.isEmpty { screen.removeLast() }
             }
             return Unmanaged.passUnretained(event)
         case kVK_LeftArrow, kVK_RightArrow, kVK_UpArrow, kVK_DownArrow, kVK_Escape,
@@ -314,6 +338,8 @@ final class TextSnippetService {
         event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &characters)
         guard length > 0 else { return Unmanaged.passUnretained(event) }
         let typed = String(utf16CodeUnits: characters, count: length)
+        // In Korean the same keys arrive as jamo; triggers match on the keys.
+        let keyed = HangulTwoSet.latinKeys(typed, shifted: event.flags.contains(.maskShift))
 
         if let first = typed.first, TextSnippetSupport.delimiters.contains(first) {
             // A delimiter can complete an afterDelimiter trigger. The typed
@@ -324,8 +350,10 @@ final class TextSnippetService {
                                                               expansion: .afterDelimiter,
                                                               snippets: delimiterSnippets,
                                                               swallowed: "")
+                let erasable = match.flatMap { erasingAsShown($0, swallowedCount: 0) }
                 buffer = ""
-                return match
+                screen = ""
+                return erasable
             }
             if let matched {
                 return expand(matched.snippet,
@@ -342,13 +370,18 @@ final class TextSnippetService {
         }
 
         let matched = inputLock.withLock { () -> (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)? in
-            buffer = TextSnippetSupport.bufferAppending(buffer, typed: typed)
+            buffer = TextSnippetSupport.bufferAppending(buffer, typed: keyed)
+            screen = TextSnippetSupport.bufferAppending(screen, typed: typed)
             let match = TextSnippetSupport.expansionMatch(buffer: buffer,
                                                           expansion: .immediate,
                                                           snippets: immediateSnippets,
-                                                          swallowed: typed)
-            if match != nil { buffer = "" }
-            return match
+                                                          swallowed: keyed)
+            let erasable = match.flatMap { erasingAsShown($0, swallowedCount: typed.count) }
+            if match != nil {
+                buffer = ""
+                screen = ""
+            }
+            return erasable
         }
         if let matched {
             // Suppress the final trigger event once the replacement path has
