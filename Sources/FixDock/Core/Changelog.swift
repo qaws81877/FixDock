@@ -20,6 +20,17 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.0.9", date: "2026-11-09",
+            english: [
+                "**The ⌘Q notice keeps working.** After FixDock had been running for a long time, the hold-to-quit notice could stop appearing at all. FixDock now resets it every time and shows it again if it did not reach the screen.",
+                "**Korean snippet triggers.** Snippets with Korean triggers expand again while the Korean input source is on, alongside triggers made of Latin letters.",
+            ],
+            korean: [
+                "**⌘Q 안내가 계속 잘 보입니다.** FixDock을 오래 켜 두면 길게 눌러 종료하라는 안내가 아예 안 보이게 될 수 있었습니다. 이제 띄울 때마다 상태를 새로 맞추고, 화면에 올라오지 않았으면 다시 띄웁니다.",
+                "**한글 스니펫 트리거.** 한글로 등록한 스니펫 트리거가 한글 입력 상태에서 다시 펼쳐집니다. 영문 트리거도 함께 동작합니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.0.8", date: "2026-11-09",
             english: [
                 "**Smaller phone videos.** The resolution levels in video compression now shrink iPhone videos at every level instead of re-encoding them at a fixed rate. You can also type the target size instead of only stepping it.",
