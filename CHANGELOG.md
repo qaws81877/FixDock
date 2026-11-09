@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8
+
+- Video compression: the resolution levels (high, medium, low) now encode once with a bitrate cap that is also at most 80% of the source's, so phone videos get smaller at every level. Before, the fixed presets re-encoded at a set rate and an iPhone HEVC clip could come out as large as the original or larger. The target size can be typed as well as stepped; a typed value is clamped to 1...512 MB and text that is not a number reverts to the saved size.
+- Text snippets: Latin triggers expand while the Korean 2-Set input source is on. Keys are matched by position, and the characters the Korean input method composed are counted by the 2-Set composition rules before they are deleted.
+- Quit protection: the first 20 times the ⌘Q notice is shown each run, FixDock records in `diagnostics.log` whether it reached the screen (front app, macOS version, window number, visibility, occlusion, window server state, frame, screen), right after it is shown and 0.25 s later.
+- Settings opens tall enough to show the whole sidebar, down to App › Advanced, capped at the screen's height.
+
 ## 1.0.7
 
 - Settings has a native toolbar. The sidebar toggle and Back/Forward sit in one capsule right of the window buttons, followed by the current page's name, which is also the window title. Command-[ and Command-] go back and forward, Control-Command-S shows or hides the sidebar. History records page changes only, not the Features tab, drops pages whose tool was removed, and starts empty each time the window opens.
