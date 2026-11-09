@@ -20,6 +20,21 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.0.8", date: "2026-11-09",
+            english: [
+                "**Smaller phone videos.** The resolution levels in video compression now shrink iPhone videos at every level instead of re-encoding them at a fixed rate. You can also type the target size instead of only stepping it.",
+                "**Snippets in Korean input.** Snippet triggers made of Latin letters now expand while the Korean input source is on, so you no longer need to switch to English first.",
+                "**Quit notice diagnostics.** FixDock records in its diagnostics log whether the ⌘Q notice actually appeared, to track down Macs where it does not show.",
+                "**Settings fits the sidebar.** Settings opens tall enough to show the whole sidebar.",
+            ],
+            korean: [
+                "**휴대폰 영상이 더 작아집니다.** 영상 압축의 해상도 단계(높음·중간·낮음)가 아이폰 영상을 정해진 비율로 다시 인코딩하지 않고 모든 단계에서 줄입니다. 목표 크기는 버튼뿐 아니라 숫자로도 입력할 수 있습니다.",
+                "**한글 입력에서도 스니펫.** 영문으로 된 스니펫 트리거가 한글 입력 상태에서도 펼쳐집니다. 먼저 영문으로 바꾸지 않아도 됩니다.",
+                "**종료 안내 진단.** ⌘Q 안내가 실제로 화면에 떴는지 진단 기록에 남겨, 안내가 보이지 않는 Mac의 원인을 찾습니다.",
+                "**설정 창이 사이드바에 맞춰 열립니다.** 설정을 열면 사이드바 전체가 보이는 높이로 열립니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.0.7", date: "2026-11-07",
             english: [
                 "**Settings toolbar.** The sidebar button and Back/Forward now sit together right of the window buttons, with the current page's name beside them. Command-[ and Command-] go back and forward, Control-Command-S shows or hides the sidebar.",
