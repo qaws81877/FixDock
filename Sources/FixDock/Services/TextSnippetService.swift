@@ -41,6 +41,10 @@ final class TextSnippetService {
     /// Split by expansion mode at load time; the tap callback only scans.
     private var immediateSnippets: [TextSnippet] = []
     private var delimiterSnippets: [TextSnippet] = []
+    /// The Hangul triggers among them, spelled as key events carry them and
+    /// matched against `screen`.
+    private var immediateTypedTriggers: [TextSnippet] = []
+    private var delimiterTypedTriggers: [TextSnippet] = []
 
     private init() {
         SessionActivity.shared.onChange { [weak self] _ in self?.syncWithPreferences() }
@@ -96,6 +100,8 @@ final class TextSnippetService {
         inputLock.withLock {
             immediateSnippets = all.filter { $0.enabled && $0.expansion == .immediate }
             delimiterSnippets = all.filter { $0.enabled && $0.expansion == .afterDelimiter }
+            immediateTypedTriggers = TextSnippetSupport.typedHangulTriggers(immediateSnippets)
+            delimiterTypedTriggers = TextSnippetSupport.typedHangulTriggers(delimiterSnippets)
         }
     }
 
@@ -258,23 +264,6 @@ final class TextSnippetService {
         }
     }
 
-    /// `match` with the backspaces its trigger takes in the field, or nil when
-    /// that cannot be known and the keys should go through untouched. Called
-    /// under `inputLock`. A trigger typed in Korean is cleared by the composed
-    /// count and never checked against a completion selection: its text is
-    /// not what the field shows.
-    private func erasingAsShown(_ match: (snippet: TextSnippet, deleteCount: Int, typedTrigger: String),
-                                swallowedCount: Int)
-        -> (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)? {
-        switch TextSnippetSupport.triggerErase(screen: screen,
-                                               triggerCount: match.snippet.trigger.count,
-                                               swallowedCount: swallowedCount) {
-        case .asTyped: return match
-        case .backspaces(let count): return (match.snippet, count, "")
-        case .unsafe: return nil
-        }
-    }
-
     // MARK: - Tap
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -338,7 +327,8 @@ final class TextSnippetService {
         event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &characters)
         guard length > 0 else { return Unmanaged.passUnretained(event) }
         let typed = String(utf16CodeUnits: characters, count: length)
-        // In Korean the same keys arrive as jamo; triggers match on the keys.
+        // In Korean the same keys arrive as jamo. Latin triggers match on the
+        // keys, Hangul triggers on the jamo as typed.
         let keyed = HangulTwoSet.latinKeys(typed, shifted: event.flags.contains(.maskShift))
 
         if let first = typed.first, TextSnippetSupport.delimiters.contains(first) {
@@ -346,14 +336,16 @@ final class TextSnippetService {
             // delimiter is swallowed and kept after the replacement, either
             // in the same paste or as the original key after typed injection.
             let matched = inputLock.withLock { () -> (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)? in
-                let match = TextSnippetSupport.expansionMatch(buffer: buffer,
-                                                              expansion: .afterDelimiter,
-                                                              snippets: delimiterSnippets,
-                                                              swallowed: "")
-                let erasable = match.flatMap { erasingAsShown($0, swallowedCount: 0) }
+                let result = TextSnippetSupport.keyedMatch(buffer: buffer,
+                                                           screen: screen,
+                                                           expansion: .afterDelimiter,
+                                                           snippets: delimiterSnippets,
+                                                           typedTriggers: delimiterTypedTriggers,
+                                                           swallowed: "",
+                                                           swallowedAsTyped: "")
                 buffer = ""
                 screen = ""
-                return erasable
+                return result.match
             }
             if let matched {
                 return expand(matched.snippet,
@@ -372,16 +364,18 @@ final class TextSnippetService {
         let matched = inputLock.withLock { () -> (snippet: TextSnippet, deleteCount: Int, typedTrigger: String)? in
             buffer = TextSnippetSupport.bufferAppending(buffer, typed: keyed)
             screen = TextSnippetSupport.bufferAppending(screen, typed: typed)
-            let match = TextSnippetSupport.expansionMatch(buffer: buffer,
-                                                          expansion: .immediate,
-                                                          snippets: immediateSnippets,
-                                                          swallowed: keyed)
-            let erasable = match.flatMap { erasingAsShown($0, swallowedCount: typed.count) }
-            if match != nil {
+            let result = TextSnippetSupport.keyedMatch(buffer: buffer,
+                                                       screen: screen,
+                                                       expansion: .immediate,
+                                                       snippets: immediateSnippets,
+                                                       typedTriggers: immediateTypedTriggers,
+                                                       swallowed: keyed,
+                                                       swallowedAsTyped: typed)
+            if result.completed {
                 buffer = ""
                 screen = ""
             }
-            return erasable
+            return result.match
         }
         if let matched {
             // Suppress the final trigger event once the replacement path has
