@@ -57,6 +57,82 @@ extension TextSnippet {
 /// The pure half of the snippets engine: buffer bookkeeping, trigger
 /// matching and variable expansion, all deterministic and injectable so the
 /// harness can pin the behavior down.
+/// The Korean 2-Set input method, as far as text snippets need it. While it
+/// is the input source a key event carries the jamo it types, not the Latin
+/// letter of the key, so triggers are matched on `latinKey`. Its backspace
+/// removes one key from the syllable still being composed and a whole
+/// character before that, which `backspaces(erasing:)` counts.
+enum HangulTwoSet {
+    private static let keys: [Character: Character] = [
+        "ㅂ": "q", "ㅃ": "q", "ㅈ": "w", "ㅉ": "w", "ㄷ": "e", "ㄸ": "e", "ㄱ": "r", "ㄲ": "r",
+        "ㅅ": "t", "ㅆ": "t", "ㅛ": "y", "ㅕ": "u", "ㅑ": "i", "ㅐ": "o", "ㅒ": "o",
+        "ㅔ": "p", "ㅖ": "p", "ㅁ": "a", "ㄴ": "s", "ㅇ": "d", "ㄹ": "f", "ㅎ": "g",
+        "ㅗ": "h", "ㅓ": "j", "ㅏ": "k", "ㅣ": "l", "ㅋ": "z", "ㅌ": "x", "ㅊ": "c",
+        "ㅍ": "v", "ㅠ": "b", "ㅜ": "n", "ㅡ": "m",
+    ]
+    private static let vowels: Set<Character> = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅛ", "ㅜ", "ㅠ", "ㅡ", "ㅣ"]
+    private static let neverFinal: Set<Character> = ["ㄸ", "ㅃ", "ㅉ"]
+    private static let compoundVowels: Set<String> = ["ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅡㅣ"]
+    private static let compoundFinals: Set<String> = ["ㄱㅅ", "ㄴㅈ", "ㄴㅎ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ", "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅂㅅ"]
+
+    static func isJamo(_ character: Character) -> Bool { keys[character] != nil }
+
+    /// The text the trigger keys stand for: each jamo becomes its key's
+    /// letter, capital when Shift was held; anything else stays as typed.
+    static func latinKeys(_ typed: String, shifted: Bool) -> String {
+        String(typed.map { character in
+            guard let key = keys[character] else { return character }
+            return shifted ? Character(key.uppercased()) : key
+        })
+    }
+
+    /// Backspaces that erase `typed`, which the field shows as the input
+    /// method composed it, starting from a committed boundary.
+    static func backspaces<S: Sequence>(erasing typed: S) -> Int where S.Element == Character {
+        var committed = 0
+        var initial: Character?
+        var vowel: [Character] = []
+        var final: [Character] = []
+        func commit() {
+            if initial != nil || !vowel.isEmpty { committed += 1 }
+            initial = nil
+            vowel = []
+            final = []
+        }
+        for character in typed {
+            guard isJamo(character) else {
+                commit()
+                committed += 1
+                continue
+            }
+            if vowels.contains(character) {
+                if let moved = final.last {
+                    // A vowel takes the last final consonant as its initial.
+                    final.removeLast()
+                    commit()
+                    initial = moved
+                    vowel = [character]
+                } else if vowel.count == 1, compoundVowels.contains(String(vowel + [character])) {
+                    vowel.append(character)
+                } else if vowel.isEmpty, initial != nil {
+                    vowel = [character]
+                } else {
+                    commit()
+                    vowel = [character]
+                }
+            } else if initial != nil, !vowel.isEmpty, final.isEmpty, !neverFinal.contains(character) {
+                final = [character]
+            } else if final.count == 1, compoundFinals.contains(String(final + [character])) {
+                final.append(character)
+            } else {
+                commit()
+                initial = character
+            }
+        }
+        return committed + (initial == nil ? 0 : 1) + vowel.count + final.count
+    }
+}
+
 enum TextSnippetSupport {
     /// Keystrokes the buffer remembers; longer triggers cannot match.
     static let bufferLimit = 64
@@ -119,6 +195,30 @@ enum TextSnippetSupport {
     /// its trigger and the text they clear, both decided by `swallowed` in
     /// one place: the key that completed an immediate trigger, or "" after a
     /// delimiter, which never enters the buffer.
+    /// How the expansion clears a trigger from the field.
+    enum TriggerErase: Equatable {
+        /// One backspace per character, as typed.
+        case asTyped
+        /// Typed in Korean: the input method composed the keys into syllables.
+        case backspaces(Int)
+        /// Typed in Korean right after other jamo, which the input method may
+        /// have joined with the trigger's first key: the count is unknowable.
+        case unsafe
+    }
+
+    /// `screen` is the typing buffer as the field received it, character for
+    /// character with the Latin buffer the triggers are matched against.
+    /// `swallowedCount` keys at its end never reached the field.
+    static func triggerErase(screen: String, triggerCount: Int, swallowedCount: Int) -> TriggerErase {
+        let shown = Array(screen.suffix(triggerCount))
+        guard shown.contains(where: HangulTwoSet.isJamo) else { return .asTyped }
+        if let first = shown.first, HangulTwoSet.isJamo(first),
+           let before = screen.dropLast(triggerCount).last, HangulTwoSet.isJamo(before) {
+            return .unsafe
+        }
+        return .backspaces(HangulTwoSet.backspaces(erasing: shown.dropLast(swallowedCount)))
+    }
+
     static func expansionMatch(buffer: String,
                                expansion: TextSnippet.Expansion,
                                snippets: [TextSnippet],
