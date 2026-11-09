@@ -12,6 +12,11 @@ final class QuitProtectionHUD {
     private static let textInset: CGFloat = 12
     private var size = QuitProtectionHUD.minimumSize
     private var panel: NSPanel?
+    /// Shows recorded in the diagnostics journal this launch. The first few
+    /// tell whether the pill reached the screen; more would only push the
+    /// key tap history out of the journal.
+    private var recordedShows = 0
+    private static let recordedShowLimit = 20
 
     /// The confirmation lines are localized and formatted with the shortcut
     /// symbol, so their rendered width is only known at show time. The widest
@@ -56,6 +61,34 @@ final class QuitProtectionHUD {
         // Event taps can arrive between normal AppKit drawing passes. Draw now
         // so a short confirmation never waits for another app event to appear.
         panel?.display()
+        recordShow()
+    }
+
+    /// Whether the pill actually reached the screen, right after the order and
+    /// a quarter second later, with the app in front: on one Mac it showed
+    /// over Chrome only. Nothing typed is recorded.
+    private func recordShow() {
+        guard recordedShows < Self.recordedShowLimit else { return }
+        recordedShows += 1
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown"
+        record("shown over \(front) on macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.record("0.25 s later")
+        }
+    }
+
+    private func record(_ moment: String) {
+        guard let panel else { return }
+        let number = panel.windowNumber
+        let server = (CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(max(number, 0)))
+            as? [[String: Any]])?.first
+        let onScreen = (server?[kCGWindowIsOnscreen as String] as? Bool) ?? false
+        let alpha = (server?[kCGWindowAlpha as String] as? Double).map { String(format: "%.2f", $0) } ?? "none"
+        let screen = panel.screen.map { NSStringFromRect($0.frame) } ?? "none"
+        KeyTapHealth.note("quit HUD \(moment): window \(number), visible \(panel.isVisible), "
+            + "occlusion visible \(panel.occlusionState.contains(.visible)), "
+            + "window server on screen \(onScreen) alpha \(alpha), "
+            + "frame \(NSStringFromRect(panel.frame)), screen \(screen)")
     }
 
     func hide() {

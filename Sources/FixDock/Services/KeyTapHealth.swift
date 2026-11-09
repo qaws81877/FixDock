@@ -69,8 +69,8 @@ final class KeyTapHealth: ObservableObject {
     }
 
     /// One health event: the unified log (kept on disk) and the journal the
-    /// feedback report reads. Any thread.
-    private static func note(_ message: String, error: Bool = false) {
+    /// feedback report reads. Any thread. The quit HUD records here too.
+    static func note(_ message: String, error: Bool = false) {
         if error {
             log.error("\(message, privacy: .public)")
         } else {
