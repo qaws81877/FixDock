@@ -213,13 +213,17 @@ enum UpdatePolicy {
     /// A restoreFailed or evictionFailed attempt holds the copies the helper
     /// moved aside, which may be the person's only FixDock, so it is kept for
     /// `movedAsideLifetime` unless an attempt created after it was confirmed.
+    /// So is an attempt with no report: the helper writes it only after its
+    /// last rename, so a helper killed mid-swap or mid-eviction leaves none,
+    /// and the old copy may be in the attempt with nothing checked installed.
     static func attemptIsFinished(record: HandoffRecord?, report: HelperReport?,
                                   confirmed: Bool, laterAttemptConfirmed: Bool,
                                   running: SemanticVersion?, isActive: Bool, now: Date) -> Bool {
         guard !isActive else { return false }
         guard let record else { return true }
-        if let ending = report?.ending, ending == .restoreFailed || ending == .evictionFailed,
-           !laterAttemptConfirmed, now.timeIntervalSince(record.createdAt) < movedAsideLifetime {
+        let mayHoldOnlyCopy = report.map { $0.ending == .restoreFailed || $0.ending == .evictionFailed } ?? true
+        if mayHoldOnlyCopy, !laterAttemptConfirmed,
+           now.timeIntervalSince(record.createdAt) < movedAsideLifetime {
             return false
         }
         if case .finished = launchOutcome(record: record, report: report, confirmed: confirmed,
