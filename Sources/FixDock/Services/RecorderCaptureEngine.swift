@@ -46,11 +46,6 @@ final class RecorderCaptureEngine: NSObject {
     private var lifecycle = RecorderCaptureLifecycle()
     private var stream: SCStream?
 
-    /// True while pixels are being delivered. Read from the main thread.
-    var isRunning: Bool {
-        lifecycleLock.withLock { lifecycle.isRunning }
-    }
-
     // MARK: - Lifecycle
 
     /// Builds the filter and starts the stream. Existing ordinary FixDock

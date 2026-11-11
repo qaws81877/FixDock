@@ -14,7 +14,6 @@ struct PanelCardHeader: View {
     @ObservedObject private var l10n = L10n.shared
     let title: String
     let isEditing: Bool
-    var editButtonVisible = true
     let toggleEditing: () -> Void
     let reset: () -> Void
 
@@ -22,12 +21,10 @@ struct PanelCardHeader: View {
         HStack(spacing: 6) {
             sectionTitle(title)
             Spacer(minLength: 0)
-            if editButtonVisible {
-                if isEditing {
-                    resetButton
-                }
-                editButton
+            if isEditing {
+                resetButton
             }
+            editButton
         }
         .frame(minHeight: 24)
     }

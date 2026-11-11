@@ -34,12 +34,6 @@ enum RecorderTextRenderer {
         return image
     }
 
-    static func clearCache() {
-        lock.lock()
-        cache.removeAll()
-        lock.unlock()
-    }
-
     private static func render(_ text: String,
                                pointSize: CGFloat,
                                palette: RecorderTextOverlay.Palette) -> CGImage? {

@@ -87,12 +87,6 @@ enum RecorderCursorSprite {
         }
     }
 
-    static func clearCache() {
-        lock.lock()
-        cache.removeAll()
-        lock.unlock()
-    }
-
     private static func cached(_ key: String, _ make: () -> CGImage?) -> CGImage? {
         lock.lock()
         if let hit = cache[key] {

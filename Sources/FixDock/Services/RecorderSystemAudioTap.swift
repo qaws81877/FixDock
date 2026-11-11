@@ -79,7 +79,7 @@ final class RecorderSystemAudioTap: @unchecked Sendable {
     private var hostDeviceUID: String?
     private var sampleRate: Double = 0
     /// Name the default output, sample rate and process list listeners. See
-    /// `AudioListenerClients`.
+    /// `RecorderAudioListenerClients`.
     private var deviceListenerClient: UnsafeMutableRawPointer?
     private var rateListenerClient: UnsafeMutableRawPointer?
     private var processListenerClient: UnsafeMutableRawPointer?

@@ -54,9 +54,6 @@ extension TextSnippet {
     }
 }
 
-/// The pure half of the snippets engine: buffer bookkeeping, trigger
-/// matching and variable expansion, all deterministic and injectable so the
-/// harness can pin the behavior down.
 /// The Korean 2-Set input method, as far as text snippets need it. While it
 /// is the input source a key event carries the jamo it types, not the Latin
 /// letter of the key, so triggers are matched on `latinKey`. Its backspace
@@ -195,6 +192,9 @@ enum HangulTwoSet {
     }
 }
 
+/// The pure half of the snippets engine: buffer bookkeeping, trigger
+/// matching and variable expansion, all deterministic and injectable so the
+/// harness can pin the behavior down.
 enum TextSnippetSupport {
     /// Keystrokes the buffer remembers; longer triggers cannot match.
     static let bufferLimit = 64
@@ -253,10 +253,6 @@ enum TextSnippetSupport {
         String(buffer.suffix(trigger.count).dropLast(swallowed.count))
     }
 
-    /// The snippet `buffer` just completed, with the backspaces that clear
-    /// its trigger and the text they clear, both decided by `swallowed` in
-    /// one place: the key that completed an immediate trigger, or "" after a
-    /// delimiter, which never enters the buffer.
     /// How the expansion clears a trigger from the field.
     enum TriggerErase: Equatable {
         /// One backspace per character, as typed.
@@ -280,6 +276,10 @@ enum TextSnippetSupport {
         return .backspaces(HangulTwoSet.backspaces(erasing: shown.dropLast(swallowedCount)))
     }
 
+    /// The snippet `buffer` just completed, with the backspaces that clear
+    /// its trigger and the text they clear, both decided by `swallowed` in
+    /// one place: the key that completed an immediate trigger, or "" after a
+    /// delimiter, which never enters the buffer.
     static func expansionMatch(buffer: String,
                                expansion: TextSnippet.Expansion,
                                snippets: [TextSnippet],
@@ -345,8 +345,6 @@ enum TextSnippetSupport {
         }
     }
 
-    /// Replaces the dynamic variables. Unknown {{tags}} pass through
-    /// untouched, so a typo stays visible instead of vanishing silently.
     /// The one variable whose value comes from somewhere that can hang: the
     /// general pasteboard may hold content an app renders only on demand, and
     /// an app that stops answering never answers. Both expansion paths ask
@@ -398,6 +396,8 @@ enum TextSnippetSupport {
         return before.compare(typed, options: .caseInsensitive) == .orderedSame ? deleteCount + 1 : deleteCount
     }
 
+    /// Replaces the dynamic variables. Unknown {{tags}} pass through
+    /// untouched, so a typo stays visible instead of vanishing silently.
     static func expand(_ replacement: String,
                        date: Date,
                        clipboard: String?,
@@ -431,26 +431,13 @@ enum TextSnippetSupport {
     /// current time zone for that one token.
     private static let formattedDateKinds = ["date", "time", "datetime"]
 
-    /// Configures a DateFormatter's pattern and timezone override. Called by
-    /// both expandingFormattedDates and configuredFormatter to ensure a single
+    /// Configures a DateFormatter's pattern and timezone override, so a single
     /// place decides how these two properties map from pattern and identifier.
     private static func configure(_ formatter: DateFormatter,
                                   pattern: String,
                                   timeZoneIdentifier: String?) {
         formatter.dateFormat = pattern
         formatter.timeZone = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) }
-    }
-
-    /// A fresh formatter for one-off use (a preview), as opposed to
-    /// expandingFormattedDates's single instance reused across a whole
-    /// replacement string's tokens.
-    private static func configuredFormatter(pattern: String,
-                                            timeZoneIdentifier: String?,
-                                            locale: Locale) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = locale
-        configure(formatter, pattern: pattern, timeZoneIdentifier: timeZoneIdentifier)
-        return formatter
     }
 
     private static func expandingFormattedDates(_ text: String,

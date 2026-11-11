@@ -70,7 +70,6 @@ final class HotkeyManager: ObservableObject {
 
     /// Roles that wanted a shortcut and could not get it.
     @Published private(set) var failedRoles: Set<HotkeyRole> = []
-    var registrationFailed: Bool { failedRoles.contains(.panel) }
     var onActivate: (() -> Void)?
     /// Actions for roles other than the panel, set by their services.
     var actions: [HotkeyRole: () -> Void] = [:]

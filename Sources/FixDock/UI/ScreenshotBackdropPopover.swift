@@ -73,11 +73,6 @@ enum BackdropPickerAssets {
     }
 }
 
-/// The backdrop picker: gradient presets, the saved customs, the current
-/// desktop pictures and any image from disk, plus a custom solid or
-/// gradient builder and the margin, corner and blur sliders. Everything
-/// applies live; the save button keeps a custom look in the presets row.
-/// Adapted from upstream's `ScreenshotBackdropPopover`.
 /// What the picker needs from whichever editor shows it, as upstream: the
 /// screenshot editor's decor and the recorder editor's model keep the same
 /// `BackdropStyle` and the same saved list.
@@ -91,6 +86,11 @@ protocol BackdropEditing: ObservableObject {
 
 extension ScreenshotEditorDecor: BackdropEditing {}
 
+/// The backdrop picker: gradient presets, the saved customs, the current
+/// desktop pictures and any image from disk, plus a custom solid or
+/// gradient builder and the margin, corner and blur sliders. Everything
+/// applies live; the save button keeps a custom look in the presets row.
+/// Adapted from upstream's `ScreenshotBackdropPopover`.
 struct ScreenshotBackdropPopover<Model: BackdropEditing>: View {
     @ObservedObject var decor: Model
     @ObservedObject private var l10n = L10n.shared

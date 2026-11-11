@@ -12,8 +12,8 @@ func appDelegate() -> AppDelegate? {
 }
 
 /// Menu bar app lifecycle: status item, panel, settings, onboarding, and the
-/// global shortcut. Feature services are not started here; the catalog only
-/// records which tools a later build should load.
+/// global shortcut. Feature services start through
+/// `FeatureRuntime.syncAtLaunch`, for the tools the person installed.
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate,
                          NSMenuItemValidation {
     private var statusItem: NSStatusItem?
