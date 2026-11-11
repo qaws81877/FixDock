@@ -59,7 +59,6 @@ struct ClipboardFileRef: Hashable, Codable {
     }
 }
 
-///
 struct ClipboardHistoryEntry: Codable, Equatable, Identifiable {
     let id: UUID
     let content: ClipboardHistoryContent
@@ -217,7 +216,6 @@ enum ClipboardHistoryStoreProblem: Equatable {
     var concernsImageFolder: Bool { self == .imagesWithoutHistory || self == .imageFolderNotAFolder }
 }
 
-///
 /// Order: pinned first, newest pin first; then the rest, newest copy first.
 struct ClipboardHistoryRecords: Equatable {
     fileprivate(set) var entries: [ClipboardHistoryEntry]
@@ -263,6 +261,9 @@ struct ClipboardHistoryRecords: Equatable {
         entries.insert(entry, at: unpinnedIndex(for: now))
     }
 
+    /// Unpinning puts the entry at the top of the rest with `copiedAt = now`,
+    /// so retention cannot drop it on the spot and silently undo the unpin.
+    /// A pin the file could no longer hold is refused (false), because the
     /// encoder would otherwise drop a pinned entry to fit.
     @discardableResult
     mutating func setPinned(_ pinned: Bool, id: UUID, now: Date) -> Bool {
@@ -289,6 +290,8 @@ struct ClipboardHistoryRecords: Equatable {
     }
 
     /// Only the unpinned entries a confirmation counted, as they were then
+    /// (`id -> copiedAt`): a copy that lands while it is open survives, even
+    /// a new copy of a counted text.
     mutating func clearUnpinned(confirmed: [UUID: Date]) {
         entries.removeAll { !$0.isPinned && confirmed[$0.id] == $0.copiedAt }
     }
@@ -363,8 +366,6 @@ struct ClipboardHistoryLandedWrite {
     }
 }
 
-/// Owns `ClipboardHistory.json` in FixDock's private container: its only
-///
 /// Owns `ClipboardHistory.json`: its only reader and writer, the only place
 /// entries are dropped, and the only holder of the image blobs. Main thread
 /// only. Saves coalesce to one per main-loop turn and run on a private serial

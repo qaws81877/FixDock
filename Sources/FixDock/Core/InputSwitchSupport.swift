@@ -215,12 +215,6 @@ struct HotkeyEntry: Equatable {
         parameters = (value?["parameters"] as? [NSNumber])?.map(\.intValue)
     }
 
-    init?(raw: Data) {
-        guard let dictionary = try? PropertyListSerialization.propertyList(from: raw, options: [], format: nil)
-            as? [String: Any] else { return nil }
-        self.init(dictionary: dictionary)
-    }
-
     /// The value FixDock writes while live.
     static func bareFunctionKeyDictionary(_ key: FunctionKey) -> [String: Any] {
         ["enabled": true,

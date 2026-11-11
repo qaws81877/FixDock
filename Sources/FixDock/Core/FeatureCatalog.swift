@@ -18,7 +18,7 @@ import Foundation
 /// `urlCleaner`, `quitWindowProtection`, `cleaningMode`, `textSnippets`,
 /// `mediaTools`, `airdropAutoZip`, `cleaner`, `screenshot` and
 /// `screenRecorder`, `inputSwitch` and `clipboardHistory` have modules.
-/// `clipboardHistory` keeps upstream's raw value and is cut to text.
+/// `clipboardHistory` keeps upstream's raw value.
 enum AppFeature: String, CaseIterable, Identifiable {
     case urlCleaner
     case quitWindowProtection

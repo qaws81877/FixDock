@@ -151,8 +151,8 @@ if [[ -n "$LOCAL_FEED" ]]; then
 fi
 # Which source the bundle was built from: the commit, plus "-dirty" when
 # app sources differ from it. Every self-built copy shows the same version.
-SOURCE_REVISION="$(git -C "${0:A:h}" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
-if [[ -n "$(git -C "${0:A:h}" status --porcelain -- Sources Resources build.sh 2>/dev/null)" ]]; then
+SOURCE_REVISION="$(git -C "$PWD" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git -C "$PWD" status --porcelain -- Sources Resources build.sh 2>/dev/null)" ]]; then
     SOURCE_REVISION="$SOURCE_REVISION-dirty"
 fi
 /usr/libexec/PlistBuddy -c "Add :FixDockSourceRevision string $SOURCE_REVISION" "$STAGE/Contents/Info.plist"

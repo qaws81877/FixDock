@@ -256,7 +256,7 @@ def main():
         "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n"
         "            || self == .inputSwitch || self == .clipboardHistory\n" not in catalog
     ):
-        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder, input switch and clipboard history should have a service in this step")
+        errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder, input switch and clipboard history should have a service")
 
     sources_text = "\n".join(
         path.read_text(encoding="utf-8") for path in swift_files
@@ -310,7 +310,7 @@ def main():
     if "SettingsNavigator.shared.open" not in hub or "settingsPage" not in hub:
         errors += fail("FeatureHubView should navigate via settingsPage + open")
 
-    # Self-update: each risky capability lives in exactly one file.
+    # Each risky capability lives only in the files listed for it.
     def files_with(needle):
         return sorted(
             str(path.relative_to(ROOT / "Sources/FixDock"))

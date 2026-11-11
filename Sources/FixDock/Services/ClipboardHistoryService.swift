@@ -5,6 +5,7 @@
 import AppKit
 import Combine
 
+/// The clipboard history.
 ///
 /// It runs its own poll on the shared pasteboard lane. FixDock's own writes
 /// are left out two ways: the source mark every FixDock writer sets, and the
@@ -113,6 +114,7 @@ final class ClipboardHistoryService: ObservableObject {
     // MARK: Entries
 
     /// Ranked for the window. SwiftUI asks many times per render, so the last
+    /// result is reused until the query, the filter or the history changes.
     func results(matching query: String, filter: ClipboardHistoryFilter) -> [ClipboardHistoryItem] {
         let revision = store.revision
         if let cache = resultsCache, cache.query == query, cache.filter == filter, cache.revision == revision {

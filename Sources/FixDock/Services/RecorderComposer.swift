@@ -206,9 +206,6 @@ final class RecorderComposer {
         return min(max(0, raw), max(0, plan.positions.count - 1))
     }
 
-    /// The pointer is drawn into the content, not over the finished frame, so
-    /// the zoom carries it along with everything else it magnifies. The click
-    /// ring lives in the same space for the same reason.
     private func faded(_ image: CIImage, opacity: Double) -> CIImage {
         guard opacity < 0.999 else { return image }
         return image.applyingFilter("CIColorMatrix", parameters: [
@@ -216,6 +213,9 @@ final class RecorderComposer {
         ])
     }
 
+    /// The pointer is drawn into the content, not over the finished frame, so
+    /// the zoom carries it along with everything else it magnifies. The click
+    /// ring lives in the same space for the same reason.
     private func drawPointer(on content: CIImage, index: Int) -> CIImage {
         let uv = plan.positions[index]
         guard uv.x > -0.2, uv.x < 1.2, uv.y > -0.2, uv.y < 1.2 else { return content }

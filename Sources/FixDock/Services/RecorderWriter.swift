@@ -69,8 +69,6 @@ final class RecorderWriter {
     /// reported as a failure instead of leaving an unplayable file behind.
     private(set) var videoFrameCount = 0
 
-    var url: URL { writer.outputURL }
-
     init?(url: URL,
           pixelSize: CGSize,
           frameRate: Int,

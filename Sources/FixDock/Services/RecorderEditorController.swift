@@ -301,10 +301,6 @@ final class RecorderEditorModel: ObservableObject, BackdropEditing {
         seek(to: max(trim.start, trim.end - 0.05))
     }
 
-    func toggleSound() {
-        toggleAudio(.system)
-    }
-
     func toggleAudio(_ source: RecorderAudioSource) {
         var next = document
         switch source {

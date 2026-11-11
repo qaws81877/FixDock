@@ -144,30 +144,14 @@ struct RecorderEditDocument: Codable, Equatable {
 
     // MARK: - Timeline
 
-    func trimmed(duration: Double) -> RecorderSupport.Trim {
-        trim(duration: duration)
-    }
-
     func keptRanges(duration: Double) -> [ClosedRange<Double>] {
         RecorderTimeline.keptRanges(trim: trim(duration: duration),
                                     cuts: RecorderTimeline.normalized(cuts: cuts,
                                                                       duration: duration))
     }
 
-    func outputDuration(duration: Double) -> Double {
-        RecorderTimeline.outputDuration(trim: trim(duration: duration),
-                                        cuts: RecorderTimeline.normalized(cuts: cuts,
-                                                                          duration: duration))
-    }
-
     var exportTiming: RecorderExportTiming {
         RecorderExportTiming(speed: exportSpeed)
-    }
-
-    /// Separate from the editor's duration so seeking and undo retain their
-    /// source-time meaning. Speed is applied after trimming and cutting.
-    func exportDuration(duration: Double) -> Double {
-        exportTiming.outputTime(forSourceTime: outputDuration(duration: duration))
     }
 
     /// The zooms as they will actually be applied: normalized, and empty when
@@ -304,16 +288,6 @@ struct RecorderEditDocument: Codable, Equatable {
             || keepsMicrophone != other.keepsMicrophone
             || systemAudioGain != other.systemAudioGain
             || microphoneGain != other.microphoneGain
-    }
-
-    /// True once the person has actually changed something worth warning about
-    /// before the window closes.
-    func isEdited(duration: Double) -> Bool {
-        let trim = trim(duration: duration)
-        return trim.start > 0.01 || trim.end < duration - 0.01 || !keepsSystemAudio
-            || !keepsMicrophone || systemAudioGain != 1 || microphoneGain != 1
-            || !cuts.isEmpty || !zoomSegments.isEmpty || !texts.isEmpty || !blurs.isEmpty
-            || !images.isEmpty || exportTiming.speed != 1
     }
 
     /// A damaged or hand-edited document can never wedge the editor: every

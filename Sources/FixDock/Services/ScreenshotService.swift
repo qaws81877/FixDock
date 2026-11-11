@@ -291,6 +291,7 @@ final class ScreenshotService: ObservableObject {
     }
 
     /// Text on the clipboard (a QR payload, recognized text, a colour), marked
+    /// as FixDock's so the URL cleaner leaves it alone.
     static func copyText(_ text: String, recordInHistory: Bool) {
         GeneralPasteboardAccess.shared.async {
             let pasteboard = NSPasteboard.general

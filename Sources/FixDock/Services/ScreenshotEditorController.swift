@@ -1036,11 +1036,6 @@ extension ScreenshotEditorModel {
 
 // MARK: - Window controller
 
-/// Hosts one editor window per capture and owns everything with a side
-/// effect: clipboard, files, the pin's round trip, recognition and the close confirmation.
-/// Nothing is written unless Save or Save As is used. Adapted from the
-/// upstream editor controller, without the parts `docs/screenshot-editor.md`
-/// cuts (no network, no file-copy clipboard mode, no temporary files).
 /// How an edit session that a pin opened ends. Delivered exactly once, from
 /// `windowWillClose`, the editor's single exit.
 enum ScreenshotEditOutcome {
@@ -1054,6 +1049,11 @@ enum ScreenshotEditOutcome {
     case cancelled
 }
 
+/// Hosts one editor window per capture and owns everything with a side
+/// effect: clipboard, files, the pin's round trip, recognition and the close confirmation.
+/// Nothing is written unless Save or Save As is used. Adapted from the
+/// upstream editor controller, without the parts `docs/screenshot-editor.md`
+/// cuts (no network, no file-copy clipboard mode, no temporary files).
 final class ScreenshotEditorController: NSObject, NSWindowDelegate {
     let model: ScreenshotEditorModel
     private var window: NSWindow?

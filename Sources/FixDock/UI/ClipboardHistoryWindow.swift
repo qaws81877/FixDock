@@ -6,6 +6,7 @@ import AppKit
 import Combine
 import SwiftUI
 
+/// The Command-Shift-V window: a non-activating key panel. It never activates
 /// FixDock, so the app the person was in stays frontmost, gets its key
 /// window back when this orders out, and receives the paste. What a key, a
 /// click or a dismissal does is the service's call.

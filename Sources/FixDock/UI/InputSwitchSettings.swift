@@ -27,7 +27,7 @@ struct InputSwitchSettings: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                     Button(s.permissionRequest) { permissions.request(.accessibility) }
-                } else if let status = InputSwitchStatus(service.report, enabled: enabled, strings: s) {
+                } else if let status = InputSwitchStatus(service.report, strings: s) {
                     Label(status.text, systemImage: status.symbol)
                         .font(.caption)
                         .foregroundStyle(status.color)
@@ -114,7 +114,7 @@ struct InputSwitchStatus {
     let symbol: String
     let color: Color
 
-    init?(_ report: InputSwitchReport, enabled: Bool, strings s: Strings) {
+    init?(_ report: InputSwitchReport, strings s: Strings) {
         switch report.state {
         case .off:
             return nil

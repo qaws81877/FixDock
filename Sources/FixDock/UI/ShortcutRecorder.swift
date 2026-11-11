@@ -103,14 +103,12 @@ struct ShortcutRecorder: View {
 /// A capture shortcut's row: its switch, the keys and the record button.
 struct ShortcutRecorderRow: View {
     let title: String
-    let enabledKey: String
     @StateObject private var model: ShortcutRecorderModel
     @ObservedObject private var l10n = L10n.shared
     @AppStorage private var enabled: Bool
 
     init(role: HotkeyRole, title: String, enabledKey: String) {
         self.title = title
-        self.enabledKey = enabledKey
         _model = StateObject(wrappedValue: ShortcutRecorderModel(role: role))
         _enabled = AppStorage(wrappedValue: true, enabledKey)
     }
