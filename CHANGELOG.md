@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- Self-update: `UpdatePolicy.attemptIsFinished` keeps an attempt folder the helper left without a report for `movedAsideLifetime`, the same rule as `restoreFailed` and `evictionFailed`. Before, a helper that died after moving the installed copy aside (or after the forward swap) and before writing its report let the next sweep delete the previous copy, leaving no working FixDock. Found with a TLA+ model; not reproduced on a real device. A report-less attempt now stays on disk for up to 30 days. (#79)
+- Cleanup with no behaviour change: dead code removed, comments moved back onto their declarations or corrected, `build.sh` records `FixDockSourceRevision` when run by a relative path, and the README, CONTRIBUTING and SECURITY text about the build and the network uses matches the code and `PRIVACY.md`. (#80)
+
 ## 1.0.9
 
 - Quit protection: the ⌘Q notice no longer gets stuck invisible. FixDock reused one panel for the whole run, and when the system's show fade was cut short by the key-up, the window server kept the panel at alpha 0 while AppKit believed it was 1, so later shows changed nothing. The system fade is off, each show resets the panel's level, alpha and size (and recreates a panel the window server has dropped), and 0.25 s after a show FixDock checks the window server and, if the notice is not on screen, shows it again in a new panel, once per show. Hidden panels are dropped after a display change, wake or session return. Each recovery is written to `diagnostics.log`. Short-tap timing is unchanged.

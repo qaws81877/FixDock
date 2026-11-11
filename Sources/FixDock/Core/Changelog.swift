@@ -20,6 +20,17 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.1.0", date: "2026-11-11",
+            english: [
+                "**Safer self-update.** If the update helper stops partway through, FixDock now keeps the previous copy it moved aside instead of clearing it later, so a failed update can no longer leave you without a working FixDock.",
+                "**Housekeeping.** Unused code and out-of-date comments were removed and a few descriptions were corrected. Nothing else about how FixDock works changes.",
+            ],
+            korean: [
+                "**더 안전한 자동 업데이트.** 업데이트 도중 도우미가 멈춰도, 옆으로 옮겨 둔 이전 사본을 나중에 지우지 않고 보존합니다. 업데이트가 실패해도 쓸 수 있는 FixDock이 사라지지 않습니다.",
+                "**내부 정리.** 쓰이지 않는 코드와 오래된 주석을 지우고 일부 설명을 바로잡았습니다. FixDock의 동작은 그대로입니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.0.9", date: "2026-11-09",
             english: [
                 "**The ⌘Q notice keeps working.** After FixDock had been running for a long time, the hold-to-quit notice could stop appearing at all. FixDock now resets it every time and shows it again if it did not reach the screen.",
