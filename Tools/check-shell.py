@@ -337,6 +337,9 @@ def main():
                                "Services/QuitProtectionService.swift", "Services/TypingTap.swift"]),
         ("OwnKeyEvent.textSnippetMarker", ["Services/TypingTap.swift"]),
         ("TypingTap.shared.setSnippets", ["Services/TextSnippetService.swift"]),
+        # Layout fix: one owner of the learned-words file, the guard's only constructor.
+        ('"LayoutFix.json"', ["Core/LayoutFixLearnedStore.swift"]),
+        ("LayoutFixLearnedRecords(", ["Core/LayoutFixLearnedStore.swift"]),
         ("IOHIDSetModifierLockState", ["Services/InputSwitchCapsLock.swift"]),
         # Clipboard history: one owner of the file, the guard's only
         # constructor, one store (docs/clipboard-history.md, deletion guard).
@@ -372,6 +375,9 @@ def main():
     deletion = re.compile(
         r"\b(removeItem|trashItem|unlink|unlinkat|moveItem|replaceItem|rename|renameat|renamex_np"
         r"|renameatx_np|rmdir|removefile|exchangedata|truncate|ftruncate)\b|\bremove\s*\(\s*[a-zA-Z_.]*(path|url|URL)")
+    # The learned-words store never removes, moves or renames a file either. Comments count too.
+    if deletion.search((ROOT / "Sources/FixDock/Core/LayoutFixLearnedStore.swift").read_text(encoding="utf-8")):
+        errors += fail("LayoutFixLearnedStore.swift must not remove, move or rename a file")
     for path in swift_files:
         if path.name.startswith("ClipboardHistory") or path.name == "ClipboardIgnoredApps.swift":
             text = path.read_text(encoding="utf-8")
@@ -433,6 +439,7 @@ def main():
         ("Core/ClipboardHistoryKinds.swift", ["Foundation"]),
         ("Core/TypingSupport.swift", ["Foundation"]),
         ("Core/LayoutFixSupport.swift", ["Foundation"]),
+        ("Core/LayoutFixLearnedStore.swift", ["Foundation"]),
     ):
         found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
         if found != expected:
