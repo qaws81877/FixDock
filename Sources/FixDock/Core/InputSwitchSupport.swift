@@ -411,6 +411,31 @@ struct InputSwitchKeyRouter {
 
     private(set) var held: Set<Int64> = []
 
+    /// How long a posted pulse is waited for. It comes back within a millisecond.
+    static let echoWindow: TimeInterval = 0.5
+    /// Pulses posted whose key-down has not come back through the tap yet.
+    private var echoesDue = 0
+    private var echoDeadline: TimeInterval = 0
+
+    mutating func pulsePosted(now: TimeInterval) {
+        if now >= echoDeadline { echoesDue = 0 }
+        echoesDue += 1
+        echoDeadline = now + Self.echoWindow
+    }
+
+    /// Whether this event is a pulse of ours coming back. The marker alone
+    /// does not decide: a pulse copied from a key another process posted with
+    /// its own user data came back without it (2026-11-12), and taking that
+    /// for a fresh press posts pulses without end. So while a pulse is due,
+    /// the next press of the live key is that pulse, marked or not.
+    mutating func isOwnPulse(marked: Bool, down: Bool, keyCode: Int64, isRepeat: Bool,
+                             liveKeyCode: Int64?, now: TimeInterval) -> Bool {
+        if now >= echoDeadline { echoesDue = 0 }
+        let due = down && echoesDue > 0 && (marked || (!isRepeat && keyCode == liveKeyCode))
+        if due { echoesDue -= 1 }
+        return marked || due
+    }
+
     /// A non-repeat down of a held key is a fresh press whose release was
     /// missed (tap disabled, cleaning mode ate the up), so it switches.
     /// Repeats of the live key and its real key-up are consumed.
@@ -424,7 +449,10 @@ struct InputSwitchKeyRouter {
         return .consumeAndSwitch
     }
 
-    mutating func reset() { held.removeAll() }
+    mutating func reset() {
+        held.removeAll()
+        echoesDue = 0
+    }
 }
 
 // MARK: Long press (phase 5)
