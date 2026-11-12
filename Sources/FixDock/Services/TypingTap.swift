@@ -132,7 +132,7 @@ final class TypingTap {
             NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
             self.activationObserver = nil
         }
-        resetTyping()
+        stateLock.withLock { state.interrupt() }
     }
 
     private func runEventTap() {
@@ -268,7 +268,7 @@ final class TypingTap {
         switch type {
         case .leftMouseDown, .rightMouseDown:
             raw = RawKey(kind: .mouseDown, origin: .physical,
-                         stroke: KeyStroke(keyCode: 0, rawFlags: 0), characters: "")
+                         stroke: KeyStroke(keyCode: 0, rawFlags: 0), isRepeat: false, characters: "")
         case .keyDown:
             // Never react to our own synthetic typing.
             let own = event.getIntegerValueField(.eventSourceUserData) == Self.outputMarker
@@ -282,6 +282,7 @@ final class TypingTap {
                          origin: own ? .output : .physical,
                          stroke: KeyStroke(keyCode: UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode)),
                                            rawFlags: event.flags.rawValue),
+                         isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
                          characters: String(utf16CodeUnits: characters, count: length))
         default:
             return Unmanaged.passUnretained(event)

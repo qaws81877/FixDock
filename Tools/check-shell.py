@@ -432,10 +432,14 @@ def main():
         ("Core/ClipboardHistoryBlobs.swift", ["CryptoKit", "Foundation", "ImageIO"]),
         ("Core/ClipboardHistoryKinds.swift", ["Foundation"]),
         ("Core/TypingSupport.swift", ["Foundation"]),
+        ("Core/LayoutFixSupport.swift", ["Foundation"]),
     ):
         found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
         if found != expected:
             errors += fail(f"{relative} must import only {expected}, imports {found}")
+    # The layout fix reads keys with their Shift state; swappedLayout folds it away (docs/typo-switch.md 5.12).
+    if "swappedLayout" in (sources / "Core/LayoutFixSupport.swift").read_text(encoding="utf-8"):
+        errors += fail("LayoutFixSupport.swift must not use swappedLayout")
     switch_system = (sources / "Services/InputSwitchSystem.swift").read_text(encoding="utf-8")
     if re.search(r"^import (AppKit|SwiftUI)", switch_system, re.M) or re.search(r"\bNS(App|Application|Workspace)\b", switch_system):
         errors += fail("InputSwitchSystem.swift must not use AppKit (it also runs headless)")

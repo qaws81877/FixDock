@@ -696,3 +696,38 @@ struct SnippetConsumer {
         }
     }
 }
+
+// MARK: - Key-space notation
+
+/// A word written as the keys that type it on a QWERTY board, keeping Shift
+/// where Shift changes the jamo: a–z plus the seven capitals Q W E R T O P.
+/// "안녕" is "dkssud" and "빠" is "Qk". `latinKeys` and `swappedLayout` cannot
+/// serve here: the first maps ㅂ and ㅃ to one key, the second reads a capital
+/// with no jamo of its own as the plain jamo.
+extension HangulTwoSet {
+    /// The keys whose shifted jamo is a different letter.
+    static let shiftedKeyLetters: Set<Character> = Set(shiftedKeys.values)
+
+    /// The key that types `jamo`, capital for a jamo that needs Shift.
+    static func key(typing jamo: Character) -> Character? {
+        shiftedKeys[jamo] ?? keys[jamo]
+    }
+
+    /// nil when a character of `text` has no key.
+    static func keySpace(ofHangul text: String) -> String? {
+        var result = ""
+        for jamo in typedJamo(text) {
+            guard let key = key(typing: jamo) else { return nil }
+            result.append(key)
+        }
+        return result
+    }
+
+    /// Key-space notation composed as 2-Set types it. Anything that is not
+    /// one of its letters stays, a capital outside the seven included.
+    static func hangul(fromKeySpace keySpace: String) -> String {
+        composed(keySpace.map { key in
+            key.isLowercase || shiftedKeyLetters.contains(key) ? jamoForLetter[key] ?? key : key
+        })
+    }
+}
