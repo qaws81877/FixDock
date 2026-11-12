@@ -1,7 +1,9 @@
 # Product
 
-FixDock is a macOS 14+ (Apple Silicon only) menu bar app for a repair bench,
-written in Swift/SwiftUI/AppKit with no dependencies. It is an unofficial
+FixDock is a macOS 14+ (Apple Silicon only) menu bar app with a small,
+hand-picked set of tools for people who use a Mac in Korean (owner
+2026-11-12; its users are the owner and repair shop colleagues), written in
+Swift/SwiftUI/AppKit with no dependencies. It is an unofficial
 GPL-3.0-or-later fork of vorssaint-utils. Each tool is an `AppFeature` the
 person installs from the feature hub.
 
@@ -40,4 +42,6 @@ Invariants:
   keep a generator script in the repo. Changing the logo needs the owner first.
 
 Not goals: App Store or sandboxing, an Intel build, a second module or
-source directory (`build.sh` compiles `Sources/FixDock/` only).
+source directory (`build.sh` compiles `Sources/FixDock/` only), repair shop
+tooling (hardware diagnostics, intake), and bringing back a removed
+upstream module unless the owner asks for that one (owner 2026-11-12).

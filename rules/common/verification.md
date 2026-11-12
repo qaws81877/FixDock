@@ -42,6 +42,9 @@ Gates, in order, before calling a change done:
   command line, for example `FIXDOCK_CODESIGN_IDENTITY="<SHA-1>" ./build.sh`.
   Do not edit shell profiles. An ad-hoc build resets Accessibility and other
   grants on every rebuild.
+- An agent shell can have `DEVELOPER_DIR` pointing at a newer Xcode, which
+  makes `build.sh` skip its pinned SDK and fail on SwiftUI macros. Run
+  `env -u DEVELOPER_DIR ./build.sh …` and the typecheck the same way.
 - A developer build with AirDrop auto-zip on blocks at launch on the
   Downloads permission prompt. Start scripted dev runs with
   `-airdropAutoZipFolderOverride <scratch dir>`.
