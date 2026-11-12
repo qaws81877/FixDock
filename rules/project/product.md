@@ -36,6 +36,13 @@ Invariants:
   only gains entries (forks, bundled third-party assets with their license).
 - No Vorssaint name, logo, bundle id, signing identity or domain
   (`TRADEMARKS.md`).
+- The Korean/English layout fix (`AppFeature.layoutFix`, design
+  `docs/typo-switch.md`) is built only from FixDock's own code, Catchtype's
+  public web pages and what that app does on screen in ordinary use
+  (owner 2026-11-12). Do not open the Catchtype app bundle (binary,
+  resources, plist, `defaults`, logs) or any document that analyses it, and
+  carry over none of its names, wording, screen layout, data files or
+  built-in lists. `NOTICE` states this origin, so it has to stay true.
 - App artwork is FixDock's own (GPL, stated in `NOTICE`). The committed
   `Resources/AppIcon.png` and the template menu bar mark
   `Resources/Icons/fixdock-mark.svg` are the sources; the owner chose not to
