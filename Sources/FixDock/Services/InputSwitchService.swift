@@ -242,12 +242,15 @@ final class InputSwitchService: ObservableObject {
             if let tap, liveKeyCode != nil, SessionActivity.shared.isActive { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
-        guard type == .keyDown || type == .keyUp,
-              event.getIntegerValueField(.eventSourceUserData) != OwnKeyEvent.inputSwitchMarker
-        else { return Unmanaged.passUnretained(event) }
+        guard type == .keyDown || type == .keyUp else { return Unmanaged.passUnretained(event) }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        let marked = event.getIntegerValueField(.eventSourceUserData) == OwnKeyEvent.inputSwitchMarker
+        if router.isOwnPulse(marked: marked, down: type == .keyDown, keyCode: keyCode, isRepeat: isRepeat,
+                             liveKeyCode: liveKeyCode, now: ProcessInfo.processInfo.systemUptime) {
+            return Unmanaged.passUnretained(event)
+        }
         if type == .keyUp, longPress.key == keyCode { finishLongPress(keyCode: keyCode) }
 
         let decision = router.decide(down: type == .keyDown, keyCode: keyCode, isRepeat: isRepeat,
@@ -274,6 +277,7 @@ final class InputSwitchService: ObservableObject {
     }
 
     private func post(_ pulse: (down: CGEvent, up: CGEvent)) {
+        router.pulsePosted(now: ProcessInfo.processInfo.systemUptime)
         pulse.down.post(tap: .cghidEventTap)
         pulse.up.post(tap: .cghidEventTap)
         sentPulse = cachedLanguage.map { InputSwitchSentPulse(fromLanguage: $0, at: ProcessInfo.processInfo.systemUptime) }
