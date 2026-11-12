@@ -1,26 +1,26 @@
 # FixDock
 
-Menu bar tools for a repair bench. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
+Menu bar tools for people who use a Mac in Korean. Unofficial fork of [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils), GPL-3.0-or-later. Not affiliated with the original authors, and not an official release.
 
 FixDock has eleven tools. You install the ones you want from Settings › Features; nothing runs until it is installed.
 
 ## English
 
-FixDock is a lightweight macOS 14+ menu bar app for someone who repairs Macs. It is free and it is not sold. There is no account and no analytics. It uses the network only to check its own GitHub releases for updates, which you can turn off (see Updates), and to send feedback when you press Send (see PRIVACY.md).
+FixDock is a lightweight macOS 14+ menu bar app: a small, hand-picked set of tools for people who use a Mac in Korean and English. It is free and it is not sold. There is no account and no analytics. It uses the network only to check its own GitHub releases for updates, which you can turn off (see Updates), and to send feedback when you press Send (see PRIVACY.md).
 
 The tools:
 
-1. URL cleaner: removes tracking parameters from copied links.
+1. URL cleaner: removes tracking parameters from copied links, Naver's ad and NT parameters included.
 2. Quit and close protection: holds Command-Q and Command-W until you confirm.
 3. Cleaning mode: locks the keyboard while you wipe it.
 4. Text snippets: expands a typed trigger into saved text.
-5. Media: compresses images and videos.
+5. Media: compresses images and videos. Files zipped together keep their names, Hangul included, stored so they read correctly on Windows.
 6. AirDrop auto-zip: compresses and zips photos received by AirDrop (new; not in the original project).
 7. Cleaner: reviews and removes caches, logs, leftovers and backups.
 8. Screenshot: capture overlay, full screen, scrolling capture, captures pinned on screen with an action bar, capture sounds, snap to lines, and an editor.
 9. Screen recorder: records a region, window or display with sound, plus an editor (trim, zoom, overlays, MP4 and GIF).
 10. Fast Korean/English switch: Caps Lock switches the input source the moment you press it, without a wrong first letter (adapted from gksdud, MIT; see NOTICE). Hold the key for half a second to switch to English and turn Caps Lock on or off.
-11. Clipboard history: Command-Shift-V opens what you copied earlier, text, pictures and files, with a search field, a type menu (image, text, link, colour, file, email), a list by day and a preview with details. Return pastes into the app you were in; ⌘K opens the actions. Pins stay, the rest is kept for the period you choose (30 days by default, at most 1,000 items, pictures up to 1 GB by default). Files are kept as their location, not copied. Passwords marked by their app and excluded apps are not recorded, and links are kept cleaned while the URL cleaner is on.
+11. Clipboard history: Command-Shift-V opens what you copied earlier, text, pictures and files, with a search field, a type menu (image, text, link, colour, file, email), a list by day and a preview with details. Return pastes into the app you were in; ⌘K opens the actions, which also paste text as the other keyboard layout would have typed it (dkssud becomes 안녕, ㅗ디ㅣㅐ becomes hello). Pins stay, the rest is kept for the period you choose (30 days by default, at most 1,000 items, pictures up to 1 GB by default). Files are kept as their location, not copied. Passwords marked by their app and excluded apps are not recorded, and links are kept cleaned while the URL cleaner is on.
 
 Permissions are asked only when a tool needs them: Accessibility for quit protection, cleaning mode, text snippets and the fast Korean/English switch (clipboard history uses Accessibility only to paste, and copies instead without it); Full Disk Access for the cleaner; Screen Recording for screenshot and the recorder. The recorder asks for the microphone, system audio and Accessibility only when you turn those options on. Everything the tools do stays on this Mac.
 
@@ -106,23 +106,23 @@ Homebrew: see Install.
 
 ## 한국어
 
-FixDock은 수리 작업대에서 쓰는 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정과 분석이 없습니다. 네트워크는 GitHub에서 FixDock 업데이트를 확인할 때(끌 수 있음, 업데이트 참고)와 피드백에서 보내기를 누를 때(PRIVACY.md 참고)만 씁니다.
+FixDock은 한국어로 Mac을 쓰는 사람을 위해 고른 도구를 모은 가벼운 macOS 14+ 메뉴 막대 앱입니다. [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)를 수정한 비공식 포크이며, GPL-3.0-or-later입니다. 원작자와 관련이 없고, 공식 릴리스가 아닙니다. 판매하지 않습니다. 계정과 분석이 없습니다. 네트워크는 GitHub에서 FixDock 업데이트를 확인할 때(끌 수 있음, 업데이트 참고)와 피드백에서 보내기를 누를 때(PRIVACY.md 참고)만 씁니다.
 
 도구는 11개입니다. 설정 › 기능에서 원하는 도구만 설치합니다. 설치하기 전에는 아무것도 동작하지 않습니다.
 
 도구:
 
-1. 링크 정리: 복사한 링크에서 추적 매개변수를 지웁니다.
+1. 링크 정리: 복사한 링크에서 추적 매개변수를 지웁니다. 네이버 광고·NT 매개변수도 지웁니다.
 2. 종료·닫기 보호: Command-Q와 Command-W를 확인할 때까지 붙잡습니다.
 3. 청소 모드: 키보드를 닦는 동안 입력을 잠급니다.
 4. 상용구: 입력한 단축어를 저장한 글로 바꿉니다.
-5. 미디어: 이미지와 영상을 압축합니다.
+5. 미디어: 이미지와 영상을 압축합니다. zip으로 묶을 때 한글 파일명을 그대로 두고, Windows에서도 깨지지 않게 저장합니다.
 6. AirDrop 자동 압축: AirDrop으로 받은 사진을 압축해 zip으로 묶습니다 (원본에는 없는 새 기능).
 7. Mac 정리: 캐시, 로그, 남은 파일, 백업을 살펴보고 지웁니다.
 8. 스크린샷: 캡처 오버레이, 전체 화면, 스크롤 캡처, 동작 막대가 있는 화면 고정 핀, 캡처 소리, 선 맞춤, 편집기.
 9. 화면 녹화: 영역·창·디스플레이를 소리와 함께 녹화하고, 편집기(자르기, 확대, 오버레이, MP4·GIF)로 다듬습니다.
 10. 빠른 한/영 전환: Caps Lock을 누르는 순간 입력 소스가 바뀌어 첫 글자가 씹히지 않습니다 (gksdud를 수정해 사용, MIT, NOTICE 참고). 키를 0.5초 누르고 있으면 영어로 바꾸고 대문자 고정을 켜거나 끕니다.
-11. 클립보드 기록: Command-Shift-V로 예전에 복사한 글, 그림, 파일을 엽니다. 검색창, 유형 메뉴(이미지, 텍스트, 링크, 색상, 파일, 이메일), 날짜별 목록, 미리보기와 정보가 있습니다. Return으로 쓰던 앱에 붙여넣고, ⌘K로 동작 메뉴를 엽니다. 고정한 항목은 남고, 나머지는 정한 기간(기본 30일, 최대 1,000개, 그림은 기본 1 GB까지) 동안 보관합니다. 파일은 복사하지 않고 위치만 기억합니다. 앱이 비밀번호로 표시한 복사와 제외한 앱은 기록하지 않고, 링크 정리가 켜져 있으면 정리된 링크로 남깁니다.
+11. 클립보드 기록: Command-Shift-V로 예전에 복사한 글, 그림, 파일을 엽니다. 검색창, 유형 메뉴(이미지, 텍스트, 링크, 색상, 파일, 이메일), 날짜별 목록, 미리보기와 정보가 있습니다. Return으로 쓰던 앱에 붙여넣고, ⌘K로 동작 메뉴를 엽니다. 동작 메뉴에서 한/영을 잘못 두고 친 글을 바꿔 붙여넣을 수 있습니다(dkssud → 안녕, ㅗ디ㅣㅐ → hello). 고정한 항목은 남고, 나머지는 정한 기간(기본 30일, 최대 1,000개, 그림은 기본 1 GB까지) 동안 보관합니다. 파일은 복사하지 않고 위치만 기억합니다. 앱이 비밀번호로 표시한 복사와 제외한 앱은 기록하지 않고, 링크 정리가 켜져 있으면 정리된 링크로 남깁니다.
 
 권한은 도구가 필요할 때만 요청합니다. 종료·닫기 보호, 청소 모드, 상용구, 빠른 한/영 전환은 손쉬운 사용(클립보드 기록은 붙여넣을 때만 쓰고, 없으면 복사만 합니다), Mac 정리는 전체 디스크 접근, 스크린샷과 화면 녹화는 화면 기록 권한을 씁니다. 화면 녹화는 마이크, 시스템 소리, 손쉬운 사용을 해당 옵션을 켤 때만 요청합니다. 도구의 모든 처리는 이 Mac 안에서만 합니다.
 

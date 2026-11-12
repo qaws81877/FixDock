@@ -916,6 +916,7 @@ struct Strings {
     let clipboardHistoryPinnedSection: String
     let clipboardHistoryPaste: String
     let clipboardHistoryCopy: String
+    let clipboardHistorySwapLayout: String
     let clipboardHistoryPin: String
     let clipboardHistoryUnpin: String
     let clipboardHistoryDelete: String
@@ -1315,11 +1316,11 @@ struct Strings {
         shortcutEscapeHint: "Escape cancels.",
         shortcutDeleteHint: "Delete restores the default.",
         shortcutFailed: "macOS did not accept this shortcut. Try another combination.",
-        permissionsIntro: "The keyboard tools need \(enNames.accessibility): quit and close protection, cleaning mode and text snippets. The cleaner needs \(enNames.fullDiskAccess). Screenshots need \(enNames.screenRecording). Nothing else in this build needs a permission.",
+        permissionsIntro: "The keyboard tools need \(enNames.accessibility): quit and close protection, cleaning mode, text snippets and the fast Korean/English switch. The cleaner needs \(enNames.fullDiskAccess). Screenshot and the screen recorder need \(enNames.screenRecording). Options that need more (the recorder's microphone and system audio) ask when you turn them on.",
         permissionAccessibility: enNames.accessibility,
-        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, and text snippets to see triggers and type their text.",
+        permissionAccessibilityDetail: "Quit and close protection uses this to see ⌘Q and ⌘W, cleaning mode to lock the keyboard, text snippets to see triggers and type their text, and the fast Korean/English switch to see its key.",
         permissionScreenRecording: enNames.screenRecording,
-        permissionScreenRecordingDetail: "The screenshot tool needs this. A grant applies only after a relaunch.",
+        permissionScreenRecordingDetail: "The screenshot tool and the screen recorder need this. A grant applies only after a relaunch.",
         permissionNotNeededYet: "Not needed in this build.",
         permissionRequest: "Request…",
         permissionGranted: "Granted",
@@ -1342,12 +1343,12 @@ struct Strings {
         guideCaseStuckAction: "If more than one FixDock is listed, each row belongs to a different copy. Start over removes this copy's entry; then drag the icon in.",
         guideDragConfirm: "Confirm with Touch ID or your password in System Settings.",
         onboardingWelcomeTitle: "FixDock",
-        onboardingWelcomeBody: "A menu bar app for a repair bench. Install only the tools you want from Settings › Features; each asks for a permission only when it needs one. Control-Option-Command-F opens the panel. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and sends no analytics. Its only network use is checking GitHub for FixDock updates, which you can turn off in Settings › About.",
+        onboardingWelcomeBody: "A small set of menu bar tools for people who use a Mac in Korean. Install only the tools you want from Settings › Features; each asks for a permission only when it needs one. Control-Option-Command-F opens the panel. FixDock is a modified unofficial fork of vorssaint-utils. It is not affiliated with the original authors. It is free under GPL-3.0 and sends no analytics. It uses the network only to check GitHub for FixDock updates, which you can turn off in Settings › About, and to send feedback when you press Send.",
         onboardingLanguageTitle: "Language",
         onboardingFeaturesTitle: "Tools",
         onboardingFeaturesBody: "Install the tools you want now, or later in Settings › Features. A tool does nothing until it is installed.",
         onboardingPermissionsTitle: "Permissions",
-        onboardingPermissionsBody: "A tool asks for a permission only when you install it or turn on an option that needs one. The keyboard tools need \(enNames.accessibility): quit and close protection watches ⌘Q and ⌘W, cleaning mode blocks keys only while it is on, and text snippets look for your triggers. The cleaner needs \(enNames.fullDiskAccess) to list caches and logs and removes only what you check. Screenshot and the screen recorder need \(enNames.screenRecording) and read the screen only while you capture or record; the microphone and system audio are used only when you turn them on. Nothing leaves your Mac. For these three, FixDock opens the list in System Settings and shows a card with its icon: drag the icon into the list, or turn its switch on if it is already there.",
+        onboardingPermissionsBody: "A tool asks for a permission only when you install it or turn on an option that needs one. The keyboard tools need \(enNames.accessibility): quit and close protection watches ⌘Q and ⌘W, cleaning mode blocks keys only while it is on, text snippets look for your triggers, and the fast Korean/English switch watches for its key. The cleaner needs \(enNames.fullDiskAccess) to list caches and logs and removes only what you check. Screenshot and the screen recorder need \(enNames.screenRecording) and read the screen only while you capture or record; the microphone and system audio are used only when you turn them on. Nothing leaves your Mac. For these three, FixDock opens the list in System Settings and shows a card with its icon: drag the icon into the list, or turn its switch on if it is already there.",
         onboardingFinishTitle: "The icon is in the menu bar",
         onboardingFinishBody: "Click it for the panel. Control-Option-Command-F opens it from anywhere. Right-click the icon for Settings and Quit.",
         onboardingContinue: "Continue",
@@ -1823,6 +1824,7 @@ struct Strings {
         clipboardHistoryPinnedSection: "Pinned",
         clipboardHistoryPaste: "Paste",
         clipboardHistoryCopy: "Copy",
+        clipboardHistorySwapLayout: "Paste with Korean/English Keys Swapped",
         clipboardHistoryPin: "Pin",
         clipboardHistoryUnpin: "Unpin",
         clipboardHistoryDelete: "Delete",

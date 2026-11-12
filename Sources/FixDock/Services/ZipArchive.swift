@@ -4,8 +4,9 @@
 
 import Foundation
 
-/// Zips with the Mac's own tools: `ditto` writes and extracts, `zipinfo`
-/// reads back. Shared by the Media tool, AirDrop auto-zip and self-update.
+/// Zips with the Mac's own tools: `ditto` writes and extracts, `bsdtar` and
+/// `zipinfo` read back. Shared by the Media tool, AirDrop auto-zip and
+/// self-update.
 enum ZipArchive {
     enum Failure: Error { case archiveFailed, verifyFailed, extractFailed }
 
@@ -14,9 +15,15 @@ enum ZipArchive {
     static func archive(contentsOf directory: URL, to zip: URL, expectedNames: [String]) throws {
         guard run("/usr/bin/ditto", ["-c", "-k", "--norsrc", "--noextattr", directory.path, zip.path]) != nil
         else { throw Failure.archiveFailed }
-        guard let listing = run("/usr/bin/zipinfo", ["-1", zip.path]) else { throw Failure.verifyFailed }
+        // bsdtar in a UTF-8 locale, not zipinfo: zipinfo prints every byte
+        // of a Hangul (or any non-ASCII) name outside its code page as "?",
+        // so such an archive never matched its own names.
+        guard let listing = run("/usr/bin/bsdtar", ["-tf", zip.path], environment: ["LC_ALL": "en_US.UTF-8"])
+        else { throw Failure.verifyFailed }
         let names = listing.split(separator: "\n").map(String.init).filter { !$0.hasSuffix("/") }
-        guard names.sorted() == expectedNames.sorted() else { throw Failure.verifyFailed }
+        // bsdtar lists a backslash in a name as a slash.
+        let expected = expectedNames.map { $0.replacingOccurrences(of: "\\", with: "/") }
+        guard names.sorted() == expected.sorted() else { throw Failure.verifyFailed }
     }
 
     /// `zipinfo -s`: one line per entry with its mode, size and name.
@@ -32,10 +39,13 @@ enum ZipArchive {
     }
 
     /// Standard output on exit status 0, nil otherwise.
-    private static func run(_ tool: String, _ arguments: [String]) -> String? {
+    private static func run(_ tool: String, _ arguments: [String], environment: [String: String] = [:]) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
+        if !environment.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
+        }
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
