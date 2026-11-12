@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - FixDock now describes itself as a small set of menu bar tools for people who use a Mac in Korean (README and the onboarding welcome). The onboarding text names both network uses, the update check and feedback.
 - URL cleaner: Naver's ad click token (`NaPm`), its search ad tracking fields (`n_media`, `n_query`, `n_rank`, `n_ad_group`, `n_ad`, `n_keyword_id`, `n_keyword`) and the NT fields (`nt_source`, `nt_medium`, `nt_detail`, `nt_keyword`) are removed on every site. Each can be switched off in Settings › URL cleaner.

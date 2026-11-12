@@ -20,6 +20,23 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.1.1", date: "2026-11-12",
+            english: [
+                "**Tools for people who use a Mac in Korean.** FixDock now describes itself that way in the welcome screen and the README.",
+                "**URL cleaner:** Naver's ad and NT tracking parameters (`NaPm`, `n_media`, `nt_source` and the rest) are removed from copied links on every site. Each can be switched off in Settings › URL cleaner.",
+                "**Clipboard history:** the actions (⌘K or right-click) can paste text as the other keyboard layout would have typed it: `dkssud` becomes 안녕, `ㅗ디ㅣㅐ` becomes hello.",
+                "**Media:** zipping files with Hangul or accented names no longer fails, and the names are stored so they read correctly on Windows.",
+                "**Permissions:** installing several tools at once asks for one missing permission instead of opening System Settings once per tool; Features › Permissions lists the rest. Importing settings no longer opens a request just before the restart.",
+            ],
+            korean: [
+                "**한국어로 Mac을 쓰는 사람을 위한 도구 모음.** 환영 화면과 README의 소개를 이렇게 바꿨습니다.",
+                "**링크 정리:** 네이버 광고·NT 추적 매개변수(`NaPm`, `n_media`, `nt_source` 등)를 모든 사이트의 복사한 링크에서 지웁니다. 설정 › 링크 정리에서 이름별로 끌 수 있습니다.",
+                "**클립보드 기록:** 동작 메뉴(⌘K 또는 오른쪽 클릭)에서 한/영을 잘못 두고 친 글을 바꿔 붙여넣습니다. `dkssud`는 안녕, `ㅗ디ㅣㅐ`는 hello가 됩니다.",
+                "**미디어:** 한글이나 악센트가 든 이름의 파일을 zip으로 묶을 때 실패하던 문제를 고쳤고, Windows에서도 이름이 깨지지 않게 저장합니다.",
+                "**권한:** 여러 도구를 한 번에 설치할 때 시스템 설정을 도구마다 열지 않고 빠진 권한 하나만 요청합니다. 나머지는 기능 › 권한에 표시됩니다. 설정 가져오기 직전에 권한 요청이 뜨지 않습니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.1.0", date: "2026-11-11",
             english: [
                 "**Safer self-update.** If the update helper stops partway through, FixDock now keeps the previous copy it moved aside instead of clearing it later, so a failed update can no longer leave you without a working FixDock.",
