@@ -285,7 +285,17 @@ final class TypingTap {
         if type == .flagsChanged {
             // The executor's kick: its output is ready. Swallowed; a real
             // modifier change passes.
-            guard userData == Self.relayMarker else { return Unmanaged.passUnretained(event) }
+            guard userData == Self.relayMarker else {
+                // Caps Lock can be the key that switches the input source.
+                if event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_CapsLock) {
+                    let failed = stateLock.withLock { () -> [(Bool) -> Void] in
+                        perform(gate.sourceMayChange(), proxy: proxy)
+                        return waitersOfLostPlans()
+                    }
+                    if !failed.isEmpty { DispatchQueue.main.async { failed.forEach { $0(false) } } }
+                }
+                return Unmanaged.passUnretained(event)
+            }
             let secureInput = IsSecureEventInputEnabled()
             let (start, failed, posted) = stateLock.withLock { () -> (ClaimedPlan?, [(Bool) -> Void], [(Bool) -> Void]) in
                 // A kick that outlived its hold posts nothing.

@@ -343,29 +343,35 @@ struct TypingGate {
 
     mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval) -> GateResponse {
         if raw.kind == .mouseDown {
-            // A click moves the caret. Held keys were typed before it and go
-            // ahead of it; a plan that has posted nothing is given up.
-            var response = GateResponse()
-            if let current = hold {
-                if !current.posted {
-                    response.commands.append(.sendOn(current.swallowed))
-                    hold = nil
-                } else {
-                    hold?.held = []
-                }
-                response.commands += current.held.map { .sendOn($0.ticket) }
-            }
+            // A click moves the caret: the held keys were typed before it.
+            let response = GateResponse(commands: letGo())
             _ = state.receive(raw, secureInput: secureInput)
             return response
         }
-        if raw.origin == .relay {
+        switch raw.origin {
+        case .output:
+            return GateResponse()
+        case .relay:
             // Typing the tools did not get to judge: what they had is stale.
             state.interrupt()
             return GateResponse()
+        case .otherOwn:
+            // The fast switch's pulse changes the layout the held keys
+            // would be read in, so they go first.
+            return GateResponse(commands: sourceMayChange())
+        case .physical:
+            break
         }
-        guard raw.origin == .physical else { return GateResponse() }
         guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now) }
-        if Self.functionKeys.contains(raw.stroke.keyCode) { return GateResponse() }
+        if Self.functionKeys.contains(raw.stroke.keyCode) {
+            // Never held, and it may be the key that switches the source.
+            return GateResponse(commands: sourceMayChange())
+        }
+        if raw.stroke.commandOrControl {
+            // A command is not typing and must not arrive late, with its
+            // modifier long released. What was typed before it goes first.
+            return judge(raw, ticket: nil, secureInput: secureInput, now: now, after: sourceMayChange())
+        }
         guard current.held.count < Self.heldLimit else {
             var response = GateResponse(commands: release())
             let judged = judge(raw, ticket: nil, secureInput: secureInput, now: now)
@@ -377,6 +383,30 @@ struct TypingGate {
         let ticket = takeTicket()
         hold?.held.append((ticket, raw))
         return GateResponse(pass: false, keep: ticket)
+    }
+
+    /// Something is about to pass that changes how or where keys land (a
+    /// click, a command, a switch of input source): the held keys were
+    /// typed before it, so they are sent on ahead of it, unjudged, and a
+    /// plan that has posted nothing is given up with its key sent on too.
+    private mutating func letGo() -> [GateCommand] {
+        guard let current = hold else { return [] }
+        var commands: [GateCommand] = []
+        if current.posted {
+            hold?.held = []
+        } else {
+            commands.append(.sendOn(current.swallowed))
+            hold = nil
+        }
+        return commands + current.held.map { .sendOn($0.ticket) }
+    }
+
+    /// The input source may be about to change (the fast switch's key or
+    /// pulse, Caps Lock). No effect outside a hold.
+    mutating func sourceMayChange() -> [GateCommand] {
+        guard hold != nil else { return [] }
+        state.interrupt()
+        return letGo()
     }
 
     /// The executor's kick arrived: post what it submitted and, after the
@@ -453,12 +483,13 @@ struct TypingGate {
 
     /// One key through the typing tools. A claim starts a hold; `ticket` is
     /// the key's own when the tap already keeps it.
-    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval) -> GateResponse {
-        guard let plan = state.receive(raw, secureInput: secureInput).plan else { return GateResponse() }
+    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval,
+                                after commands: [GateCommand] = []) -> GateResponse {
+        guard let plan = state.receive(raw, secureInput: secureInput).plan else { return GateResponse(commands: commands) }
         let swallowed = ticket ?? takeTicket()
         nextPlan += 1
         let id = PlanID(raw: nextPlan)
         hold = Hold(plan: id, swallowed: swallowed, since: now)
-        return GateResponse(pass: false, keep: swallowed, start: ClaimedPlan(id: id, plan: plan))
+        return GateResponse(pass: false, keep: swallowed, commands: commands, start: ClaimedPlan(id: id, plan: plan))
     }
 }
