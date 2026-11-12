@@ -404,10 +404,18 @@ struct ClipboardHistoryItem: Identifiable, Equatable {
 }
 
 enum ClipboardHistoryAction: Hashable, CaseIterable {
-    case paste, copyOnly, togglePin, showInFinder, delete
+    case paste, copyOnly, swapLayout, togglePin, showInFinder, delete
+
+    /// Longest text `swapLayout` is offered for; menus ask on every render.
+    static let swapLayoutLimit = 2_000
 
     func applies(to content: ClipboardHistoryContent) -> Bool {
         if self == .showInFinder, case .text = content { return false }
+        if self == .swapLayout {
+            // Only text the other layout would type differently.
+            guard case .text(let text) = content, text.utf16.count <= Self.swapLayoutLimit else { return false }
+            return HangulTwoSet.swappedLayout(text) != text
+        }
         return true
     }
 }

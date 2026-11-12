@@ -136,6 +136,9 @@ final class ClipboardHistoryService: ObservableObject {
         switch action {
         case .paste: choose(item.entry, .paste)
         case .copyOnly: choose(item.entry, .copyOnly)
+        case .swapLayout:
+            guard case .text(let text) = item.entry.content else { return }
+            choose(item.entry, .paste, writing: .text(HangulTwoSet.swappedLayout(text)))
         case .togglePin: togglePin(item.entry)
         case .showInFinder: showInFinder(item.entry)
         case .delete: remove(item.entry)
@@ -386,11 +389,13 @@ final class ClipboardHistoryService: ObservableObject {
 
     /// Return or Command-Return. The window leaves at once; the paste waits
     /// for the write, or it would paste whatever was on the clipboard before.
-    private func choose(_ entry: ClipboardHistoryEntry, _ how: ClipboardHistoryChoice) {
+    /// `writing` replaces what goes on the pasteboard; the entry stays as copied.
+    private func choose(_ entry: ClipboardHistoryEntry, _ how: ClipboardHistoryChoice,
+                        writing content: ClipboardHistoryContent? = nil) {
         let target = pasteTarget
         pasteTarget = nil
         hideWindow()
-        write(entry.content) { [weak self] outcome in
+        write(content ?? entry.content) { [weak self] outcome in
             guard let self else { return }
             let changeCount: Int
             switch outcome {

@@ -822,6 +822,7 @@ extension Strings {
         clipboardHistoryPinnedSection: "고정됨",
         clipboardHistoryPaste: "붙여넣기",
         clipboardHistoryCopy: "복사",
+        clipboardHistorySwapLayout: "한/영 바꿔서 붙여넣기",
         clipboardHistoryPin: "고정",
         clipboardHistoryUnpin: "고정 해제",
         clipboardHistoryDelete: "삭제",

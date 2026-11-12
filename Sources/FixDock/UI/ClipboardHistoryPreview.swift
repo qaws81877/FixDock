@@ -126,6 +126,7 @@ extension ClipboardHistoryAction {
         switch self {
         case .paste: return s.clipboardHistoryPaste
         case .copyOnly: return s.clipboardHistoryCopy
+        case .swapLayout: return s.clipboardHistorySwapLayout
         case .togglePin: return entry.isPinned ? s.clipboardHistoryUnpin : s.clipboardHistoryPin
         case .showInFinder: return s.clipboardHistoryRevealFile
         case .delete: return s.clipboardHistoryDelete
@@ -137,7 +138,7 @@ extension ClipboardHistoryAction {
         case .paste: return ("\r", [])
         case .copyOnly: return ("\r", [.command])
         case .togglePin: return ("p", [.option])
-        case .showInFinder: return nil
+        case .swapLayout, .showInFinder: return nil
         case .delete: return ("\u{8}", [.command])
         }
     }

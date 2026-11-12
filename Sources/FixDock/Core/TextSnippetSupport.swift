@@ -190,6 +190,103 @@ enum HangulTwoSet {
         }
         return result
     }
+
+    // MARK: Text typed on the wrong layout
+
+    /// Jamo that need Shift, as the capital they sit on.
+    private static let shiftedKeys: [Character: Character] = [
+        "ㅃ": "Q", "ㅉ": "W", "ㄸ": "E", "ㄲ": "R", "ㅆ": "T", "ㅒ": "O", "ㅖ": "P",
+    ]
+    /// The jamo each letter types. A capital with no jamo of its own types
+    /// the plain one, as the input method does.
+    private static let jamoForLetter: [Character: Character] = {
+        var table: [Character: Character] = [:]
+        for (jamo, key) in keys {
+            table[shiftedKeys[jamo] ?? key] = jamo
+        }
+        for (key, jamo) in table where key.isLowercase {
+            let capital = Character(key.uppercased())
+            if table[capital] == nil { table[capital] = jamo }
+        }
+        return table
+    }()
+    private static let compoundForKeys: [String: Character] =
+        Dictionary(uniqueKeysWithValues: compoundJamo.map { ($1, $0) })
+
+    /// `text` as the same keys type it on the other layout. Text with Hangul
+    /// in it becomes the letters under those keys ("ㅗ디ㅣㅐ" is "hello");
+    /// anything else is composed as 2-Set types it ("dkssud" is "안녕").
+    /// Characters with no key on the other layout stay.
+    static func swappedLayout(_ text: String) -> String {
+        let jamo = typedJamo(text)
+        if jamo.contains(where: isJamo) {
+            return String(jamo.map { shiftedKeys[$0] ?? keys[$0] ?? $0 })
+        }
+        return composed(text.map { jamoForLetter[$0] ?? $0 })
+    }
+
+    /// Jamo joined into syllables by the 2-Set rules `Composer` counts with.
+    private static func composed(_ characters: [Character]) -> String {
+        var result = ""
+        var initial: Character?
+        var vowel = ""
+        var final = ""
+
+        func commit() {
+            defer {
+                initial = nil
+                vowel = ""
+                final = ""
+            }
+            let loneVowel = compoundForKeys[vowel].map(String.init) ?? vowel
+            guard let lead = initial else {
+                result += loneVowel
+                return
+            }
+            guard let leadIndex = initials.firstIndex(of: lead),
+                  let vowelIndex = medials.firstIndex(of: vowel),
+                  let finalIndex = finals.firstIndex(of: final),
+                  let scalar = Unicode.Scalar(UInt32(0xAC00 + leadIndex * 588 + vowelIndex * 28 + finalIndex)) else {
+                result.append(lead)
+                result += loneVowel
+                return
+            }
+            result.append(Character(scalar))
+        }
+
+        for character in characters {
+            guard isJamo(character) else {
+                commit()
+                result.append(character)
+                continue
+            }
+            if vowels.contains(character) {
+                if let moved = final.last {
+                    // A vowel takes the last final consonant as its initial.
+                    final.removeLast()
+                    commit()
+                    initial = moved
+                    vowel = String(character)
+                } else if vowel.count == 1, compoundVowels.contains(vowel + String(character)) {
+                    vowel.append(character)
+                } else if vowel.isEmpty {
+                    vowel = String(character)
+                } else {
+                    commit()
+                    vowel = String(character)
+                }
+            } else if initial != nil, !vowel.isEmpty, final.isEmpty, !neverFinal.contains(character) {
+                final = String(character)
+            } else if final.count == 1, compoundFinals.contains(final + String(character)) {
+                final.append(character)
+            } else {
+                commit()
+                initial = character
+            }
+        }
+        commit()
+        return result
+    }
 }
 
 /// The pure half of the snippets engine: buffer bookkeeping, trigger

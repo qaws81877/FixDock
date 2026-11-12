@@ -916,6 +916,7 @@ struct Strings {
     let clipboardHistoryPinnedSection: String
     let clipboardHistoryPaste: String
     let clipboardHistoryCopy: String
+    let clipboardHistorySwapLayout: String
     let clipboardHistoryPin: String
     let clipboardHistoryUnpin: String
     let clipboardHistoryDelete: String
@@ -1823,6 +1824,7 @@ struct Strings {
         clipboardHistoryPinnedSection: "Pinned",
         clipboardHistoryPaste: "Paste",
         clipboardHistoryCopy: "Copy",
+        clipboardHistorySwapLayout: "Paste with Korean/English Keys Swapped",
         clipboardHistoryPin: "Pin",
         clipboardHistoryUnpin: "Unpin",
         clipboardHistoryDelete: "Delete",
