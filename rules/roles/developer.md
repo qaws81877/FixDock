@@ -11,5 +11,5 @@ Must:
 Must not:
 
 - Add a source directory, a module, a dependency or a network call (the
-  update check is the only one).
+  update check and the feedback relay are the only ones).
 - Leave a string in one language only.
