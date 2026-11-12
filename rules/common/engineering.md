@@ -143,3 +143,11 @@ Platform quirks:
 - `AVAssetWriter.cancelWriting()` deletes its output file. Point a writer
   only at an app-owned folder or a staged sibling it created, never
   straight at a file in the person's folder.
+- Foundation (`Data.write(to:)`, `FileManager.moveItem`) hands the file
+  system a decomposed (NFD) name whatever the string held; `rename(2)` on
+  `withCString` bytes stores the name it is given, and `ditto -c -k` zips
+  the bytes on disk. Prove a name's form with the calls the code makes: a
+  script that opens the file by raw bytes proves nothing about them.
+- `zipinfo` prints a non-ASCII entry name as `?` in every locale. List a
+  zip's names with `bsdtar -tf` under `LC_ALL=en_US.UTF-8` (it shows a
+  backslash in a name as a slash).
