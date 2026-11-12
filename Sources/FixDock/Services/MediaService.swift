@@ -279,9 +279,11 @@ private final class ZipJob {
     }
 
     /// Inside the zip each file keeps its original name, numbered on a clash.
+    /// The name is written precomposed (NFC): `ditto` stores the bytes on
+    /// disk, and a decomposed Hangul name shows as loose jamo on Windows.
     private func nextURL(for source: URL, fileExtension: String) throws -> URL {
         guard let contents else { throw CocoaError(.fileWriteUnknown) }
-        let base = source.deletingPathExtension().lastPathComponent
+        let base = source.deletingPathExtension().lastPathComponent.precomposedStringWithCanonicalMapping
         let name = ImageCompressionSupport.uniqueName(base: base.isEmpty ? "file" : base,
                                                       extension: fileExtension) { names.contains($0) }
         return contents.appendingPathComponent(name)
