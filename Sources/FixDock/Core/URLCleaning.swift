@@ -13,6 +13,12 @@ enum URLCleaning {
         "mc_cid", "mc_eid", "igshid", "twclid", "ttclid", "li_fat_id",
         "mkt_tok", "_hsenc", "_hsmi", "__twitter_impression",
         "fb_action_ids", "fb_action_types", "fb_source", "mibextid",
+        // Naver: the ad click token and the search ad tracking fields it
+        // appends to an advertiser's landing page, and the NT fields
+        // (Naver's counterpart of utm_*). They ride on any site's links.
+        "napm", "n_media", "n_query", "n_rank", "n_ad_group", "n_ad",
+        "n_keyword_id", "n_keyword",
+        "nt_source", "nt_medium", "nt_detail", "nt_keyword",
     ]
 
     /// Trackers that only one site uses. A global list cannot hold these: `si`
