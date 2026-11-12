@@ -32,8 +32,13 @@ struct KeyStroke: Hashable {
     var movesCaret: Bool { Self.caretKeys.contains(keyCode) }
 }
 
-/// `.output` is what the typing tap posted itself and is never judged.
-enum KeyOrigin: Equatable { case physical, output }
+/// Who posted a key. `.output` is the typing tap's own replacement text and
+/// is never judged. `.relay` is a key the person typed that the tap gave
+/// back after a hold it had to give up; it passes unjudged, or a trigger in
+/// it would be claimed again and again. `.otherOwn` is another FixDock tool's
+/// event (the fast switch's pulse, quit protection's copy) and passes
+/// untouched.
+enum KeyOrigin: Equatable { case physical, relay, output, otherOwn }
 
 /// One event as the tap saw it, already free of CGEvent.
 struct RawKey: Equatable {
@@ -69,7 +74,7 @@ enum TypingEvent: Equatable {
     case pointer               // mouse down
     case reset                 // secure input
 
-    /// nil for the tap's own output. The order of the checks is the order
+    /// nil for an event that is not typing. The order of the checks is the order
     /// the snippet tap has always made them in.
     init?(_ raw: RawKey, secureInput: Bool) {
         // Clicks move the caret somewhere unknown.
@@ -77,7 +82,7 @@ enum TypingEvent: Equatable {
             self = .pointer
             return
         }
-        guard raw.origin != .output else { return nil }
+        guard raw.origin == .physical else { return nil }
         // Password fields: typing there must stay exactly as typed, and
         // nothing may remember any of it.
         if secureInput {
@@ -239,5 +244,219 @@ struct TypingState {
             }
         }
         return TapResponse()
+    }
+}
+
+// MARK: - The hold
+
+struct PlanID: Hashable { let raw: UInt64 }
+
+struct ClaimedPlan: Equatable {
+    let id: PlanID
+    let plan: ReplacementPlan
+}
+
+/// One thing the executor asks the tap to post as its own output.
+enum OutputEvent: Equatable {
+    /// A key down and its key up.
+    case key(KeyStroke)
+    case keyDown(KeyStroke)
+    case keyUp(KeyStroke)
+    /// Text as one Unicode-string key down and up.
+    case text(String)
+}
+
+/// What the tap does with events, in order. A ticket names an event the tap
+/// kept a copy of when `GateResponse.keep` said so.
+enum GateCommand: Equatable {
+    case output(OutputEvent)
+    /// Send the kept event on as it was.
+    case sendOn(Int)
+    /// The kept event was replaced by output; forget it.
+    case discard(Int)
+}
+
+struct GateResponse: Equatable {
+    /// false: the current event is swallowed.
+    var pass = true
+    /// Keep a copy of the current event under this ticket. With `start` it
+    /// names the plan's key, which the tap may be keeping already.
+    var keep: Int?
+    var commands: [GateCommand] = []
+    /// A plan for the executor; the current or a kept event is its key.
+    var start: ClaimedPlan?
+}
+
+/// Keeps what the person types in order around a replacement.
+///
+/// From the key that claims a plan until the plan's last output, every key
+/// that arrives is held: swallowed, kept by the tap, and neither judged nor
+/// shown to the field. The plan's output and the held keys then leave
+/// together, output first, and each held key is judged as it leaves, as if
+/// it had been typed then. So nothing typed during a replacement can land
+/// before it, and no typing tool sees a key between a claim and its outcome.
+///
+/// The executor works on the main thread and never posts: it hands its
+/// output to `submit` and wakes the tap with a kick, and the tap posts from
+/// inside that callback, ahead of everything it has not seen yet.
+struct TypingGate {
+    private struct Hold {
+        let plan: PlanID
+        /// Ticket of the key that claimed the plan.
+        let swallowed: Int
+        let since: TimeInterval
+        var begun = false
+        /// Some output has left; the plan can no longer be taken back.
+        var posted = false
+        var held: [(ticket: Int, raw: RawKey)] = []
+        var pending: (events: [OutputEvent], last: Bool, abandoned: Bool)?
+    }
+
+    private(set) var state = TypingState()
+    private var hold: Hold?
+    private var nextTicket = 0
+    private var nextPlan: UInt64 = 0
+
+    /// A stalled main thread must not hold typing: this long to pick a plan
+    /// up, this long to finish it.
+    static let pickUpLimit: TimeInterval = 1
+    static let finishLimit: TimeInterval = 3
+    /// More keys than this in one hold means something is wrong.
+    static let heldLimit = 64
+    /// F13–F20. The fast switch owns one of these keys and must never get
+    /// it back from here, late or changed.
+    private static let functionKeys: Set<UInt16> = [105, 107, 113, 106, 64, 79, 80, 90]
+
+    var snippets: SnippetConsumer? {
+        get { state.snippets }
+        set { state.snippets = newValue }
+    }
+
+    var isHolding: Bool { hold != nil }
+
+    /// An app change.
+    mutating func reset() { state.reset() }
+
+    // MARK: Tap thread
+
+    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval) -> GateResponse {
+        if raw.kind == .mouseDown {
+            // A click moves the caret. Held keys were typed before it and go
+            // ahead of it; a plan that has posted nothing is given up.
+            var response = GateResponse()
+            if let current = hold {
+                if !current.posted {
+                    response.commands.append(.sendOn(current.swallowed))
+                    hold = nil
+                } else {
+                    hold?.held = []
+                }
+                response.commands += current.held.map { .sendOn($0.ticket) }
+            }
+            _ = state.receive(raw, secureInput: secureInput)
+            return response
+        }
+        if raw.origin == .relay {
+            // Typing the tools did not get to judge: what they had is stale.
+            state.interrupt()
+            return GateResponse()
+        }
+        guard raw.origin == .physical else { return GateResponse() }
+        guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now) }
+        if Self.functionKeys.contains(raw.stroke.keyCode) { return GateResponse() }
+        guard current.held.count < Self.heldLimit else {
+            var response = GateResponse(commands: release())
+            let judged = judge(raw, ticket: nil, secureInput: secureInput, now: now)
+            response.pass = judged.pass
+            response.keep = judged.keep
+            response.start = judged.start
+            return response
+        }
+        let ticket = takeTicket()
+        hold?.held.append((ticket, raw))
+        return GateResponse(pass: false, keep: ticket)
+    }
+
+    /// The executor's kick arrived: post what it submitted and, after the
+    /// last output, let the held keys go.
+    mutating func kick(secureInput: Bool, now: TimeInterval) -> GateResponse {
+        var response = GateResponse(pass: false)
+        guard var current = hold, let batch = current.pending else { return response }
+        current.pending = nil
+        response.commands = batch.events.map { .output($0) }
+        if !batch.events.isEmpty { current.posted = true }
+        guard batch.last else {
+            hold = current
+            return response
+        }
+        hold = nil
+        response.commands.append(batch.abandoned ? .sendOn(current.swallowed) : .discard(current.swallowed))
+        var rest = current.held[...]
+        while let next = rest.popFirst() {
+            let judged = judge(next.raw, ticket: next.ticket, secureInput: secureInput, now: now)
+            if let start = judged.start {
+                // A held key completed another trigger: the keys behind it wait for that plan.
+                hold?.held = Array(rest)
+                response.keep = judged.keep
+                response.start = start
+                break
+            }
+            response.commands.append(.sendOn(next.ticket))
+        }
+        return response
+    }
+
+    /// Whether the main thread has let a plan sit too long.
+    func expired(now: TimeInterval) -> Bool {
+        guard let hold else { return false }
+        return now - hold.since > (hold.begun ? Self.finishLimit : Self.pickUpLimit)
+    }
+
+    /// Ends a hold without the executor: the watchdog, a disabled tap, a
+    /// stop. The keys are sent on unjudged, the plan's own key too unless
+    /// its output is already out. What was half-typed is forgotten.
+    mutating func release() -> [GateCommand] {
+        state.interrupt()
+        guard let current = hold else { return [] }
+        hold = nil
+        return [current.posted ? .discard(current.swallowed) : .sendOn(current.swallowed)]
+            + current.held.map { .sendOn($0.ticket) }
+    }
+
+    // MARK: Main thread
+
+    /// The executor picked the plan up. false: the hold is gone, do nothing.
+    mutating func begin(_ id: PlanID) -> Bool {
+        guard hold?.plan == id else { return false }
+        hold?.begun = true
+        return true
+    }
+
+    /// Output for the tap to post at the next kick. `last` ends the plan;
+    /// `abandoned` (with no output) sends its key on instead. false: the
+    /// hold is gone, post no kick.
+    mutating func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false) -> Bool {
+        guard hold?.plan == id else { return false }
+        let earlier = hold?.pending?.events ?? []
+        hold?.pending = (earlier + events, last, abandoned)
+        return true
+    }
+
+    // MARK: Private
+
+    private mutating func takeTicket() -> Int {
+        nextTicket += 1
+        return nextTicket
+    }
+
+    /// One key through the typing tools. A claim starts a hold; `ticket` is
+    /// the key's own when the tap already keeps it.
+    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval) -> GateResponse {
+        guard let plan = state.receive(raw, secureInput: secureInput).plan else { return GateResponse() }
+        let swallowed = ticket ?? takeTicket()
+        nextPlan += 1
+        let id = PlanID(raw: nextPlan)
+        hold = Hold(plan: id, swallowed: swallowed, since: now)
+        return GateResponse(pass: false, keep: swallowed, start: ClaimedPlan(id: id, plan: plan))
     }
 }
