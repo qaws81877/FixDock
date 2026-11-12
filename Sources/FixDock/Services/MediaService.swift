@@ -269,21 +269,35 @@ private final class ZipJob {
     func add(_ data: Data, for source: URL, fileExtension: String) throws {
         let target = try nextURL(for: source, fileExtension: fileExtension)
         try data.write(to: target)
+        storePrecomposed(target)
         names.append(target.lastPathComponent)
     }
 
     func add(fileAt file: URL, for source: URL, fileExtension: String) throws {
         let target = try nextURL(for: source, fileExtension: fileExtension)
         try FileManager.default.moveItem(at: file, to: target)
+        storePrecomposed(target)
         names.append(target.lastPathComponent)
     }
 
+    /// `ditto` zips the name bytes on disk, and a decomposed Hangul name
+    /// shows as loose jamo on Windows. Foundation hands the file system the
+    /// decomposed spelling whatever the string held, so the precomposed (NFC)
+    /// one is put in place with rename(2), which stores the bytes it is
+    /// given. A volume that refuses keeps the name it had.
+    private func storePrecomposed(_ staged: URL) {
+        let name = staged.lastPathComponent.precomposedStringWithCanonicalMapping
+        let target = staged.deletingLastPathComponent().path + "/" + name
+        staged.withUnsafeFileSystemRepresentation { old in
+            guard let old else { return }
+            _ = target.withCString { rename(old, $0) }
+        }
+    }
+
     /// Inside the zip each file keeps its original name, numbered on a clash.
-    /// The name is written precomposed (NFC): `ditto` stores the bytes on
-    /// disk, and a decomposed Hangul name shows as loose jamo on Windows.
     private func nextURL(for source: URL, fileExtension: String) throws -> URL {
         guard let contents else { throw CocoaError(.fileWriteUnknown) }
-        let base = source.deletingPathExtension().lastPathComponent.precomposedStringWithCanonicalMapping
+        let base = source.deletingPathExtension().lastPathComponent
         let name = ImageCompressionSupport.uniqueName(base: base.isEmpty ? "file" : base,
                                                       extension: fileExtension) { names.contains($0) }
         return contents.appendingPathComponent(name)

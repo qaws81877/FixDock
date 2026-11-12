@@ -21,7 +21,9 @@ enum ZipArchive {
         guard let listing = run("/usr/bin/bsdtar", ["-tf", zip.path], environment: ["LC_ALL": "en_US.UTF-8"])
         else { throw Failure.verifyFailed }
         let names = listing.split(separator: "\n").map(String.init).filter { !$0.hasSuffix("/") }
-        guard names.sorted() == expectedNames.sorted() else { throw Failure.verifyFailed }
+        // bsdtar lists a backslash in a name as a slash.
+        let expected = expectedNames.map { $0.replacingOccurrences(of: "\\", with: "/") }
+        guard names.sorted() == expected.sorted() else { throw Failure.verifyFailed }
     }
 
     /// `zipinfo -s`: one line per entry with its mode, size and name.
