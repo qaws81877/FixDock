@@ -59,10 +59,10 @@ Gates, in order, before calling a change done:
 - Layout checks of Settings or the panel depend on which tools are
   installed. Read the owner's `featureAvailable.*` keys (read only) and give
   the dev build the same set (`launch.sh --fresh <ids…>`); a short sidebar
-  hid the cut-off Advanced row (2026-11-08).
+  hid the cut-off Advanced row.
 - The verify-fixdock `launch.sh` sends the dev build's stdout and stderr to
   `build/verify/app.log`, and `NSLog` then writes there, not to `log show`
-  or `log stream` (2026-11-08). Read temporary `NSLog` lines from that file
+  or `log stream`. Read temporary `NSLog` lines from that file
   and remove them before committing.
 
 Proof:
@@ -99,7 +99,7 @@ Proof:
   top row, and `CGImage.cropping(to:)` counts y from the top too.
 - Computer use cannot grant FixDock (it is not listed as an app), so it
   refuses clicks on FixDock windows and any key while FixDock is frontmost;
-  `osascript` keystrokes are refused too (2026-11-03). With a granted app in
+  `osascript` keystrokes are refused too. With a granted app in
   front, global capture chords and keys to a key pin do arrive. Read window
   state from `CGWindowListCopyWindowInfo` (bounds, onscreen) by pid; clicks
   and hovers stay owner checks.
@@ -109,7 +109,7 @@ Proof:
 - A `CGEvent` posted from the agent shell is dropped (it is not trusted for
   Accessibility), so a global shortcut never fires from it. Shortcut presses
   stay owner checks.
-  Mouse clicks did arrive on 2026-11-08: `osascript` `click menu bar item 1
+  Mouse clicks do arrive: `osascript` `click menu bar item 1
   of menu bar 2` of the dev process opened its panel (the panel is not in
   the AX tree), and a `CGEvent` click at the "Settings…" button opened
   Settings. Try that before handing a click to the owner.
