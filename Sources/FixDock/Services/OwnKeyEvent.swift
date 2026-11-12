@@ -12,8 +12,23 @@ import CoreGraphics
 /// copy carries this marker in its user data instead. Text Snippets types
 /// through a source carrying its own marker. The input switch marks the
 /// F-key pulse it posts, so its own tap lets the pulse through to macOS.
+/// The typing tap has two: one on the replacement text it types, which keeps
+/// the value text snippets always used, and one on the keys it gives back
+/// after a hold and on the kick that wakes it.
 enum OwnKeyEvent {
     static let quitProtectionMarker: Int64 = 0x464958444F434B51 // "FIXDOCKQ"
     static let textSnippetMarker: Int64 = 0x464958444F434B53 // "FIXDOCKS"
     static let inputSwitchMarker: Int64 = 0x464958444F434B48 // "FIXDOCKH"
+    static let typingRelayMarker: Int64 = 0x464958444F434B52 // "FIXDOCKR"
+
+    /// Who posted the event whose `eventSourceUserData` this is, as the
+    /// typing tap sorts it.
+    static func origin(ofUserData userData: Int64) -> KeyOrigin {
+        switch userData {
+        case textSnippetMarker: return .output
+        case typingRelayMarker: return .relay
+        case quitProtectionMarker, inputSwitchMarker: return .otherOwn
+        default: return .physical
+        }
+    }
 }

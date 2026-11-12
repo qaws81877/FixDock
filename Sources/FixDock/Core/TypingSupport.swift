@@ -334,6 +334,8 @@ struct TypingGate {
 
     var isHolding: Bool { hold != nil }
 
+    func isHolding(_ id: PlanID) -> Bool { hold?.plan == id }
+
     /// An app change.
     mutating func reset() { state.reset() }
 

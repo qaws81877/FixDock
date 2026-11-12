@@ -340,6 +340,7 @@ def main():
         ("CGEvent.tapCreate", ["Services/CleaningModeManager.swift", "Services/InputSwitchService.swift",
                                "Services/QuitProtectionService.swift", "Services/TypingTap.swift"]),
         ("OwnKeyEvent.textSnippetMarker", ["Services/TypingTap.swift"]),
+        ("OwnKeyEvent.typingRelayMarker", ["Services/TypingTap.swift"]),
         ("TypingTap.shared.setSnippets", ["Services/TextSnippetService.swift"]),
         # Layout fix: one owner of the learned-words file, the guard's only constructor.
         ('"LayoutFix.json"', ["Core/LayoutFixLearnedStore.swift"]),
