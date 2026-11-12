@@ -18,11 +18,9 @@ Ask the owner first:
 - Commits, pushes, PRs and merges, unless the owner asked for them.
 - Creating a public repository.
 - When auto mode denies a git or gh action the owner asked for (its
-  verdicts vary by context: on 2026-11-01 one session saw `gh pr merge`
-  denied and branch deletes pass, another the reverse), hand the owner the
-  exact `! …` line, one `!` command per message (a second `!` pasted on
-  the next line is read by the shell as negation and the command after
-  `&&` never runs).
+  verdicts vary by context), hand the owner the exact `! …` line, one `!`
+  command per message (a second `!` pasted on the next line is read by the
+  shell as negation and the command after `&&` never runs).
 
 Docs:
 
@@ -66,7 +64,7 @@ Clipboard:
   `clearContents()`, and passes the new `changeCount` to
   `URLCleanerService.shared.ignoreChanges(upTo:)` on the main thread.
   That call also tells clipboard history, so no writer sets a watermark
-  directly (`URLCleanerService.copy()` did until 2026-11-04).
+  directly.
 
 Bundle:
 
