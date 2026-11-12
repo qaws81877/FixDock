@@ -74,7 +74,27 @@ Resources/Sounds/capture-focus.wav is the first 0.3 s of "Camera Shutter
 Click" by Kodack (freesound.org/s/271010/), and
 Resources/Sounds/capture-shutter.wav is "Nice Camera click.wav" by mmaruska
 (freesound.org/s/167556/). Both were trimmed, faded, converted to mono and
-level-adjusted for FixDock. No other third-party asset is bundled.
+level-adjusted for FixDock.
+
+FixDock bundles two word lists in Resources/Lexicon (en.txt, ko.txt). They
+are adapted from FrequencyWords by Hermit Dave
+(https://github.com/hermitdave/FrequencyWords), files
+content/2018/en/en_50k.txt and content/2018/ko/ko_50k.txt at commit
+525f9b560de45753a5ea01069454e72e9aa541c6, which that project offers under
+the Creative Commons Attribution-ShareAlike 4.0 International License.
+Changes, made by Tools/make-lexicon.py: occurrence counts removed, lines
+kept in frequency order, English entries lowercased; English entries
+removed unless they are only the letters a to z, at least two letters long
+(or "a" or "i"), contain a vowel (a, e, i, o, u, y) and have no letter
+three times in a row; Korean entries removed unless they are only complete
+Hangul syllables; duplicates removed; the English list cut at 30,000
+entries. The two adapted files are licensed under CC BY-SA 4.0
+(https://creativecommons.org/licenses/by-sa/4.0/); the rest of FixDock is
+GPL-3.0-or-later. FrequencyWords was counted from the OpenSubtitles 2018
+corpus (OPUS; P. Lison and J. Tiedemann, 2016, "OpenSubtitles2016:
+Extracting Large Parallel Corpora from Movie and TV Subtitles", LREC
+2016), built from subtitles of http://www.opensubtitles.org. No other
+third-party asset is bundled.
 The app icon (Resources/AppIcon.png) and the menu bar mark
 (Resources/Icons/fixdock-mark.svg) were drawn for FixDock, are covered by
 FixDock's GPL-3.0-or-later license, and contain no upstream artwork.

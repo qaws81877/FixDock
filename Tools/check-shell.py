@@ -31,6 +31,8 @@ ALLOWED_URLS = {
     "https://github.com/qaws81877/homebrew-tap",
     "https://api.github.com/repos/qaws81877/FixDock/releases/latest",
     "https://www.gnu.org/licenses/gpl-3.0.en.html",
+    "https://github.com/hermitdave/FrequencyWords",
+    "https://creativecommons.org/licenses/by-sa/4.0/",
     "https://fixdock-feedback.answlals1236.workers.dev",
 }
 FORBIDDEN = [
@@ -201,6 +203,8 @@ def main():
         "github.com/codingnoye/gksdud",
         "Copyright (c) 2026 CodingNoye",
         "Permission is hereby granted, free of charge",
+        "github.com/hermitdave/FrequencyWords",
+        "Attribution-ShareAlike 4.0",
     ):
         if needle not in notice:
             errors += fail(f"NOTICE is missing {needle}")
@@ -514,6 +518,17 @@ def main():
         errors += fail("build.sh does not set the FixDock bundle id")
     if "arm64-apple-macosx14.0" not in build:
         errors += fail("build.sh does not target macOS 14 arm64")
+    # The layout fix's word lists (docs/typo-switch.md 4.4): in the bundle, one word per line.
+    if 'cp -R Resources/Lexicon "$STAGE/Contents/Resources/"' not in build:
+        errors += fail("build.sh does not copy Resources/Lexicon into the bundle")
+    for name in ("en.txt", "ko.txt"):
+        try:
+            lines = (ROOT / "Resources/Lexicon" / name).read_text(encoding="utf-8").split("\n")
+        except (OSError, UnicodeDecodeError) as error:
+            errors += fail(f"Resources/Lexicon/{name}: {error}")
+            continue
+        if lines[-1] != "" or any(not line or any(c.isspace() for c in line) for line in lines[:-1]):
+            errors += fail(f"Resources/Lexicon/{name} must be one word per line, no blank or spaced line")
 
     for relative in URL_SCAN_ROOTS:
         for path in iter_text_files(relative):
