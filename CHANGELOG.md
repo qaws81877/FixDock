@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- FixDock now describes itself as a small set of menu bar tools for people who use a Mac in Korean (README and the onboarding welcome). The onboarding text names both network uses, the update check and feedback.
+- URL cleaner: Naver's ad click token (`NaPm`), its search ad tracking fields (`n_media`, `n_query`, `n_rank`, `n_ad_group`, `n_ad`, `n_keyword_id`, `n_keyword`) and the NT fields (`nt_source`, `nt_medium`, `nt_detail`, `nt_keyword`) are removed on every site. Each can be switched off in Settings › URL cleaner.
+- Media: zipping files whose names are not plain ASCII (Hangul, accents) no longer fails. The check after zipping read the names with `zipinfo`, which prints such names as question marks, so the archive never matched and the job reported an error. Names are now read with `bsdtar` in a UTF-8 locale, and are stored precomposed (NFC) so Hangul names are not split into jamo on Windows.
+- Clipboard history: the actions (⌘K and the right-click menu) gain "Paste with Korean/English Keys Swapped" for text typed on the wrong layout, up to 2,000 characters: `dkssud` pastes as 안녕, `ㅗ디ㅣㅐ` as hello. The history keeps the text as it was copied.
+- Installing several tools at once (Install all, onboarding) asks for one missing permission, the first in tool order, instead of opening System Settings once per tool. Features › Permissions lists the rest.
+- Importing settings no longer opens a permission request just before the restart.
+- Features › Permissions stops re-reading permissions when the Settings window closes.
+- Permission texts name the fast Korean/English switch and the screen recorder.
+
 ## 1.1.0
 
 - Self-update: `UpdatePolicy.attemptIsFinished` keeps an attempt folder the helper left without a report for `movedAsideLifetime`, the same rule as `restoreFailed` and `evictionFailed`. Before, a helper that died after moving the installed copy aside (or after the forward swap) and before writing its report let the next sweep delete the previous copy, leaving no working FixDock. Found with a TLA+ model; not reproduced on a real device. A report-less attempt now stays on disk for up to 30 days. (#79)
