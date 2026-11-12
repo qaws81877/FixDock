@@ -82,7 +82,7 @@ Platform quirks:
 
 - Carbon `RegisterEventHotKey` returns noErr in every process that registers
   the same combination, and each press reaches all of them (two holders and
-  FixDock all got one press, 2026-11-04). `HotkeyManager.failedRoles` only
+  FixDock all got one press). `HotkeyManager.failedRoles` only
   reports a refused registration, never a clash with another app.
 - While any process holds Secure Event Input, session event taps get no
   keys: quit protection and snippets both go quiet with no warning
@@ -112,7 +112,7 @@ Platform quirks:
   reaches the window (`host.title` stays nil). Leave full size content off and
   set `window.title` yourself.
 - The Settings sidebar `List` (an `NSOutlineView`) gets its rows on the run
-  loop turn after layout, on screen or not (2026-11-08: 0 rows right after
+  loop turn after layout, on screen or not (0 rows right after
   `layoutSubtreeIfNeeded` on a hidden window, 25 one turn later);
   `displayIfNeeded` does not fill it sooner. Measure on that turn, then show
   (`SettingsWindow.showFittingSidebar`).
