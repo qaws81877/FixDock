@@ -1,0 +1,406 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Vorssaint
+// Copyright (C) 2026 FixDock contributors
+
+import AppKit
+import Carbon.HIToolbox
+import Combine
+import CoreGraphics
+
+/// The one key tap the typing tools share. It turns each event into a
+/// `RawKey`, hands it to `TypingState` (`Core/TypingSupport.swift`), and runs
+/// the plan that comes back; the tools themselves hold no tap and post
+/// nothing. The tap, the observers and the typed text only exist while a
+/// tool wants them. Requires Accessibility.
+///
+/// Today the only tool is text snippets, and the tap reports its health
+/// under that name.
+final class TypingTap {
+    static let shared = TypingTap()
+
+    /// Marks our own synthetic events so the tap never re-processes them.
+    private static let outputMarker = OwnKeyEvent.textSnippetMarker
+
+    // The tap callback and its mutable text state live off the main thread so
+    // demanding foreground apps cannot turn a main-thread stall into queued
+    // keyboard input for the whole session.
+    private let tapLifecycleLock = NSLock()
+    private var tap: CFMachPort?
+    private var tapRunLoop: CFRunLoop?
+    private var tapThread: Thread?
+    private var shouldStopTapThread = false
+    private var pendingTapRestart = false
+    private var activationObserver: NSObjectProtocol?
+    /// Guards `state`. Never held while a plan runs: the executor waits for
+    /// the main thread, and the main thread takes this lock.
+    private let stateLock = NSLock()
+    private var state = TypingState()
+    private var permissionWatch: AnyCancellable?
+    private var permissionPoll: Timer?
+    private var tapRetry: Timer?
+
+    private init() {
+        SessionActivity.shared.onChange { [weak self] _ in self?.evaluate() }
+        permissionWatch = Permissions.shared.$accessibility
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.evaluate() }
+    }
+
+    private var isRunning: Bool { tapLifecycleLock.withLock { tap != nil } }
+
+    private var isWanted: Bool { stateLock.withLock { state.snippets != nil } }
+
+    /// nil when text snippets are off or have nothing to expand. What was
+    /// half-typed stays.
+    func setSnippets(_ config: SnippetConsumer.Config?) {
+        stateLock.withLock { state.snippets = config.map { SnippetConsumer(config: $0) } }
+        evaluate()
+    }
+
+    private func evaluate() {
+        let wanted = isWanted
+        let trusted = AXIsProcessTrusted()
+        updatePermissionPoll(waiting: wanted && !trusted)
+        if SessionActivitySupport.tapShouldRun(featureWanted: wanted,
+                                               accessibilityGranted: trusted,
+                                               sessionIsActive: SessionActivity.shared.isActive) {
+            start()
+        } else {
+            stop()
+        }
+    }
+
+    /// A grant made in System Settings sends no notification. While the tap
+    /// is wanted and cannot run, re-read the grant every few seconds.
+    private func updatePermissionPoll(waiting: Bool) {
+        guard waiting else {
+            permissionPoll?.invalidate()
+            permissionPoll = nil
+            return
+        }
+        guard permissionPoll == nil else { return }
+        let timer = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+            guard AXIsProcessTrusted() else { return }
+            Permissions.shared.refresh()
+            self?.evaluate()
+        }
+        permissionPoll = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func start() {
+        let thread = tapLifecycleLock.withLock { () -> Thread? in
+            if tapThread != nil {
+                if shouldStopTapThread { pendingTapRestart = true }
+                return nil
+            }
+            shouldStopTapThread = false
+            pendingTapRestart = false
+            let thread = Thread { [weak self] in self?.runEventTap() }
+            thread.name = "FixDock Text Expansion"
+            thread.qualityOfService = .userInteractive
+            tapThread = thread
+            return thread
+        }
+        thread?.start()
+    }
+
+    private func stop() {
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.textSnippets, .off)
+        let snapshot = tapLifecycleLock.withLock {
+            () -> (runLoop: CFRunLoop?, tap: CFMachPort?, threadExists: Bool) in
+            shouldStopTapThread = true
+            pendingTapRestart = false
+            return (tapRunLoop, tap, tapThread != nil)
+        }
+        if let tap = snapshot.tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let runLoop = snapshot.runLoop {
+            CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) {
+                CFRunLoopStop(runLoop)
+            }
+            CFRunLoopWakeUp(runLoop)
+        } else if !snapshot.threadExists {
+            tapLifecycleLock.withLock {
+                shouldStopTapThread = false
+                tapThread = nil
+            }
+        }
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+            self.activationObserver = nil
+        }
+        resetTyping()
+    }
+
+    private func runEventTap() {
+        autoreleasepool {
+            let runLoop = CFRunLoopGetCurrent()
+            tapLifecycleLock.withLock { tapRunLoop = runLoop }
+            guard !tapLifecycleLock.withLock({ shouldStopTapThread }) else {
+                if clearEventTapThread() { startOnMain() }
+                return
+            }
+
+            let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+                | (1 << CGEventType.leftMouseDown.rawValue)
+                | (1 << CGEventType.rightMouseDown.rawValue)
+            guard let tap = CGEvent.tapCreate(
+                tap: .cgSessionEventTap,
+                place: .headInsertEventTap,
+                options: .defaultTap,
+                eventsOfInterest: mask,
+                callback: { _, type, event, userInfo in
+                    guard let userInfo else { return Unmanaged.passUnretained(event) }
+                    let typingTap = Unmanaged<TypingTap>.fromOpaque(userInfo)
+                        .takeUnretainedValue()
+                    return typingTap.handle(type: type, event: event)
+                },
+                userInfo: Unmanaged.passUnretained(self).toOpaque()
+            ) else {
+                // Accessibility reads as granted, yet the window server
+                // refused the tap. Say so and try again rather than staying
+                // off silently.
+                _ = clearEventTapThread()
+                DispatchQueue.main.async { [weak self] in self?.tapDidFail() }
+                return
+            }
+
+            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            tapLifecycleLock.withLock { self.tap = tap }
+            CFRunLoopAddSource(runLoop, source, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+            DispatchQueue.main.async { [weak self] in self?.tapDidStart(tap) }
+
+            if tapLifecycleLock.withLock({ shouldStopTapThread }) {
+                CGEvent.tapEnable(tap: tap, enable: false)
+            } else {
+                CFRunLoopRun()
+            }
+
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFRunLoopRemoveSource(runLoop, source, .commonModes)
+            CFMachPortInvalidate(tap)
+            if clearEventTapThread() { startOnMain() }
+        }
+    }
+
+    private func clearEventTapThread() -> Bool {
+        tapLifecycleLock.withLock {
+            let shouldRestart = pendingTapRestart
+            tap = nil
+            tapRunLoop = nil
+            tapThread = nil
+            shouldStopTapThread = false
+            pendingTapRestart = false
+            return shouldRestart
+        }
+    }
+
+    private func startOnMain() {
+        DispatchQueue.main.async { [weak self] in self?.start() }
+    }
+
+    private func tapDidFail() {
+        // A stop or a new start since then owns the state.
+        guard !isRunning, tapLifecycleLock.withLock({ tapThread == nil }) else { return }
+        guard isWanted, AXIsProcessTrusted() else { return }
+        KeyTapHealth.shared.report(.textSnippets, .failed)
+        guard tapRetry == nil else { return }
+        let timer = Timer(timeInterval: 3, repeats: false) { [weak self] _ in
+            self?.tapRetry = nil
+            self?.evaluate()
+        }
+        tapRetry = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func cancelTapRetry() {
+        tapRetry?.invalidate()
+        tapRetry = nil
+    }
+
+    private func tapDidStart(_ startedTap: CFMachPort) {
+        let active = tapLifecycleLock.withLock {
+            tap === startedTap && !shouldStopTapThread
+        }
+        guard active else { return }
+        cancelTapRetry()
+        KeyTapHealth.shared.report(.textSnippets, .running)
+        guard activationObserver == nil else { return }
+        // Switching apps invalidates whatever was half-typed there.
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.resetTyping()
+        }
+    }
+
+    private func resetTyping() {
+        stateLock.withLock { state.reset() }
+    }
+
+    // MARK: - Tap
+
+    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            // stop() switches the tap off itself, and that is reported here
+            // like a disable by the system. A stop under way has nothing to
+            // recover.
+            let currentTap = tapLifecycleLock.withLock { shouldStopTapThread ? nil : tap }
+            let rearm = currentTap != nil && SessionActivity.shared.isActive && AXIsProcessTrusted()
+            if currentTap != nil {
+                KeyTapHealth.logTapDisabled(.textSnippets, type: type, rearmed: rearm)
+            }
+            if rearm, let currentTap {
+                CGEvent.tapEnable(tap: currentTap, enable: true)
+            } else if currentTap != nil {
+                DispatchQueue.main.async { [weak self] in self?.evaluate() }
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        let raw: RawKey
+        var secureInput = false
+        switch type {
+        case .leftMouseDown, .rightMouseDown:
+            raw = RawKey(kind: .mouseDown, origin: .physical,
+                         stroke: KeyStroke(keyCode: 0, rawFlags: 0), characters: "")
+        case .keyDown:
+            // Never react to our own synthetic typing.
+            let own = event.getIntegerValueField(.eventSourceUserData) == Self.outputMarker
+            var length = 0
+            var characters = [UniChar](repeating: 0, count: 4)
+            if !own {
+                secureInput = IsSecureEventInputEnabled()
+                event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &characters)
+            }
+            raw = RawKey(kind: .keyDown,
+                         origin: own ? .output : .physical,
+                         stroke: KeyStroke(keyCode: UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode)),
+                                           rawFlags: event.flags.rawValue),
+                         characters: String(utf16CodeUnits: characters, count: length))
+        default:
+            return Unmanaged.passUnretained(event)
+        }
+        let response = stateLock.withLock { state.receive(raw, secureInput: secureInput) }
+        // Suppress the key once the replacement path has accepted it. A busy
+        // transient paste fails open to normal typing.
+        guard let plan = response.plan, execute(plan) else { return Unmanaged.passUnretained(event) }
+        return nil
+    }
+
+    // MARK: - Executor
+
+    /// Runs the plan on the main thread while the triggering event still
+    /// belongs to the tap callback. false: nothing was posted and the key
+    /// passes.
+    private func execute(_ plan: ReplacementPlan) -> Bool {
+        let post = { () -> Bool in
+            var accepted = true
+            for step in plan.steps {
+                switch step {
+                case .snippet(let insert):
+                    accepted = Self.postExpansion(insert) && accepted
+                }
+            }
+            return accepted
+        }
+        return Thread.isMainThread ? post() : DispatchQueue.main.sync(execute: post)
+    }
+
+    /// Whether one of this app's windows takes the keys. A panel that never
+    /// activates the app, like the island's scratchpad, is key while the app
+    /// behind it stays frontmost, and that app's field is not where the
+    /// backspaces land. AppKit is read on the main thread, where both
+    /// expansion paths post their backspaces; anywhere else counts as ours,
+    /// so no other app is asked.
+    private static var ownWindowIsKey: Bool {
+        guard Thread.isMainThread else { return true }
+        return MainActor.assumeIsolated { NSApp.keyWindow != nil }
+    }
+
+    private static func postExpansion(_ insert: SnippetInsert) -> Bool {
+        // Only an explicit clipboard variable pays for a synchronous read;
+        // the multiline write itself runs on the shared pasteboard lane.
+        let clipboard = TextSnippetSupport.needsClipboard(insert.template)
+            ? NSPasteboard.general.string(forType: .string)
+            : nil
+        let text = TextSnippetSupport.expand(
+            insert.template,
+            date: Date(),
+            clipboard: clipboard
+        )
+        let source = CGEventSource(stateID: .hidSystemState)
+        source?.userData = outputMarker
+
+        func post(_ event: CGEvent?) {
+            event?.post(tap: .cghidEventTap)
+        }
+        func postKey(_ stroke: KeyStroke) {
+            for down in [true, false] {
+                let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: down)
+                event?.flags = CGEventFlags(rawValue: stroke.rawFlags)
+                post(event)
+            }
+        }
+        // Asked right before the backspaces go out, so the count covers a
+        // completion the field shows by then. Typing waits while the field
+        // answers, so every question, up to five for a selection that looks
+        // like a completion, shares one short time limit. Runs on the main
+        // thread on the typed and the pasted path alike.
+        func postDeletes() {
+            guard insert.deleteCount > 0 else { return }
+            let app = ownWindowIsKey ? nil : NSWorkspace.shared.frontmostApplication
+            let selection = app.flatMap {
+                SelectedTextReader.focusedTextSelection(processID: $0.processIdentifier, timeout: 0.15)
+            }
+            let count = TextSnippetSupport.triggerDeleteCount(
+                insert.deleteCount, typed: insert.typedTrigger,
+                focusedSelection: selection.map { (range: $0.range, textLength: $0.textLength) }
+            ) { selection?.text(in: $0) }
+            for _ in 0..<count { postKey(KeyStroke(keyCode: UInt16(kVK_Delete), rawFlags: 0)) }
+        }
+
+        if TextSnippetSupport.requiresPaste(text) {
+            let payload = TextSnippetSupport.pastePayload(text: text, trailingText: insert.trailingText)
+            return TransientPaste.shared.paste(
+                payload,
+                willPostShortcut: { postDeletes() },
+                didFail: {
+                    if let failure = insert.failure { postKey(failure) }
+                }
+            )
+        }
+
+        postDeletes()
+
+        // Typed injection instead of pasting: the clipboard stays untouched.
+        // Keystroke events carry at most ~20 UTF-16 units reliably.
+        let units = Array(text.utf16)
+        var index = 0
+        while index < units.count {
+            var end = min(index + 20, units.count)
+            // Never split a surrogate pair across chunks: two lone halves in
+            // separate events render as replacement characters in some apps.
+            if end < units.count, UTF16.isLeadSurrogate(units[end - 1]) {
+                end -= 1
+            }
+            let chunk = Array(units[index..<end])
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down) else { continue }
+                event.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+                post(event)
+            }
+            index = end
+        }
+
+        if let trailing = insert.trailing {
+            postKey(trailing)
+        }
+        return true
+    }
+}

@@ -332,6 +332,11 @@ def main():
         ("SystemAdministration.framework", ["Services/InputSwitchSystem.swift"]),
         ('"kern.bootsessionuuid"', ["Services/InputSwitchSystem.swift"]),
         ("OwnKeyEvent.inputSwitchMarker", ["Services/InputSwitchService.swift"]),
+        # Typing tools share one tap, and only it posts their output (docs/typo-switch.md 5.12).
+        ("CGEvent.tapCreate", ["Services/CleaningModeManager.swift", "Services/InputSwitchService.swift",
+                               "Services/QuitProtectionService.swift", "Services/TypingTap.swift"]),
+        ("OwnKeyEvent.textSnippetMarker", ["Services/TypingTap.swift"]),
+        ("TypingTap.shared.setSnippets", ["Services/TextSnippetService.swift"]),
         ("IOHIDSetModifierLockState", ["Services/InputSwitchCapsLock.swift"]),
         # Clipboard history: one owner of the file, the guard's only
         # constructor, one store (docs/clipboard-history.md, deletion guard).
@@ -426,6 +431,7 @@ def main():
         ("Core/ClipboardHistorySupport.swift", ["CoreGraphics", "Foundation"]),
         ("Core/ClipboardHistoryBlobs.swift", ["CryptoKit", "Foundation", "ImageIO"]),
         ("Core/ClipboardHistoryKinds.swift", ["Foundation"]),
+        ("Core/TypingSupport.swift", ["Foundation"]),
     ):
         found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
         if found != expected:
