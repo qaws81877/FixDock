@@ -25,6 +25,11 @@ Ask the owner first:
 Docs:
 
 - One design doc per tool in `docs/`, updated when the owner decides something.
+- A rule lives in one place in a design doc. Fold a later decision or an
+  architect synthesis into the section that owns the rule instead of adding
+  a chapter that "replaces earlier sections where they conflict", and say
+  that candidate sketches predate it. Put each worked example through the
+  rules line by line and keep that trace in the doc.
 - `docs/` is local (gitignored): design docs, handoffs and `docs/PROGRESS.md`
   (phase, commit, gate result, pending owner checks).
 
