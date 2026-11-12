@@ -136,7 +136,7 @@ private enum SettingsBackupFlow {
         // After the plain keys, so enableOnFirstInstall finds the imported
         // switches and leaves them as they were.
         let features = contents.availability.compactMap { id, on in AppFeature(rawValue: id).map { ($0, on) } }
-        FeatureRuntime.shared.setAvailable(features.filter { $0.1 }.map(\.0), true)
+        FeatureRuntime.shared.setAvailable(features.filter { $0.1 }.map(\.0), true, requestingPermissions: false)
         FeatureRuntime.shared.setAvailable(features.filter { !$0.1 }.map(\.0), false)
         CFPreferencesAppSynchronize(bundleID as CFString)
         appDelegate()?.relaunch()

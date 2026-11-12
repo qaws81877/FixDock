@@ -49,26 +49,34 @@ final class FeatureRuntime: ObservableObject {
     /// Installs or uninstalls. Off tears a loaded service down immediately.
     /// On remembers the choice and, once a binding exists, starts the service.
     /// Saved choices are the availability keys themselves; there is no second copy.
-    func setAvailable(_ features: [AppFeature], _ available: Bool) {
+    /// `requestingPermissions` is false when the app is about to relaunch
+    /// (a settings import): a prompt opened then would be left behind.
+    func setAvailable(_ features: [AppFeature], _ available: Bool, requestingPermissions: Bool = true) {
+        var installed: [AppFeature] = []
         var changed = false
         for feature in features where feature.isAvailable != available {
             UserDefaults.standard.set(available, forKey: feature.availabilityKey)
             if available {
                 feature.enableOnFirstInstall()
                 if feature.hasService { loadedThisSession.insert(feature) }
+                installed.append(feature)
             }
             Self.bindings[feature]?()
-            if available { requestMissingPermissions(for: feature) }
             changed = true
         }
+        if requestingPermissions { requestMissingPermission(for: installed) }
         if changed { revision += 1 }
     }
 
     /// Only on install, never at launch: a tool someone chose not to grant
     /// yet should not prompt on every start. Settings keeps the request.
-    private func requestMissingPermissions(for feature: AppFeature) {
+    /// One request for the whole call, the first grant missing in catalog
+    /// order: each request opens System Settings and the guide, and only one
+    /// pane can be on screen. Features › Permissions lists the rest.
+    private func requestMissingPermission(for features: [AppFeature]) {
+        guard !features.isEmpty else { return }
         Permissions.shared.refresh()
-        if let kind = feature.requiredPermissions.first(where: { !Permissions.shared.isGranted($0) }) {
+        if let kind = features.flatMap(\.requiredPermissions).first(where: { !Permissions.shared.isGranted($0) }) {
             Permissions.shared.request(kind)
         }
     }

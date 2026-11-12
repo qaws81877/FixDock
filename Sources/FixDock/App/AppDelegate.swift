@@ -202,6 +202,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         if case .feature(let page) = SettingsNavigator.shared.destination, page.feature == .mediaTools {
             MediaService.shared.setVisible(true, on: .settings)
         }
+        if SettingsNavigator.shared.destination == .shell(.features), SettingsNavigator.shared.featuresTab == .permissions {
+            Permissions.shared.setPageVisible(true)
+        }
     }
 
     func showOnboarding() {
@@ -239,6 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         // The window is kept and reused, so its pages never see onDisappear.
         if window === settingsWindow {
             MediaService.shared.setVisible(false, on: .settings)
+            Permissions.shared.setPageVisible(false)
         }
         if window === updateWindow {
             updateWindow = nil
