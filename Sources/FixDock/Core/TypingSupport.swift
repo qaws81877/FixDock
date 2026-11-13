@@ -22,6 +22,7 @@ struct KeyStroke: Hashable {
     private static let optionFlag: UInt64 = 1 << 19
     private static let commandFlag: UInt64 = 1 << 20
     private static let deleteKey: UInt16 = 0x33
+    private static let zKey: UInt16 = 0x06
     /// Left, Right, Down, Up, Escape, Home, End, Page Up, Page Down, forward delete.
     private static let caretKeys: Set<UInt16> = [0x7B, 0x7C, 0x7D, 0x7E, 0x35, 0x73, 0x77, 0x74, 0x79, 0x75]
 
@@ -30,6 +31,11 @@ struct KeyStroke: Hashable {
     var commandOrControl: Bool { rawFlags & (Self.commandFlag | Self.controlFlag) != 0 }
     var isDelete: Bool { keyCode == Self.deleteKey }
     var movesCaret: Bool { Self.caretKeys.contains(keyCode) }
+    /// ⌘Z with no other modifier.
+    var isCommandZ: Bool {
+        keyCode == Self.zKey
+            && rawFlags & (Self.commandFlag | Self.controlFlag | Self.optionFlag | Self.shiftFlag) == Self.commandFlag
+    }
 }
 
 /// Who posted a key. `.output` is the typing tap's own replacement text and
@@ -188,6 +194,9 @@ enum PlanStep: Equatable {
     case text(String)
     /// A key down and up.
     case key(KeyStroke)
+    /// Nothing until ⌘ is up: ⌘Z starts an undo with ⌘ still down. Only as
+    /// a plan's first step.
+    case waitForCommandUp
 }
 
 /// What a typing tool wants done to the text on screen. The tap's executor
@@ -212,20 +221,68 @@ struct TapResponse: Equatable {
 struct TypingState {
     /// The typing tools, in the order they are asked: snippets first.
     var snippets: SnippetConsumer?
-    var layoutFix: LayoutFixConsumer?
+    var layoutFix: LayoutFixConsumer? {
+        didSet {
+            // Off now: no undo of what it did. Snippets keep their typing.
+            if oldValue != nil, layoutFix == nil {
+                undo = nil
+                dropClaim()
+            }
+        }
+    }
     /// Bundle identifier of the app in front, for a tool's per-app switch.
     var frontApp: String?
     private(set) var chunk = TypingChunk()
+    /// The layout fix's last change while ⌘Z can take it back (5.7). Any
+    /// key or click ends it.
+    private(set) var undo: LayoutFixUndo?
+    /// Set with a layout-fix claim and taken up when its plan ends: the
+    /// change's record, or the word an undo puts back.
+    private var claimedChange: LayoutFixUndo?
+    private var claimedRevert: LearnedKey?
 
     /// An app change or a click: whatever was half-typed is no longer where
     /// the backspaces would land, and the next word starts fresh.
     mutating func reset() {
         chunk = TypingChunk(anchored: true)
+        undo = nil
     }
 
     /// The tap stopped looking: nothing typed from here on is known.
     mutating func interrupt() {
         chunk.forget()
+        undo = nil
+        dropClaim()
+    }
+
+    /// The plan of the last claim will not end.
+    mutating func dropClaim() {
+        claimedChange = nil
+        claimedRevert = nil
+    }
+
+    /// The last claim's plan ended. With output on screen a change becomes
+    /// undoable from `keyDowns` (the system's count once that output is
+    /// counted) and an undo is told to the layout fix's service.
+    mutating func planEnded(posted: Bool, now: TimeInterval, keyDowns: UInt64) -> [LayoutFixNotice] {
+        defer { dropClaim() }
+        guard posted, let layoutFix else { return [] }
+        if var change = claimedChange {
+            change.expires = now + layoutFix.config.rules.thresholds.undoWindowSeconds
+            change.keyDownMark = keyDowns
+            undo = change
+        }
+        return claimedRevert.map { [.reverted($0)] } ?? []
+    }
+
+    /// ⌘Z takes the last change back only while nothing happened since it
+    /// (any key or click ends the record), in the same app, in time, and
+    /// when no key went where the tap could not see it.
+    private func takesBack(_ raw: RawKey, now: TimeInterval, keyDowns: UInt64) -> LayoutFixUndo? {
+        guard raw.kind == .keyDown, raw.origin == .physical, raw.stroke.isCommandZ, !raw.isRepeat,
+              layoutFix != nil, let undo, undo.app == frontApp, now < undo.expires, keyDowns == undo.keyDownMark
+        else { return nil }
+        return undo
     }
 
     /// The input source changed or may have: the input method settles its
@@ -235,8 +292,17 @@ struct TypingState {
         chunk.unanchor()
     }
 
-    mutating func receive(_ raw: RawKey, secureInput: Bool) -> TapResponse {
+    /// `now` and `keyDowns` (the system's key-down count before this key)
+    /// matter only to ⌘Z after a change.
+    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval = 0, keyDowns: UInt64 = 0) -> TapResponse {
         guard let event = TypingEvent(raw, secureInput: secureInput) else { return TapResponse() }
+        if let record = secureInput ? nil : takesBack(raw, now: now, keyDowns: keyDowns) {
+            // The screen ends with the delimiter again: the next word starts there.
+            reset()
+            claimedRevert = record.learned
+            return TapResponse(plan: LayoutFixPlanner.undo(record))
+        }
+        undo = nil
         switch event {
         case .pointer:
             reset()
@@ -257,7 +323,7 @@ struct TypingState {
             // or not, keeps the layout fix away from the word (rule N11).
             var verdict = snippets?.consider(event, chunk: chunk) ?? .pass
             if verdict == .pass, let layoutFix {
-                verdict = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
+                (verdict, claimedChange) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
             }
             reset()
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
@@ -316,6 +382,8 @@ struct GateResponse: Equatable {
     var commands: [GateCommand] = []
     /// A plan for the executor; the current or a kept event is its key.
     var start: ClaimedPlan?
+    /// For the layout fix's service, on the main thread.
+    var notices: [LayoutFixNotice] = []
 }
 
 /// Keeps what the person types in order around a replacement.
@@ -382,10 +450,13 @@ struct TypingGate {
 
     // MARK: Tap thread
 
-    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval) -> GateResponse {
+    /// `keyDowns`: the system's key-down count before this event.
+    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0) -> GateResponse {
         if raw.kind == .mouseDown {
             // A click moves the caret: the held keys were typed before it.
             let response = GateResponse(commands: letGo())
+            // A plan that goes on after the click is not undone: the caret moved.
+            state.dropClaim()
             _ = state.receive(raw, secureInput: secureInput)
             return response
         }
@@ -410,7 +481,7 @@ struct TypingGate {
             state.sourceChanged()
             return response
         }
-        guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now) }
+        guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now, keyDowns: keyDowns) }
         if Self.functionKeys.contains(raw.stroke.keyCode) {
             // Never held, and it may be the key that switches the source.
             return GateResponse(commands: sourceMayChange())
@@ -445,6 +516,7 @@ struct TypingGate {
         } else {
             commands.append(.sendOn(current.swallowed))
             hold = nil
+            state.dropClaim()
         }
         return commands + current.held.map { .sendOn($0.ticket) }
     }
@@ -467,8 +539,9 @@ struct TypingGate {
     }
 
     /// The executor's kick arrived: post what it submitted and, after the
-    /// last output, let the held keys go.
-    mutating func kick(secureInput: Bool, now: TimeInterval) -> GateResponse {
+    /// last output, let the held keys go. `keyDowns`: the system's key-down
+    /// count before this output.
+    mutating func kick(secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0) -> GateResponse {
         var response = GateResponse(pass: false)
         guard var current = hold, let batch = current.pending else { return response }
         current.pending = nil
@@ -479,6 +552,10 @@ struct TypingGate {
             return response
         }
         hold = nil
+        // Each output event but a key up is one key down to the counter.
+        let posted = batch.events.filter { if case .keyUp = $0 { return false } else { return true } }.count
+        response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now,
+                                           keyDowns: keyDowns + UInt64(posted))
         response.commands.append(batch.abandoned ? .sendOn(current.swallowed) : .discard(current.swallowed))
         var rest = current.held[...]
         while let next = rest.popFirst() {
@@ -540,9 +617,11 @@ struct TypingGate {
 
     /// One key through the typing tools. A claim starts a hold; `ticket` is
     /// the key's own when the tap already keeps it.
-    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval,
+    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0,
                                 after commands: [GateCommand] = []) -> GateResponse {
-        guard let plan = state.receive(raw, secureInput: secureInput).plan else { return GateResponse(commands: commands) }
+        guard let plan = state.receive(raw, secureInput: secureInput, now: now, keyDowns: keyDowns).plan else {
+            return GateResponse(commands: commands)
+        }
         let swallowed = ticket ?? takeTicket()
         nextPlan += 1
         let id = PlanID(raw: nextPlan)

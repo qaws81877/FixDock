@@ -152,7 +152,7 @@ extension AppFeature {
                     \.clipboardHistoryRecordsMedia, \.clipboardHistoryImageBudgetTitle,
                     \.clipboardHistoryExcludedTitle]
         case .layoutFix:
-            return [\.layoutFixEnable, \.layoutFixExcludedTitle]
+            return [\.layoutFixEnable, \.layoutFixExcludedTitle, \.layoutFixLearnedTitle]
         }
     }
 }

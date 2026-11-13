@@ -18,6 +18,12 @@ final class LayoutFixService: ObservableObject {
     @Published private(set) var mode = LayoutFixMode.off
     /// Apps the person turned the tool off for, by bundle identifier.
     @Published private(set) var ignoredApps: [String] = []
+    /// Words undone often enough to be left as typed (5.8), in the order
+    /// they were learned.
+    @Published private(set) var learnedWords: [LearnedKey] = []
+
+    private let learnedStore = LayoutFixLearnedStore(
+        fileURL: PrivateFileStore.containerURL?.appendingPathComponent(LayoutFixLearnedStore.fileName))
 
     private var lists: (latin: Lexicon, hangul: Lexicon)?
     private var listsState = LayoutFixListsState.notLoaded
@@ -26,6 +32,13 @@ final class LayoutFixService: ObservableObject {
     private var otherFixerWatch: AnyCancellable?
 
     private init() {
+        TypingTap.shared.layoutFixNotices = { [weak self] notices in
+            guard let self else { return }
+            for case .reverted(let key) in notices {
+                self.learnedStore.mutate { $0.countRevert(key, now: Date()) }
+            }
+            self.syncWithPreferences()
+        }
         // The other fixer starting or quitting. The launch and terminate
         // notices skip menu bar (LSUIElement) apps, so the running list
         // itself is watched (owner list A, 2026-11-13).
@@ -79,10 +92,18 @@ final class LayoutFixService: ObservableObject {
         let newMode = LayoutFixPolicy.mode(facts)
         if newMode != mode { mode = newMode }
 
+        var learned: [LearnedKey] = []
+        if case .ready(let records) = learnedStore.state {
+            let threshold = LayoutFixThresholds().learnAfterReverts
+            learned = records.entries.filter { $0.reverts >= threshold }.sorted { $0.updatedAt < $1.updatedAt }
+                .map { LearnedKey(keys: $0.keys, source: $0.source) }
+        }
+        if learned != learnedWords { learnedWords = learned }
+
         if newMode == .active, let lists {
-            TypingTap.shared.setLayoutFix(LayoutFixConsumer.Config(
-                rules: LayoutFixRules(latin: lists.latin, hangul: lists.hangul),
-                ignoredApps: Set(stored)))
+            var rules = LayoutFixRules(latin: lists.latin, hangul: lists.hangul)
+            rules.learned = Set(learned)
+            TypingTap.shared.setLayoutFix(LayoutFixConsumer.Config(rules: rules, ignoredApps: Set(stored)))
         } else {
             TypingTap.shared.setLayoutFix(nil)
         }
@@ -96,6 +117,19 @@ final class LayoutFixService: ObservableObject {
 
     func stopIgnoring(_ bundleID: String) {
         UserDefaults.standard.set(ignoredApps.filter { $0 != bundleID }, forKey: DefaultsKey.layoutFixIgnoredApps)
+        syncWithPreferences()
+    }
+
+    /// The word is fixed again, and has to be undone as often again to be
+    /// learned. Does nothing while the store is unavailable.
+    func forget(_ key: LearnedKey) {
+        learnedStore.mutate { $0.forget(key) }
+        syncWithPreferences()
+    }
+
+    /// Every count, learned or not. Does nothing while the store is unavailable.
+    func forgetAll() {
+        learnedStore.mutate { $0.forgetAll() }
         syncWithPreferences()
     }
 

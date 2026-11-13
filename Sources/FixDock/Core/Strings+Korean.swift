@@ -923,6 +923,10 @@ extension Strings {
         layoutFixExcludedAdd: "앱 추가",
         layoutFixExcludedRemove: "제거",
         layoutFixExcludedCaption: "이 앱들이 맨 앞에 있는 동안에는 교정하지 않습니다.",
+        layoutFixLearnedTitle: "학습한 낱말",
+        layoutFixLearnedNone: "아직 학습한 낱말이 없습니다.",
+        layoutFixLearnedCaption: "바뀐 직후 ⌘Z를 누르면 친 그대로 되돌립니다. 세 번 되돌린 낱말은 그 뒤로 친 그대로 둡니다. 여기서 지우면 다시 교정합니다.",
+        layoutFixLearnedRemoveAll: "모두 지우기",
         versionFormat: "버전 %@"
     )
 }

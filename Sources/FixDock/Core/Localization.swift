@@ -1017,6 +1017,10 @@ struct Strings {
     let layoutFixExcludedAdd: String
     let layoutFixExcludedRemove: String
     let layoutFixExcludedCaption: String
+    let layoutFixLearnedTitle: String
+    let layoutFixLearnedNone: String
+    let layoutFixLearnedCaption: String
+    let layoutFixLearnedRemoveAll: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1942,6 +1946,10 @@ struct Strings {
         layoutFixExcludedAdd: "Add app",
         layoutFixExcludedRemove: "Remove",
         layoutFixExcludedCaption: "Nothing is fixed while one of these apps is in front.",
+        layoutFixLearnedTitle: "Learned words",
+        layoutFixLearnedNone: "No word learned yet.",
+        layoutFixLearnedCaption: "Press ⌘Z right after a change to put the word back as you typed it. A word put back three times is left as typed from then on. Removing it here lets FixDock fix it again.",
+        layoutFixLearnedRemoveAll: "Remove All",
         versionFormat: "Version %@"
     )
 }

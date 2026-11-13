@@ -128,6 +128,32 @@ struct LearnedKey: Hashable, Codable {
     let source: TypedSource
 }
 
+/// A change that ⌘Z can still take back (5.7). It is made with the claim and
+/// becomes live once the change is on screen.
+struct LayoutFixUndo: Equatable {
+    /// The app in front when the word was changed.
+    let app: String?
+    /// Characters the change typed: the other reading, the punctuation behind
+    /// it and the delimiter.
+    let shownCount: Int
+    /// The word and the punctuation behind it as the field showed them before.
+    let original: String
+    let delimiter: KeyStroke
+    let learned: LearnedKey
+    /// When ⌘Z stops taking it back.
+    var expires: TimeInterval = 0
+    /// The system's key-down count once the change was out. A different
+    /// count at ⌘Z means keys went somewhere the tap did not see (a password
+    /// field), so the backspaces would not land on the word.
+    var keyDownMark: UInt64 = 0
+}
+
+/// What the layout fix tells its service after a plan, on the main thread.
+enum LayoutFixNotice: Equatable {
+    /// A change was taken back with ⌘Z.
+    case reverted(LearnedKey)
+}
+
 /// The word being judged: the chunk without the punctuation around it, which
 /// is kept as typed and sent again around a changed word.
 struct LayoutToken: Equatable {
@@ -293,6 +319,11 @@ struct LayoutFixRules {
 
     // MARK: Decisions
 
+    /// The token exactly as typed, the key the learned set is kept by.
+    func learnedKey(of token: LayoutToken) -> LearnedKey? {
+        readings(of: token).readings?.learnedKey
+    }
+
     /// Rules N1–N12 and C1–C4, at a whitespace key after `token`.
     func decideAtWordEnd(_ token: LayoutToken, anchored: Bool, earlier: EarlierClaim) -> LayoutFixDecision {
         guard anchored else { return .keep(.n1) }
@@ -392,6 +423,16 @@ enum LayoutFixPlanner {
                                        .text(text + token.trailing.map(\.typed).joined()),
                                        .key(delimiter.stroke)])
     }
+
+    /// ⌘Z after a change: once ⌘ is up, what the change typed is erased and
+    /// the word goes back as the field showed it, then the delimiter. The
+    /// text is injected, so an open syllable it had comes back closed.
+    static func undo(_ record: LayoutFixUndo) -> ReplacementPlan {
+        ReplacementPlan(steps: [.waitForCommandUp,
+                                .backspaces(record.shownCount, completionCheck: nil),
+                                .text(record.original),
+                                .key(record.delimiter)])
+    }
 }
 
 /// The layout fix as a tool of the shared typing tap: at a whitespace key it
@@ -405,14 +446,25 @@ struct LayoutFixConsumer {
 
     var config: Config
 
-    /// `chunk` is the finished word. `earlier` is rule N11's signal.
-    func consider(_ event: TypingEvent, chunk: TypingChunk, earlier: EarlierClaim, frontApp: String?) -> Verdict {
-        guard case .boundary(let delimiter) = event else { return .pass }
-        if let frontApp, config.ignoredApps.contains(frontApp) { return .pass }
+    /// `chunk` is the finished word. `earlier` is rule N11's signal. A claim
+    /// ended by Space comes with the record ⌘Z would take it back by.
+    func consider(_ event: TypingEvent, chunk: TypingChunk, earlier: EarlierClaim,
+                  frontApp: String?) -> (verdict: Verdict, undo: LayoutFixUndo?) {
+        guard case .boundary(let delimiter) = event else { return (.pass, nil) }
+        if let frontApp, config.ignoredApps.contains(frontApp) { return (.pass, nil) }
         let token = LayoutToken(chunk.keys)
         guard case .change(let target, let text) = config.rules.decideAtWordEnd(token, anchored: chunk.anchored, earlier: earlier)
-        else { return .pass }
-        return .claim(LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter))
+        else { return (.pass, nil) }
+        let plan = LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter)
+        // Only after Space: a Tab may have moved to another field and a
+        // Return may have sent a message or run a command, so what is in
+        // front of the caret then is not the changed word.
+        guard delimiter.typed == " ", let learned = config.rules.learnedKey(of: token) else { return (.claim(plan), nil) }
+        let trailing = token.trailing.map(\.typed).joined()
+        let original = learned.source == .latin ? learned.keys : HangulTwoSet.hangul(fromKeySpace: learned.keys)
+        let undo = LayoutFixUndo(app: frontApp, shownCount: (text + trailing).count + 1, original: original + trailing,
+                                 delimiter: delimiter.stroke, learned: learned)
+        return (.claim(plan), undo)
     }
 }
 

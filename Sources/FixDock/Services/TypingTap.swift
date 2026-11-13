@@ -90,6 +90,15 @@ final class TypingTap {
         report()
     }
 
+    /// Main thread: what the layout fix's plans tell its service.
+    var layoutFixNotices: (([LayoutFixNotice]) -> Void)?
+
+    /// Every key down that reached the session so far, keys typed under
+    /// secure input included; keys a tap swallowed are not counted (P9).
+    private static var keyDownCount: UInt64 {
+        UInt64(CGEventSource.counterForEventType(.combinedSessionState, eventType: .keyDown))
+    }
+
     /// nil when the layout fix is off or resting.
     func setLayoutFix(_ config: LayoutFixConsumer.Config?) {
         stateLock.withLock { gate.layoutFix = config.map { LayoutFixConsumer(config: $0) } }
@@ -337,19 +346,22 @@ final class TypingTap {
                 return Unmanaged.passUnretained(event)
             }
             let secureInput = IsSecureEventInputEnabled()
-            let (start, failed, posted) = stateLock.withLock { () -> (ClaimedPlan?, [(Bool) -> Void], [(Bool) -> Void]) in
+            let keyDowns = Self.keyDownCount
+            let (start, failed, posted, notices) = stateLock.withLock {
+                () -> (ClaimedPlan?, [(Bool) -> Void], [(Bool) -> Void], [LayoutFixNotice]) in
                 // A kick that outlived its hold posts nothing.
                 let failed = waitersOfLostPlans()
-                let response = gate.kick(secureInput: secureInput, now: now)
+                let response = gate.kick(secureInput: secureInput, now: now, keyDowns: keyDowns)
                 perform(response.commands, proxy: proxy)
                 let posted = kickWaiters.map(\.done)
                 kickWaiters = []
-                return (response.start, failed, posted)
+                return (response.start, failed, posted, response.notices)
             }
-            if !failed.isEmpty || !posted.isEmpty {
-                DispatchQueue.main.async {
+            if !failed.isEmpty || !posted.isEmpty || !notices.isEmpty {
+                DispatchQueue.main.async { [weak self] in
                     failed.forEach { $0(false) }
                     posted.forEach { $0(true) }
+                    if !notices.isEmpty { self?.layoutFixNotices?(notices) }
                 }
             }
             if let start { self.start(start) }
@@ -378,8 +390,9 @@ final class TypingTap {
         default:
             return Unmanaged.passUnretained(event)
         }
+        let keyDowns = Self.keyDownCount
         let (response, failed) = stateLock.withLock { () -> (GateResponse, [(Bool) -> Void]) in
-            let response = gate.receive(raw, secureInput: secureInput, now: now)
+            let response = gate.receive(raw, secureInput: secureInput, now: now, keyDowns: keyDowns)
             if let ticket = response.keep, kept[ticket] == nil { kept[ticket] = event.copy() }
             perform(response.commands, proxy: proxy)
             return (response, waitersOfLostPlans())
@@ -479,41 +492,17 @@ final class TypingTap {
         let id = claimed.id
         guard stateLock.withLock({ gate.begin(id) }) else { return }
         guard case .snippet(let insert)? = claimed.plan.steps.first else {
-            // A plan of plain steps (the layout fix). It needs the field in
-            // front to be another app's: with a FixDock window key, the
-            // backspaces would not land where the word is.
-            guard !Self.ownWindowIsKey else {
-                submit(id, [], last: true, abandoned: true)
+            guard claimed.plan.steps.first == .waitForCommandUp else {
+                runPlain(id, claimed.plan.steps)
                 return
             }
-            var events: [OutputEvent] = []
-            for step in claimed.plan.steps {
-                switch step {
-                case .backspaces(let count, let completionCheck):
-                    events += Self.deletes(count, typed: completionCheck ?? "")
-                case .text(let text):
-                    events += Self.typed(text)
-                case .key(let stroke):
-                    events.append(.key(stroke))
-                case .snippet:
-                    break
+            afterCommandUp { [weak self] up in
+                // ⌘ held past the wait: the undo is dropped, its ⌘Z too.
+                guard up else {
+                    self?.submit(id, [], last: true)
+                    return
                 }
-            }
-            // Safari's fields with the Korean input method drop text that
-            // comes right behind the backspaces taking down an open
-            // syllable (owner list A, 2026-11-13: the word went, the
-            // English never came). The text follows 40 ms later, as the
-            // paste's key up does; keys typed meanwhile stay held.
-            guard let split = events.firstIndex(where: { if case .text = $0 { return true } else { return false } }),
-                  split > 0 else {
-                submit(id, events, last: true)
-                return
-            }
-            submit(id, Array(events[..<split]), last: false) { [weak self] posted in
-                guard posted else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
-                    self?.submit(id, Array(events[split...]), last: true)
-                }
+                self?.runPlain(id, Array(claimed.plan.steps.dropFirst()))
             }
             return
         }
@@ -565,6 +554,56 @@ final class TypingTap {
         var events = Self.deletes(insert.deleteCount, typed: insert.typedTrigger) + Self.typed(text)
         if let trailing = insert.trailing { events.append(.key(trailing)) }
         submit(id, events, last: true)
+    }
+
+    /// Main thread. A plan of plain steps (the layout fix). It needs the
+    /// field in front to be another app's: with a FixDock window key, the
+    /// backspaces would not land where the word is.
+    private func runPlain(_ id: PlanID, _ steps: [PlanStep]) {
+        guard !Self.ownWindowIsKey else {
+            submit(id, [], last: true, abandoned: true)
+            return
+        }
+        var events: [OutputEvent] = []
+        for step in steps {
+            switch step {
+            case .backspaces(let count, let completionCheck):
+                events += Self.deletes(count, typed: completionCheck ?? "")
+            case .text(let text):
+                events += Self.typed(text)
+            case .key(let stroke):
+                events.append(.key(stroke))
+            case .snippet, .waitForCommandUp:
+                break
+            }
+        }
+        // Safari's fields with the Korean input method drop text that
+        // comes right behind the backspaces taking down an open
+        // syllable (owner list A, 2026-11-13: the word went, the
+        // English never came). The text follows 40 ms later, as the
+        // paste's key up does; keys typed meanwhile stay held.
+        guard let split = events.firstIndex(where: { if case .text = $0 { return true } else { return false } }),
+              split > 0 else {
+            submit(id, events, last: true)
+            return
+        }
+        submit(id, Array(events[..<split]), last: false) { [weak self] posted in
+            guard posted else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                self?.submit(id, Array(events[split...]), last: true)
+            }
+        }
+    }
+
+    /// Main thread. `then(true)` once ⌘ is up, checked every 15 ms as the
+    /// paste waits for modifiers; `then(false)` if it is still down after
+    /// 1.5 s, well inside the hold's limit.
+    private func afterCommandUp(tries: Int = 100, _ then: @escaping (Bool) -> Void) {
+        guard CGEventSource.flagsState(.combinedSessionState).contains(.maskCommand) else { return then(true) }
+        guard tries > 0 else { return then(false) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { [weak self] in
+            self?.afterCommandUp(tries: tries - 1, then)
+        }
     }
 
     /// `text` as Unicode-string events. Keystroke events carry at most ~20

@@ -7,7 +7,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Settings page for the Korean/English layout fix: the switch, why the tool
-/// is resting when it is, and the apps it is turned off for.
+/// is resting when it is, the apps it is turned off for, and the words it
+/// learned to leave alone.
 struct LayoutFixSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
@@ -71,6 +72,35 @@ struct LayoutFixSettings: View {
                     Label(s.layoutFixExcludedAdd, systemImage: "plus")
                 }
                 Text(s.layoutFixExcludedCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section(s.layoutFixLearnedTitle) {
+                if service.learnedWords.isEmpty {
+                    Text(s.layoutFixLearnedNone)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(service.learnedWords, id: \.self) { key in
+                    HStack(spacing: 8) {
+                        // As the field showed it when it was typed.
+                        Text(key.source == .latin ? key.keys : HangulTwoSet.hangul(fromKeySpace: key.keys))
+                        Spacer()
+                        Button {
+                            service.forget(key)
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(s.layoutFixExcludedRemove)
+                    }
+                }
+                if !service.learnedWords.isEmpty {
+                    Button(s.layoutFixLearnedRemoveAll) { service.forgetAll() }
+                }
+                Text(s.layoutFixLearnedCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
