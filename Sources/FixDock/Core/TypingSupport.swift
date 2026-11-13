@@ -68,6 +68,7 @@ enum TypingEvent: Equatable {
     case text(TypedKey)        // a key that puts a character in the field
     case boundary(TypedKey)    // space, Tab, Return
     case delete                // backspace
+    case deleteMore            // backspace with Option: it takes a whole word
     case caretMove             // arrows, Home, End, Page keys, Escape, forward delete
     case chord                 // ⌘ or ⌃ held: a command, not text
     case nonText               // a key that carries no character
@@ -90,7 +91,7 @@ enum TypingEvent: Equatable {
         } else if raw.stroke.commandOrControl {
             self = .chord
         } else if raw.stroke.isDelete {
-            self = .delete
+            self = raw.stroke.option ? .deleteMore : .delete
         } else if raw.stroke.movesCaret {
             self = .caretMove
         } else if let first = raw.characters.first {
@@ -155,7 +156,9 @@ struct TypingChunk: Equatable {
         self = TypingChunk()
     }
 
-    private mutating func unanchor() {
+    /// The field no longer shows what `keys` says: the word is not judged.
+    /// The snippet strings stay as they are.
+    mutating func unanchor() {
         keys = []
         anchored = false
     }
@@ -225,6 +228,13 @@ struct TypingState {
         chunk.forget()
     }
 
+    /// The input source changed or may have: the input method settles its
+    /// open syllable, so a count of keys no longer says what a backspace
+    /// takes, and the rest of the word arrives in another layout.
+    mutating func sourceChanged() {
+        chunk.unanchor()
+    }
+
     mutating func receive(_ raw: RawKey, secureInput: Bool) -> TapResponse {
         guard let event = TypingEvent(raw, secureInput: secureInput) else { return TapResponse() }
         switch event {
@@ -234,8 +244,13 @@ struct TypingState {
             chunk.forget()
         case .delete:
             chunk.removeLast()
+        case .deleteMore:
+            // More than one character went; how many is not known.
+            chunk.removeLast()
+            chunk.unanchor()
         case .nonText:
-            break
+            // A dead key shows a mark and types nothing yet.
+            if raw.stroke.option { chunk.unanchor() }
         case .boundary:
             // The chunk a tool sees at a boundary is the finished word. One
             // tool acts on it: a snippet trigger that completed here, expanded
@@ -388,6 +403,13 @@ struct TypingGate {
         case .physical:
             break
         }
+        if Self.functionKeys.contains(raw.stroke.keyCode), hold == nil {
+            // It may be the key that switches the source. Judged as before
+            // for snippets; the layout fix lets go of the word.
+            let response = judge(raw, ticket: nil, secureInput: secureInput, now: now)
+            state.sourceChanged()
+            return response
+        }
         guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now) }
         if Self.functionKeys.contains(raw.stroke.keyCode) {
             // Never held, and it may be the key that switches the source.
@@ -428,11 +450,20 @@ struct TypingGate {
     }
 
     /// The input source may be about to change (the fast switch's key or
-    /// pulse, Caps Lock). No effect outside a hold.
+    /// pulse, Caps Lock, the Globe key) or has changed (the system's
+    /// notice). The word being typed is no longer judged; held keys go
+    /// ahead of the change.
     mutating func sourceMayChange() -> [GateCommand] {
+        state.sourceChanged()
         guard hold != nil else { return [] }
         state.interrupt()
         return letGo()
+    }
+
+    /// macOS says the input source has changed: the word being typed is no
+    /// longer judged. A hold is left alone; its keys were typed before.
+    mutating func sourceDidChange() {
+        state.sourceChanged()
     }
 
     /// The executor's kick arrived: post what it submitted and, after the

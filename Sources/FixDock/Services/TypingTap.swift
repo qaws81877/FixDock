@@ -187,6 +187,7 @@ final class TypingTap {
                 | (1 << CGEventType.flagsChanged.rawValue)
                 | (1 << CGEventType.leftMouseDown.rawValue)
                 | (1 << CGEventType.rightMouseDown.rawValue)
+                | (1 << CGEventType.otherMouseDown.rawValue)
             guard let tap = CGEvent.tapCreate(
                 tap: .cgSessionEventTap,
                 place: .headInsertEventTap,
@@ -283,6 +284,13 @@ final class TypingTap {
         }
     }
 
+    /// Main thread: macOS says the input source changed. The keys that
+    /// usually do it are caught as they arrive; this covers every other way
+    /// (the menu, a shortcut the tap passes, another tool).
+    func inputSourceChanged() {
+        stateLock.withLock { gate.sourceDidChange() }
+    }
+
     private func appChanged(to bundleID: String?) {
         stateLock.withLock {
             gate.frontApp = bundleID
@@ -317,8 +325,9 @@ final class TypingTap {
             // The executor's kick: its output is ready. Swallowed; a real
             // modifier change passes.
             guard userData == Self.relayMarker else {
-                // Caps Lock can be the key that switches the input source.
-                if event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_CapsLock) {
+                // Caps Lock and the Globe key can switch the input source.
+                let modifier = event.getIntegerValueField(.keyboardEventKeycode)
+                if modifier == Int64(kVK_CapsLock) || modifier == Int64(kVK_Function) {
                     let failed = stateLock.withLock { () -> [(Bool) -> Void] in
                         perform(gate.sourceMayChange(), proxy: proxy)
                         return waitersOfLostPlans()
@@ -349,7 +358,7 @@ final class TypingTap {
         let raw: RawKey
         var secureInput = false
         switch type {
-        case .leftMouseDown, .rightMouseDown:
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             raw = RawKey(kind: .mouseDown, origin: .physical,
                          stroke: KeyStroke(keyCode: 0, rawFlags: 0), isRepeat: false, characters: "")
         case .keyDown:
@@ -602,7 +611,9 @@ final class TypingTap {
     /// selection that looks like a completion, shares one short time limit.
     private static func deletes(_ deleteCount: Int, typed: String) -> [OutputEvent] {
         guard deleteCount > 0 else { return [] }
-        let app = ownWindowIsKey ? nil : NSWorkspace.shared.frontmostApplication
+        // Without the text as typed there is nothing to check a selection
+        // against, so the field is not asked.
+        let app = ownWindowIsKey || typed.isEmpty ? nil : NSWorkspace.shared.frontmostApplication
         let selection = app.flatMap {
             SelectedTextReader.focusedTextSelection(processID: $0.processIdentifier, timeout: 0.15)
         }

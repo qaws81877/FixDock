@@ -691,7 +691,7 @@ struct SnippetConsumer {
                 trailing: nil,
                 trailingText: "",
                 failure: key.stroke))]))
-        case .delete, .caretMove, .chord, .nonText, .pointer, .reset:
+        case .delete, .deleteMore, .caretMove, .chord, .nonText, .pointer, .reset:
             return .pass
         }
     }

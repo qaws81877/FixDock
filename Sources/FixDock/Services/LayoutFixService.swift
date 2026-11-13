@@ -37,7 +37,10 @@ final class LayoutFixService: ObservableObject {
         let distributed = DistributedNotificationCenter.default()
         let token = distributed.addObserver(
             forName: InputSwitchCapsLock.sourceChangedNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.syncWithPreferences() }
+        ) { [weak self] _ in
+            TypingTap.shared.inputSourceChanged()
+            self?.syncWithPreferences()
+        }
         observers.append((distributed, token))
         permissionWatch = Permissions.shared.$accessibility
             .removeDuplicates()

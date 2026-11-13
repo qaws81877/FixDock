@@ -13,6 +13,10 @@ import Foundation
 /// First guesses, to be set from the sentence replay and then from use.
 struct LayoutFixThresholds: Equatable {
     var minKeys = 2
+    /// The same for a word typed in the Latin source, where two keys are a
+    /// command or an abbreviation as easily as a Korean word (rm is 그, cp
+    /// is 체). Jamo-only chat words (zz for ㅋㅋ) are exempt.
+    var minKeysFromLatin = 3
     var shortTokenKeys = 3
     var rareRank = 30_000
     var commonRank = 5_000
@@ -185,6 +189,24 @@ struct LayoutFixRules {
          "까지", "부터", "처럼", "보다", "이나", "나", "랑", "이랑", "요", "이요", "야", "이야"].map {
             ($0, Array((HangulTwoSet.keySpace(ofHangul: $0) ?? "").utf8))
         }
+    /// Commands, abbreviations and names a person at a Mac types as they
+    /// are, which a list of subtitle words lacks: without them `sudo` would
+    /// read as two whole Hangul syllables and be changed.
+    private static let technicalWords: Set<String> = [
+        "sudo", "grep", "chmod", "chown", "mkdir", "rmdir", "curl", "wget", "ssh", "scp", "rsync", "git", "npm", "npx",
+        "pnpm", "yarn", "brew", "pip", "cmd", "ctrl", "cmake", "clang", "swiftc", "xcrun", "zsh", "bash", "vim", "nvim",
+        "tmux", "kubectl", "docker", "json", "yaml", "yml", "xml", "html", "css", "svg", "png", "jpg", "jpeg", "gif",
+        "pdf", "csv", "tsv", "sql", "src", "tmp", "usr", "env", "dns", "tls", "ssl", "tcp", "udp", "http", "https",
+        "url", "uri", "api", "sdk", "cli", "gui", "ide", "cpu", "gpu", "ssd", "hdd", "usb", "hdmi", "wifi", "vpn",
+        "ios", "macos", "xcode", "github", "gitlab", "figma", "async", "await", "struct", "enum", "func", "const",
+        "printf", "println", "stdin", "stdout", "stderr", "nil", "null", "bool", "int", "str", "len", "args", "argv",
+        "kwargs", "regex", "repo", "config", "localhost", "admin", "login", "logout", "signup", "username", "cursor",
+        "covid", "cyan", "macbook", "iphone", "ipad", "airpods", "trackpad", "passcode", "spreadsheet", "aftermarket",
+        "todo", "fixme", "readme", "changelog", "dockerfile", "makefile", "plist", "dylib", "uuid", "utf", "ascii",
+        "ipv", "smtp", "imap", "oauth", "jwt", "cors", "cron", "sqlite", "redis", "nginx", "linux", "ubuntu", "debian",
+        "homebrew", "chrome", "safari", "firefox", "kakaotalk", "naver", "google", "youtube", "netflix", "wifi",
+    ]
+    private static let technicalWordRank = 20_000
     private static let neverInside: Set<Character> = ["@", ":", "/", "\\", "_", "~", "#", "=", "&", "%", ".", "-"]
     /// Capitals after which a late Shift is forgiven: the double consonants.
     private static let doubleConsonantKeys: Set<Character> = ["Q", "W", "E", "R", "T"]
@@ -276,12 +298,25 @@ struct LayoutFixRules {
         guard anchored else { return .keep(.n1) }
         let (found, reason) = readings(of: token)
         guard let readings = found else { return .keep(reason ?? .n8) }
-        if token.keys.count < thresholds.minKeys { return .keep(.n10) }
+        let korean = hangulReading(readings.korean)
+        var minKeys = thresholds.minKeys
+        if readings.typedIn == .latin, !korean.text.allSatisfy(HangulTwoSet.isJamo) {
+            minKeys = max(minKeys, thresholds.minKeysFromLatin)
+        }
+        if token.keys.count < minKeys { return .keep(.n10) }
         if earlier != .none { return .keep(.n11) }
         if learned.contains(readings.learnedKey) { return .keep(.n9) }
 
         let english = latin.rank(of: readings.english)
-        let korean = hangulReading(readings.korean)
+            ?? (Self.technicalWords.contains(String(decoding: readings.english, as: UTF8.self)) ? Self.technicalWordRank : nil)
+        // C6: typed in the Korean source, no list word, but nothing except
+        // whole syllables. That may be a Korean word the list lacks (애교,
+        // whose keys spell dory) or a short English word that happens to
+        // compose (the is 솓). Only a common English word wins.
+        if readings.typedIn == .hangul2, korean.rank == nil, Self.isHangulSyllables(korean.text) {
+            guard let rank = english else { return .keep(.typedIsAWord) }
+            return rank < thresholds.commonRank ? .change(to: .latin, text: readings.englishText) : .keep(.n7)
+        }
         let typed = readings.typedIn == .latin ? english : korean.rank
         let other = readings.typedIn == .latin ? korean.rank : english
         // C5: typed in the Latin source, not an English word, and the keys

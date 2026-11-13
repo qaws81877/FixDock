@@ -61,7 +61,9 @@ Modifications in this tree, relative to that upstream commit:
 The Korean/English auto-fix (layoutFix) was written for FixDock on FixDock's
 own code. Catchtype (catchtype.com, Hebbian AI) was a behaviour reference:
 its public web pages and what the app does in ordinary use. FixDock contains
-no Catchtype code, data file, word list, name, logo or wording.
+no Catchtype code, data file, word list, logo or wording. It knows that
+app's bundle identifier, from its public Homebrew cask, only to rest while
+that app is running.
 
 Third-party bundled assets and fonts:
 
