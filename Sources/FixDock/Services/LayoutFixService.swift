@@ -23,17 +23,19 @@ final class LayoutFixService: ObservableObject {
     private var listsState = LayoutFixListsState.notLoaded
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var permissionWatch: AnyCancellable?
+    private var otherFixerWatch: AnyCancellable?
 
     private init() {
-        // The other fixer starting or quitting, and a change of input source.
-        let workspace = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
-            let token = workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
-                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                if app?.bundleIdentifier == LayoutFixPolicy.otherFixerBundleID { self?.syncWithPreferences() }
-            }
-            observers.append((workspace, token))
-        }
+        // The other fixer starting or quitting. The launch and terminate
+        // notices skip menu bar (LSUIElement) apps, so the running list
+        // itself is watched (owner list A, 2026-11-13).
+        otherFixerWatch = NSWorkspace.shared.publisher(for: \.runningApplications)
+            .map { $0.contains { $0.bundleIdentifier == LayoutFixPolicy.otherFixerBundleID } }
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.syncWithPreferences() }
+        // A change of input source.
         let distributed = DistributedNotificationCenter.default()
         let token = distributed.addObserver(
             forName: InputSwitchCapsLock.sourceChangedNotification, object: nil, queue: .main
