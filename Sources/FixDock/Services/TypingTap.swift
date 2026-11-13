@@ -16,8 +16,8 @@ import CoreGraphics
 /// The tap, the observers and the typed text only exist while a tool wants
 /// them. Requires Accessibility.
 ///
-/// Today the only tool is text snippets, and the tap reports its health
-/// under that name.
+/// Its tools are text snippets and the Korean/English layout fix; the tap
+/// reports its health under the name of each one that is on.
 final class TypingTap {
     static let shared = TypingTap()
 
@@ -63,13 +63,38 @@ final class TypingTap {
 
     private var isRunning: Bool { tapLifecycleLock.withLock { tap != nil } }
 
-    private var isWanted: Bool { stateLock.withLock { gate.snippets != nil } }
+    private var isWanted: Bool { !wantedClients.isEmpty }
+
+    private var wantedClients: [KeyTapHealth.Client] {
+        stateLock.withLock {
+            (gate.snippets == nil ? [] : [.textSnippets]) + (gate.layoutFix == nil ? [] : [.layoutFix])
+        }
+    }
+
+    /// The tap's state, told to the health log for each tool that is on;
+    /// a tool that is off reads as off.
+    private var tapState = KeyTapHealth.TapState.off
+    private func report(_ state: KeyTapHealth.TapState? = nil) {
+        if let state { tapState = state }
+        let wanted = wantedClients
+        for client in [KeyTapHealth.Client.textSnippets, .layoutFix] {
+            KeyTapHealth.shared.report(client, wanted.contains(client) ? tapState : .off)
+        }
+    }
 
     /// nil when text snippets are off or have nothing to expand. What was
     /// half-typed stays.
     func setSnippets(_ config: SnippetConsumer.Config?) {
         stateLock.withLock { gate.snippets = config.map { SnippetConsumer(config: $0) } }
         evaluate()
+        report()
+    }
+
+    /// nil when the layout fix is off or resting.
+    func setLayoutFix(_ config: LayoutFixConsumer.Config?) {
+        stateLock.withLock { gate.layoutFix = config.map { LayoutFixConsumer(config: $0) } }
+        evaluate()
+        report()
     }
 
     private func evaluate() {
@@ -122,7 +147,7 @@ final class TypingTap {
 
     private func stop() {
         cancelTapRetry()
-        KeyTapHealth.shared.report(.textSnippets, .off)
+        report(.off)
         let snapshot = tapLifecycleLock.withLock {
             () -> (runLoop: CFRunLoop?, tap: CFMachPort?, threadExists: Bool) in
             shouldStopTapThread = true
@@ -222,7 +247,7 @@ final class TypingTap {
         // A stop or a new start since then owns the state.
         guard !isRunning, tapLifecycleLock.withLock({ tapThread == nil }) else { return }
         guard isWanted, AXIsProcessTrusted() else { return }
-        KeyTapHealth.shared.report(.textSnippets, .failed)
+        report(.failed)
         guard tapRetry == nil else { return }
         let timer = Timer(timeInterval: 3, repeats: false) { [weak self] _ in
             self?.tapRetry = nil
@@ -243,20 +268,26 @@ final class TypingTap {
         }
         guard active else { return }
         cancelTapRetry()
-        KeyTapHealth.shared.report(.textSnippets, .running)
+        report(.running)
         guard activationObserver == nil else { return }
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        stateLock.withLock { gate.frontApp = front }
         // Switching apps invalidates whatever was half-typed there.
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.resetTyping()
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            self?.appChanged(to: app?.bundleIdentifier)
         }
     }
 
-    private func resetTyping() {
-        stateLock.withLock { gate.reset() }
+    private func appChanged(to bundleID: String?) {
+        stateLock.withLock {
+            gate.frontApp = bundleID
+            gate.reset()
+        }
     }
 
     // MARK: - Tap
@@ -439,7 +470,27 @@ final class TypingTap {
         let id = claimed.id
         guard stateLock.withLock({ gate.begin(id) }) else { return }
         guard case .snippet(let insert)? = claimed.plan.steps.first else {
-            submit(id, [], last: true, abandoned: true)
+            // A plan of plain steps (the layout fix). It needs the field in
+            // front to be another app's: with a FixDock window key, the
+            // backspaces would not land where the word is.
+            guard !Self.ownWindowIsKey else {
+                submit(id, [], last: true, abandoned: true)
+                return
+            }
+            var events: [OutputEvent] = []
+            for step in claimed.plan.steps {
+                switch step {
+                case .backspaces(let count, let completionCheck):
+                    events += Self.deletes(count, typed: completionCheck ?? "")
+                case .text(let text):
+                    events += Self.typed(text)
+                case .key(let stroke):
+                    events.append(.key(stroke))
+                case .snippet:
+                    break
+                }
+            }
+            submit(id, events, last: true)
             return
         }
         // Only an explicit clipboard variable pays for a synchronous read;
@@ -467,7 +518,8 @@ final class TypingTap {
                     guard let self else { return done(false) }
                     // Backspaces and Command-V down in one batch, the key up
                     // 40 ms later, as the paste has always been spaced.
-                    self.submit(id, Self.deletes(for: insert) + [.keyDown(shortcut)], last: false) { posted in
+                    self.submit(id, Self.deletes(insert.deleteCount, typed: insert.typedTrigger) + [.keyDown(shortcut)],
+                                last: false) { posted in
                         guard posted else { return done(false) }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
                             self.submit(id, [.keyUp(shortcut)], last: true) { postedUp in
@@ -486,8 +538,15 @@ final class TypingTap {
         }
 
         // Typed injection instead of pasting: the clipboard stays untouched.
-        // Keystroke events carry at most ~20 UTF-16 units reliably.
-        var events = Self.deletes(for: insert)
+        var events = Self.deletes(insert.deleteCount, typed: insert.typedTrigger) + Self.typed(text)
+        if let trailing = insert.trailing { events.append(.key(trailing)) }
+        submit(id, events, last: true)
+    }
+
+    /// `text` as Unicode-string events. Keystroke events carry at most ~20
+    /// UTF-16 units reliably.
+    private static func typed(_ text: String) -> [OutputEvent] {
+        var events: [OutputEvent] = []
         let units = Array(text.utf16)
         var index = 0
         while index < units.count {
@@ -500,8 +559,7 @@ final class TypingTap {
             events.append(.text(String(utf16CodeUnits: Array(units[index..<end]), count: end - index)))
             index = end
         }
-        if let trailing = insert.trailing { events.append(.key(trailing)) }
-        submit(id, events, last: true)
+        return events
     }
 
     /// Main thread. Gives output to the gate and kicks the tap to post it.
@@ -537,18 +595,19 @@ final class TypingTap {
         return MainActor.assumeIsolated { NSApp.keyWindow != nil }
     }
 
-    /// The backspaces that clear the trigger. Asked right before they go
+    /// The backspaces that clear `deleteCount` characters, `typed` being the
+    /// text they clear when it is known as typed. Asked right before they go
     /// out, so the count covers a completion the field shows by then. Typing
     /// waits while the field answers, so every question, up to five for a
     /// selection that looks like a completion, shares one short time limit.
-    private static func deletes(for insert: SnippetInsert) -> [OutputEvent] {
-        guard insert.deleteCount > 0 else { return [] }
+    private static func deletes(_ deleteCount: Int, typed: String) -> [OutputEvent] {
+        guard deleteCount > 0 else { return [] }
         let app = ownWindowIsKey ? nil : NSWorkspace.shared.frontmostApplication
         let selection = app.flatMap {
             SelectedTextReader.focusedTextSelection(processID: $0.processIdentifier, timeout: 0.15)
         }
         let count = TextSnippetSupport.triggerDeleteCount(
-            insert.deleteCount, typed: insert.typedTrigger,
+            deleteCount, typed: typed,
             focusedSelection: selection.map { (range: $0.range, textLength: $0.textLength) }
         ) { selection?.text(in: $0) }
         return Array(repeating: .key(KeyStroke(keyCode: UInt16(kVK_Delete), rawFlags: 0)), count: count)

@@ -30,6 +30,7 @@ enum SettingsBackup {
         // Developer-run arguments.
         DefaultsKey.airdropAutoZipFolderOverride,
         DefaultsKey.inputSwitchDeveloperClaim,
+        DefaultsKey.layoutFixDeveloperClaim,
         DefaultsKey.permissionListNamesLegacy,
     ]
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- New tool, Korean/English auto-fix: a word typed on the wrong layout (dkssud for 안녕, ㅗ디ㅣㅐ for hello) is erased and typed in the right one when you press Space, Tab or Return after it. It judges on this Mac with two bundled word lists (adapted from FrequencyWords, CC BY-SA 4.0, credited in NOTICE). Words with digits, addresses, all-capital words and words edited after an arrow key or a shortcut are left alone. It rests in password fields, while another layout fixer runs, and in the apps you exclude. The input source itself is not switched yet.
+- Text snippets now run on a typing tap shared with the auto-fix. Keys typed while an expansion or a multi-line paste is under way are held and arrive after it, in order; before, they could land in front of a paste.
+
 ## 1.1.1
 
 - FixDock now describes itself as a small set of menu bar tools for people who use a Mac in Korean (README and the onboarding welcome). The onboarding text names both network uses, the update check and feedback.

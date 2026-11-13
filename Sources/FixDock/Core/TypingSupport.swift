@@ -207,11 +207,15 @@ struct TapResponse: Equatable {
 
 /// The reducer: one key in, the chunk updated, at most one plan out.
 struct TypingState {
+    /// The typing tools, in the order they are asked: snippets first.
     var snippets: SnippetConsumer?
+    var layoutFix: LayoutFixConsumer?
+    /// Bundle identifier of the app in front, for a tool's per-app switch.
+    var frontApp: String?
     private(set) var chunk = TypingChunk()
 
-    /// An app change: whatever was half-typed is no longer where the
-    /// backspaces would land, and the next word starts fresh.
+    /// An app change or a click: whatever was half-typed is no longer where
+    /// the backspaces would land, and the next word starts fresh.
     mutating func reset() {
         chunk = TypingChunk(anchored: true)
     }
@@ -233,8 +237,13 @@ struct TypingState {
         case .nonText:
             break
         case .boundary:
-            // The chunk a tool sees at a boundary is the finished word.
-            let verdict = snippets?.consider(event, chunk: chunk) ?? .pass
+            // The chunk a tool sees at a boundary is the finished word. One
+            // tool acts on it: a snippet trigger that completed here, expanded
+            // or not, keeps the layout fix away from the word (rule N11).
+            var verdict = snippets?.consider(event, chunk: chunk) ?? .pass
+            if verdict == .pass, let layoutFix {
+                verdict = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
+            }
             reset()
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
         case .text(let key):
@@ -337,6 +346,16 @@ struct TypingGate {
     var snippets: SnippetConsumer? {
         get { state.snippets }
         set { state.snippets = newValue }
+    }
+
+    var layoutFix: LayoutFixConsumer? {
+        get { state.layoutFix }
+        set { state.layoutFix = newValue }
+    }
+
+    var frontApp: String? {
+        get { state.frontApp }
+        set { state.frontApp = newValue }
     }
 
     var isHolding: Bool { hold != nil }

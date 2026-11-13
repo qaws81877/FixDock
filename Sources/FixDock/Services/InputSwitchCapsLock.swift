@@ -36,6 +36,15 @@ enum InputSwitchCapsLock {
         return languages?.first
     }
 
+    /// The identifier of the current keyboard input source, such as
+    /// "com.apple.keylayout.ABC". Read only. Main thread only.
+    static func currentSourceID() -> String? {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
+        else { return nil }
+        return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
+    }
+
     /// Posted by macOS when the selected keyboard input source changes.
     static let sourceChangedNotification =
         Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String)

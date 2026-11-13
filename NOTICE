@@ -58,6 +58,11 @@ Modifications in this tree, relative to that upstream commit:
   against FixDock's own GitHub releases. The upstream update feed is
   still not used.
 
+The Korean/English auto-fix (layoutFix) was written for FixDock on FixDock's
+own code. Catchtype (catchtype.com, Hebbian AI) was a behaviour reference:
+its public web pages and what the app does in ordinary use. FixDock contains
+no Catchtype code, data file, word list, name, logo or wording.
+
 Third-party bundled assets and fonts:
 
 vorssaint-utils did not bundle a third-party font. Its brand images and

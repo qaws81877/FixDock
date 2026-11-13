@@ -63,6 +63,11 @@ enum DefaultsKey {
     static let permissionListNamesLegacy = "permissionListNamesLegacy"
     /// Clipboard history (upstream names). The main switch stays
     /// unregistered so enableOnFirstInstall can tell a first install from Off.
+    static let layoutFixEnabled = "layoutFixEnabled"
+    static let layoutFixIgnoredApps = "layoutFixIgnoredApps"
+    /// Argument domain only: lets a developer build run the layout fix
+    /// beside the installed app, which would otherwise fix a word twice.
+    static let layoutFixDeveloperClaim = "layoutFixDeveloperClaim"
     static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
     static let clipboardHistoryShortcut = "clipboardHistoryShortcut"
     static let clipboardHistoryShortcutEnabled = "clipboardHistoryShortcutEnabled"
@@ -183,6 +188,7 @@ enum Defaults {
             DefaultsKey.clipboardHistoryShortcutEnabled: true,
             DefaultsKey.clipboardHistoryRetentionDays: ClipboardHistoryRetention.default.rawValue,
             DefaultsKey.clipboardHistoryIgnoredApps: [String](),
+            DefaultsKey.layoutFixIgnoredApps: [String](),
             DefaultsKey.clipboardHistoryImageBudgetMB: ClipboardHistoryImageBudget.default.rawValue,
             DefaultsKey.clipboardHistoryRecordsMedia: true,
             DefaultsKey.screenshotOverlayShortcutEnabled: true,

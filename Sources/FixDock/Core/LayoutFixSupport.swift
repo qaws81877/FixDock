@@ -358,3 +358,78 @@ enum LayoutFixPlanner {
                                        .key(delimiter.stroke)])
     }
 }
+
+/// The layout fix as a tool of the shared typing tap: at a whitespace key it
+/// judges the finished word and, for a change, answers with a plan.
+struct LayoutFixConsumer {
+    struct Config {
+        let rules: LayoutFixRules
+        /// Bundle identifiers of the apps the person turned the tool off for.
+        let ignoredApps: Set<String>
+    }
+
+    var config: Config
+
+    /// `chunk` is the finished word. `earlier` is rule N11's signal.
+    func consider(_ event: TypingEvent, chunk: TypingChunk, earlier: EarlierClaim, frontApp: String?) -> Verdict {
+        guard case .boundary(let delimiter) = event else { return .pass }
+        if let frontApp, config.ignoredApps.contains(frontApp) { return .pass }
+        let token = LayoutToken(chunk.keys)
+        guard case .change(let target, let text) = config.rules.decideAtWordEnd(token, anchored: chunk.anchored, earlier: earlier)
+        else { return .pass }
+        return .claim(LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter))
+    }
+}
+
+/// Why the tool is on and yet does nothing.
+enum LayoutFixRest: Equatable {
+    case needsAccessibility
+    /// Another app that fixes layouts is running; its name as macOS shows it.
+    case otherFixer(String)
+    case developerBuild
+    case unknownLayout
+    case listsMissing
+    case listsLoading
+}
+
+enum LayoutFixMode: Equatable { case off, resting(LayoutFixRest), active }
+
+enum LayoutFixListsState: Equatable { case notLoaded, loading, missing, ready }
+
+struct LayoutFixFacts: Equatable {
+    var installed: Bool
+    var enabled: Bool
+    var accessibility: Bool
+    /// Not a developer build, or one started with the claim flag: two
+    /// FixDock builds would otherwise fix the same word twice.
+    var mayRun: Bool
+    var otherFixer: String?
+    /// The current input source is QWERTY Latin or Korean 2-Set.
+    var layoutKnown: Bool
+    var lists: LayoutFixListsState
+}
+
+enum LayoutFixPolicy {
+    /// The other layout fixer the tool rests for (owner decision D7). It
+    /// keeps the input source on ABC and composes Hangul itself, so the
+    /// typed source could not be told from the key events while it runs.
+    /// The identifier is the one its public Homebrew cask names.
+    static let otherFixerBundleID = "com.hebbianai.catchtype"
+
+    /// Input sources whose keys the rules can read.
+    static let knownSourceIDs: Set<String> = ["com.apple.keylayout.ABC", "com.apple.keylayout.US",
+                                             "com.apple.inputmethod.Korean.2SetKorean"]
+
+    static func mode(_ facts: LayoutFixFacts) -> LayoutFixMode {
+        guard facts.installed, facts.enabled else { return .off }
+        if !facts.mayRun { return .resting(.developerBuild) }
+        if !facts.accessibility { return .resting(.needsAccessibility) }
+        if let name = facts.otherFixer { return .resting(.otherFixer(name)) }
+        switch facts.lists {
+        case .missing: return .resting(.listsMissing)
+        case .notLoaded, .loading: return .resting(.listsLoading)
+        case .ready: break
+        }
+        return facts.layoutKnown ? .active : .resting(.unknownLayout)
+    }
+}

@@ -94,6 +94,7 @@ final class FeatureRuntime: ObservableObject {
         .screenRecorder: { ScreenRecorderService.shared.syncWithPreferences() },
         .inputSwitch: { InputSwitchService.shared.syncWithPreferences() },
         .clipboardHistory: { ClipboardHistoryService.shared.syncWithPreferences() },
+        .layoutFix: { LayoutFixService.shared.syncWithPreferences() },
     ]
 
     /// Launch-time restore for uninstalled tools that leave system state.

@@ -906,6 +906,23 @@ extension Strings {
         settingsForward: "앞으로",
         settingsShowSidebar: "사이드바 보기",
         settingsHideSidebar: "사이드바 가리기",
+        featureLayoutFixName: "한/영 자동 교정",
+        featureLayoutFixSummary: "자판을 잘못 두고 친 낱말을 다 치는 순간 맞는 글자로 다시 쳐 줍니다.",
+        layoutFixEnable: "잘못된 자판으로 친 낱말 교정",
+        layoutFixEnableCaption: "다른 자판으로 읽어야만 말이 되는 낱말 뒤에서 스페이스, Tab, Return을 누르면 그 낱말을 지우고 맞는 글자로 다시 칩니다. 키는 이 Mac의 메모리 안에서만 판단하며, 입력한 내용을 저장하거나 보내지 않습니다.",
+        layoutFixLimitsCaption: "그대로 두는 것: 숫자가 들어간 낱말, 주소, 전부 대문자인 낱말, 화살표 키로 들어가거나 단축키 뒤에 고친 낱말. 입력 소스 자체는 바꾸지 않습니다.",
+        layoutFixActiveNow: "작동 중",
+        layoutFixNeedsAccessibility: "입력을 보려면 손쉬운 사용 권한이 필요합니다.",
+        layoutFixRestOtherFixerFormat: "%@ 실행 중에는 쉽니다.",
+        layoutFixRestDeveloperBuild: "개발자 빌드에서는 꺼져 있습니다. FixDock 두 개가 같은 낱말을 고치지 않게 하기 위해서입니다.",
+        layoutFixRestUnknownLayout: "쉬는 중: 현재 입력 소스가 ABC도 두벌식도 아닙니다.",
+        layoutFixRestListsMissing: "꺼짐: 이 FixDock에 낱말 목록이 들어 있지 않습니다.",
+        layoutFixRestListsLoading: "낱말 목록을 읽는 중…",
+        layoutFixExcludedTitle: "제외할 앱",
+        layoutFixExcludedNone: "제외한 앱이 없습니다.",
+        layoutFixExcludedAdd: "앱 추가",
+        layoutFixExcludedRemove: "제거",
+        layoutFixExcludedCaption: "이 앱들이 맨 앞에 있는 동안에는 교정하지 않습니다.",
         versionFormat: "버전 %@"
     )
 }

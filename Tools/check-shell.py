@@ -23,6 +23,7 @@ FEATURE_ORDER = [
     "screenRecorder",
     "inputSwitch",
     "clipboardHistory",
+    "layoutFix",
 ]
 ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
@@ -258,7 +259,8 @@ def main():
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
         "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
         "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n"
-        "            || self == .inputSwitch || self == .clipboardHistory\n" not in catalog
+        "            || self == .inputSwitch || self == .clipboardHistory\n"
+        "            || self == .layoutFix\n" not in catalog
     ):
         errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder, input switch and clipboard history should have a service")
 
@@ -342,6 +344,9 @@ def main():
         ("OwnKeyEvent.textSnippetMarker", ["Services/TypingTap.swift"]),
         ("OwnKeyEvent.typingRelayMarker", ["Services/TypingTap.swift"]),
         ("TypingTap.shared.setSnippets", ["Services/TextSnippetService.swift"]),
+        ("TypingTap.shared.setLayoutFix", ["Services/LayoutFixService.swift"]),
+        # The other fixer's identifier is known in one place (docs/typo-switch.md, section 6).
+        ("com.hebbianai.catchtype", ["Core/LayoutFixSupport.swift"]),
         # Layout fix: one owner of the learned-words file, the guard's only constructor.
         ('"LayoutFix.json"', ["Core/LayoutFixLearnedStore.swift"]),
         ("LayoutFixLearnedRecords(", ["Core/LayoutFixLearnedStore.swift"]),

@@ -49,6 +49,8 @@ enum DiagnosticsReport {
         out.append("Quit protection: Command-Q \(onOff(defaults.bool(forKey: DefaultsKey.quitProtectionQuitEnabled))), Command-W \(onOff(defaults.bool(forKey: DefaultsKey.quitProtectionCloseEnabled))), tap \(describe(health.state(of: .quitProtection)))\(quit.isWaitingForAccessibility ? ", waiting for Accessibility" : "")")
         let snippets = TextSnippetSupport.decode(defaults.data(forKey: DefaultsKey.textSnippets))
         out.append("Text snippets: \(onOff(defaults.bool(forKey: DefaultsKey.textSnippetsEnabled))), \(snippets.filter(\.enabled).count) of \(snippets.count) enabled, tap \(describe(health.state(of: .textSnippets)))")
+        // The state only: never a word the person typed.
+        out.append("Layout fix: \(onOff(defaults.bool(forKey: DefaultsKey.layoutFixEnabled))), \(LayoutFixService.shared.mode), tap \(describe(health.state(of: .layoutFix)))")
         health.refreshSecureInput()
         if let secure = health.secureInput {
             out.append("Secure input: ON, reported pid \(secure.processIdentifier.map(String.init) ?? "unknown") (\(secure.applicationName ?? "unknown"))\(secure.holderExited ? ", process gone" : "")")
