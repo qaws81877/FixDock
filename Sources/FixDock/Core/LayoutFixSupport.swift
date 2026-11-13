@@ -20,8 +20,8 @@ struct LayoutFixThresholds: Equatable {
     var whileTypingMaxRank = 20_000
     var learnAfterReverts = 3
     /// Rule C5: with this many whole syllables or more, a Korean reading
-    /// counts without being a list word. nil: the rule is off.
-    var wholeSyllables: Int?
+    /// counts without being a list word (owner, 2026-11-13). nil: off.
+    var wholeSyllables: Int? = 2
     var undoWindowSeconds: TimeInterval = 5
     var handOffTimeout: TimeInterval = 0.5
 }
