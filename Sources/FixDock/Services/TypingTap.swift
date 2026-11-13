@@ -499,7 +499,22 @@ final class TypingTap {
                     break
                 }
             }
-            submit(id, events, last: true)
+            // Safari's fields with the Korean input method drop text that
+            // comes right behind the backspaces taking down an open
+            // syllable (owner list A, 2026-11-13: the word went, the
+            // English never came). The text follows 40 ms later, as the
+            // paste's key up does; keys typed meanwhile stay held.
+            guard let split = events.firstIndex(where: { if case .text = $0 { return true } else { return false } }),
+                  split > 0 else {
+                submit(id, events, last: true)
+                return
+            }
+            submit(id, Array(events[..<split]), last: false) { [weak self] posted in
+                guard posted else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                    self?.submit(id, Array(events[split...]), last: true)
+                }
+            }
             return
         }
         // Only an explicit clipboard variable pays for a synchronous read;
