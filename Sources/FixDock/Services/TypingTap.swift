@@ -93,12 +93,6 @@ final class TypingTap {
     /// Main thread: what the layout fix's plans tell its service.
     var layoutFixNotices: (([LayoutFixNotice]) -> Void)?
 
-    /// Every key down that reached the session so far, keys typed under
-    /// secure input included; keys a tap swallowed are not counted (P9).
-    private static var keyDownCount: UInt64 {
-        UInt64(CGEventSource.counterForEventType(.combinedSessionState, eventType: .keyDown))
-    }
-
     /// nil when the layout fix is off or resting.
     func setLayoutFix(_ config: LayoutFixConsumer.Config?) {
         stateLock.withLock { gate.layoutFix = config.map { LayoutFixConsumer(config: $0) } }
@@ -346,12 +340,11 @@ final class TypingTap {
                 return Unmanaged.passUnretained(event)
             }
             let secureInput = IsSecureEventInputEnabled()
-            let keyDowns = Self.keyDownCount
             let (start, failed, posted, notices) = stateLock.withLock {
                 () -> (ClaimedPlan?, [(Bool) -> Void], [(Bool) -> Void], [LayoutFixNotice]) in
                 // A kick that outlived its hold posts nothing.
                 let failed = waitersOfLostPlans()
-                let response = gate.kick(secureInput: secureInput, now: now, keyDowns: keyDowns)
+                let response = gate.kick(secureInput: secureInput, now: now)
                 perform(response.commands, proxy: proxy)
                 let posted = kickWaiters.map(\.done)
                 kickWaiters = []
@@ -390,9 +383,8 @@ final class TypingTap {
         default:
             return Unmanaged.passUnretained(event)
         }
-        let keyDowns = Self.keyDownCount
         let (response, failed) = stateLock.withLock { () -> (GateResponse, [(Bool) -> Void]) in
-            let response = gate.receive(raw, secureInput: secureInput, now: now, keyDowns: keyDowns)
+            let response = gate.receive(raw, secureInput: secureInput, now: now)
             if let ticket = response.keep, kept[ticket] == nil { kept[ticket] = event.copy() }
             perform(response.commands, proxy: proxy)
             return (response, waitersOfLostPlans())
@@ -564,6 +556,17 @@ final class TypingTap {
             submit(id, [], last: true, abandoned: true)
             return
         }
+        // Fail closed: a field that does not say, or says something else,
+        // keeps its text (owner's Discord, 2026-11-13: correct Korean was
+        // erased because the keys had been read as Latin letters).
+        if case .expect(let shown)? = steps.first {
+            let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            guard let front, SelectedTextReader.textBeforeCaret(processID: front, length: shown.utf16.count,
+                                                                timeout: 0.15) == shown else {
+                submit(id, [], last: true, abandoned: true)
+                return
+            }
+        }
         var events: [OutputEvent] = []
         for step in steps {
             switch step {
@@ -573,7 +576,7 @@ final class TypingTap {
                 events += Self.typed(text)
             case .key(let stroke):
                 events.append(.key(stroke))
-            case .snippet, .waitForCommandUp:
+            case .snippet, .waitForCommandUp, .expect:
                 break
             }
         }

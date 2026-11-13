@@ -197,6 +197,10 @@ enum PlanStep: Equatable {
     /// Nothing until ⌘ is up: ⌘Z starts an undo with ⌘ still down. Only as
     /// a plan's first step.
     case waitForCommandUp
+    /// The field shows exactly this right before the caret, or the plan
+    /// erases nothing and its key goes on: the keys the tap read can differ
+    /// from what the field's input method made of them.
+    case expect(String)
 }
 
 /// What a typing tool wants done to the text on screen. The tap's executor
@@ -262,25 +266,24 @@ struct TypingState {
     }
 
     /// The last claim's plan ended. With output on screen a change becomes
-    /// undoable from `keyDowns` (the system's count once that output is
-    /// counted) and an undo is told to the layout fix's service.
-    mutating func planEnded(posted: Bool, now: TimeInterval, keyDowns: UInt64) -> [LayoutFixNotice] {
+    /// undoable and an undo is told to the layout fix's service.
+    mutating func planEnded(posted: Bool, now: TimeInterval) -> [LayoutFixNotice] {
         defer { dropClaim() }
         guard posted, let layoutFix else { return [] }
         if var change = claimedChange {
             change.expires = now + layoutFix.config.rules.thresholds.undoWindowSeconds
-            change.keyDownMark = keyDowns
             undo = change
         }
         return claimedRevert.map { [.reverted($0)] } ?? []
     }
 
     /// ⌘Z takes the last change back only while nothing happened since it
-    /// (any key or click ends the record), in the same app, in time, and
-    /// when no key went where the tap could not see it.
-    private func takesBack(_ raw: RawKey, now: TimeInterval, keyDowns: UInt64) -> LayoutFixUndo? {
+    /// (any key or click ends the record), in the same app and in time. Keys
+    /// that went where the tap could not see them are the undo plan's
+    /// `expect` step's to catch: the field must still show the change.
+    private func takesBack(_ raw: RawKey, now: TimeInterval) -> LayoutFixUndo? {
         guard raw.kind == .keyDown, raw.origin == .physical, raw.stroke.isCommandZ, !raw.isRepeat,
-              layoutFix != nil, let undo, undo.app == frontApp, now < undo.expires, keyDowns == undo.keyDownMark
+              layoutFix != nil, let undo, undo.app == frontApp, now < undo.expires
         else { return nil }
         return undo
     }
@@ -292,11 +295,10 @@ struct TypingState {
         chunk.unanchor()
     }
 
-    /// `now` and `keyDowns` (the system's key-down count before this key)
-    /// matter only to ⌘Z after a change.
-    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval = 0, keyDowns: UInt64 = 0) -> TapResponse {
+    /// `now` matters only to ⌘Z after a change.
+    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval = 0) -> TapResponse {
         guard let event = TypingEvent(raw, secureInput: secureInput) else { return TapResponse() }
-        if let record = secureInput ? nil : takesBack(raw, now: now, keyDowns: keyDowns) {
+        if let record = secureInput ? nil : takesBack(raw, now: now) {
             // The screen ends with the delimiter again: the next word starts there.
             reset()
             claimedRevert = record.learned
@@ -450,8 +452,7 @@ struct TypingGate {
 
     // MARK: Tap thread
 
-    /// `keyDowns`: the system's key-down count before this event.
-    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0) -> GateResponse {
+    mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval) -> GateResponse {
         if raw.kind == .mouseDown {
             // A click moves the caret: the held keys were typed before it.
             let response = GateResponse(commands: letGo())
@@ -481,7 +482,7 @@ struct TypingGate {
             state.sourceChanged()
             return response
         }
-        guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now, keyDowns: keyDowns) }
+        guard let current = hold else { return judge(raw, ticket: nil, secureInput: secureInput, now: now) }
         if Self.functionKeys.contains(raw.stroke.keyCode) {
             // Never held, and it may be the key that switches the source.
             return GateResponse(commands: sourceMayChange())
@@ -539,9 +540,8 @@ struct TypingGate {
     }
 
     /// The executor's kick arrived: post what it submitted and, after the
-    /// last output, let the held keys go. `keyDowns`: the system's key-down
-    /// count before this output.
-    mutating func kick(secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0) -> GateResponse {
+    /// last output, let the held keys go.
+    mutating func kick(secureInput: Bool, now: TimeInterval) -> GateResponse {
         var response = GateResponse(pass: false)
         guard var current = hold, let batch = current.pending else { return response }
         current.pending = nil
@@ -552,10 +552,7 @@ struct TypingGate {
             return response
         }
         hold = nil
-        // Each output event but a key up is one key down to the counter.
-        let posted = batch.events.filter { if case .keyUp = $0 { return false } else { return true } }.count
-        response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now,
-                                           keyDowns: keyDowns + UInt64(posted))
+        response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now)
         response.commands.append(batch.abandoned ? .sendOn(current.swallowed) : .discard(current.swallowed))
         var rest = current.held[...]
         while let next = rest.popFirst() {
@@ -617,9 +614,9 @@ struct TypingGate {
 
     /// One key through the typing tools. A claim starts a hold; `ticket` is
     /// the key's own when the tap already keeps it.
-    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval, keyDowns: UInt64 = 0,
+    private mutating func judge(_ raw: RawKey, ticket: Int?, secureInput: Bool, now: TimeInterval,
                                 after commands: [GateCommand] = []) -> GateResponse {
-        guard let plan = state.receive(raw, secureInput: secureInput, now: now, keyDowns: keyDowns).plan else {
+        guard let plan = state.receive(raw, secureInput: secureInput, now: now).plan else {
             return GateResponse(commands: commands)
         }
         let swallowed = ticket ?? takeTicket()

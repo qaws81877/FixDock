@@ -133,19 +133,15 @@ struct LearnedKey: Hashable, Codable {
 struct LayoutFixUndo: Equatable {
     /// The app in front when the word was changed.
     let app: String?
-    /// Characters the change typed: the other reading, the punctuation behind
-    /// it and the delimiter.
-    let shownCount: Int
+    /// What the change typed: the other reading, the punctuation behind it
+    /// and the Space.
+    let shown: String
     /// The word and the punctuation behind it as the field showed them before.
     let original: String
     let delimiter: KeyStroke
     let learned: LearnedKey
     /// When ⌘Z stops taking it back.
     var expires: TimeInterval = 0
-    /// The system's key-down count once the change was out. A different
-    /// count at ⌘Z means keys went somewhere the tap did not see (a password
-    /// field), so the backspaces would not land on the word.
-    var keyDownMark: UInt64 = 0
 }
 
 /// What the layout fix tells its service after a plan, on the main thread.
@@ -408,19 +404,25 @@ enum LayoutFixPlanner {
     static func wordEnd(_ token: LayoutToken, to target: TypedSource, text: String, delimiter: TypedKey) -> ReplacementPlan {
         let erased = token.keys + token.trailing
         let typed = erased.map(\.typed).joined()
+        let trailing = token.trailing.map(\.typed).joined()
         let backspaces: PlanStep
+        let shown: String
         switch target {
         case .hangul2:
             // Typed in the Latin source: one backspace per key.
             backspaces = .backspaces(erased.count, completionCheck: typed)
+            shown = typed
         case .latin:
             // Typed in the Korean source: the field shows composed
             // syllables. The count starts clean, at the whitespace or the
             // punctuation in front of the word.
             backspaces = .backspaces(HangulTwoSet.backspaces(erasing: typed), completionCheck: nil)
+            let keySpace = token.keys.compactMap { $0.typed.first.flatMap(HangulTwoSet.key(typing:)) }
+            shown = HangulTwoSet.hangul(fromKeySpace: String(keySpace)) + trailing
         }
-        return ReplacementPlan(steps: [backspaces,
-                                       .text(text + token.trailing.map(\.typed).joined()),
+        return ReplacementPlan(steps: [.expect(shown),
+                                       backspaces,
+                                       .text(text + trailing),
                                        .key(delimiter.stroke)])
     }
 
@@ -429,7 +431,8 @@ enum LayoutFixPlanner {
     /// text is injected, so an open syllable it had comes back closed.
     static func undo(_ record: LayoutFixUndo) -> ReplacementPlan {
         ReplacementPlan(steps: [.waitForCommandUp,
-                                .backspaces(record.shownCount, completionCheck: nil),
+                                .expect(record.shown),
+                                .backspaces(record.shown.count, completionCheck: nil),
                                 .text(record.original),
                                 .key(record.delimiter)])
     }
@@ -462,7 +465,7 @@ struct LayoutFixConsumer {
         guard delimiter.typed == " ", let learned = config.rules.learnedKey(of: token) else { return (.claim(plan), nil) }
         let trailing = token.trailing.map(\.typed).joined()
         let original = learned.source == .latin ? learned.keys : HangulTwoSet.hangul(fromKeySpace: learned.keys)
-        let undo = LayoutFixUndo(app: frontApp, shownCount: (text + trailing).count + 1, original: original + trailing,
+        let undo = LayoutFixUndo(app: frontApp, shown: text + trailing + " ", original: original + trailing,
                                  delimiter: delimiter.stroke, learned: learned)
         return (.claim(plan), undo)
     }
