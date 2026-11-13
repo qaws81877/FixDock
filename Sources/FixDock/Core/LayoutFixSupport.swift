@@ -19,6 +19,9 @@ struct LayoutFixThresholds: Equatable {
     var minKeysWhileTyping = 4
     var whileTypingMaxRank = 20_000
     var learnAfterReverts = 3
+    /// Rule C5: with this many whole syllables or more, a Korean reading
+    /// counts without being a list word. nil: the rule is off.
+    var wholeSyllables: Int?
     var undoWindowSeconds: TimeInterval = 5
     var handOffTimeout: TimeInterval = 0.5
 }
@@ -170,9 +173,11 @@ struct LayoutFixRules {
 
     // MARK: The lists FixDock wrote itself
 
-    /// Jamo-only chat words, which no list of spaced words holds.
+    /// Jamo-only chat words, which no list of spaced words holds, and a few
+    /// everyday one-syllable words the subtitle list happens to lack.
     private static let chatWords: Set<String> = ["ㅋㅋ", "ㅋㅋㅋ", "ㅋㅋㅋㅋ", "ㅎㅎ", "ㅎㅎㅎ", "ㅇㅇ", "ㄴㄴ", "ㄱㄱ", "ㅇㅋ",
-                                                 "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ"]
+                                                 "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ",
+                                                 "뭐", "봐", "줘", "꽤", "쭉", "푹"]
     private static let chatWordRank = 1_000
     /// Particles a known word may carry, since the list holds spaced words.
     private static let particles: [(text: String, keys: [UInt8])] =
@@ -279,6 +284,14 @@ struct LayoutFixRules {
         let korean = hangulReading(readings.korean)
         let typed = readings.typedIn == .latin ? english : korean.rank
         let other = readings.typedIn == .latin ? korean.rank : english
+        // C5: typed in the Latin source, not an English word, and the keys
+        // compose into nothing but whole syllables. The Korean list holds
+        // spaced subtitle words and misses most inflected forms; English
+        // letters almost never fall into whole syllables by chance.
+        if typed == nil, other == nil, readings.typedIn == .latin, let needed = thresholds.wholeSyllables,
+           korean.text.count >= needed, Self.isHangulSyllables(korean.text) {
+            return .change(to: .hangul2, text: korean.text)
+        }
         guard let otherRank = other else { return .keep(typed == nil ? .n8 : .typedIsAWord) }
         if let typedRank = typed {
             if token.keys.count <= thresholds.shortTokenKeys { return .keep(.n6) }
@@ -316,5 +329,32 @@ struct LayoutFixRules {
             guard latin.hasCommonWord(startingWith: readings.english) else { return .keep(.m3) }
             return .change(to: .latin, text: readings.englishText)
         }
+    }
+}
+
+/// Turns a decision into what the tap's executor does to the screen.
+enum LayoutFixPlanner {
+    /// A change at a word end, with the finished text injected: the
+    /// delimiter was swallowed, so the word and the punctuation behind it
+    /// are the last things in the field. They are erased, the other reading
+    /// and the same punctuation typed, then the delimiter. Punctuation in
+    /// front of the word stays where it is.
+    static func wordEnd(_ token: LayoutToken, to target: TypedSource, text: String, delimiter: TypedKey) -> ReplacementPlan {
+        let erased = token.keys + token.trailing
+        let typed = erased.map(\.typed).joined()
+        let backspaces: PlanStep
+        switch target {
+        case .hangul2:
+            // Typed in the Latin source: one backspace per key.
+            backspaces = .backspaces(erased.count, completionCheck: typed)
+        case .latin:
+            // Typed in the Korean source: the field shows composed
+            // syllables. The count starts clean, at the whitespace or the
+            // punctuation in front of the word.
+            backspaces = .backspaces(HangulTwoSet.backspaces(erasing: typed), completionCheck: nil)
+        }
+        return ReplacementPlan(steps: [backspaces,
+                                       .text(text + token.trailing.map(\.typed).joined()),
+                                       .key(delimiter.stroke)])
     }
 }

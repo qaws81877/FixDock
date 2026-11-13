@@ -178,6 +178,13 @@ struct SnippetInsert: Equatable {
 
 enum PlanStep: Equatable {
     case snippet(SnippetInsert)
+    /// Backspaces. `completionCheck` is the text they clear, as typed, when
+    /// a completion the field shows after it would eat the first one.
+    case backspaces(Int, completionCheck: String?)
+    /// Finished text, typed as Unicode-string events.
+    case text(String)
+    /// A key down and up.
+    case key(KeyStroke)
 }
 
 /// What a typing tool wants done to the text on screen. The tap's executor
