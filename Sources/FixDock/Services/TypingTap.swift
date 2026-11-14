@@ -689,29 +689,41 @@ final class TypingTap {
             guard let self, posted, self.stateLock.withLock({ self.gate.handingOff(id) }) else { return }
             let landed = { [weak self] (outcome: InputSwitchHandOff.Outcome) in
                 guard let self else { return }
-                guard NSWorkspace.shared.frontmostApplication?.processIdentifier == front else {
-                    self.submit(id, [], last: true, unjudged: true, midWord: .dropped)
-                    return
+                // Text right behind the backspaces of an open syllable is lost
+                // in Safari's fields (list A); with no pulse to wait for, it
+                // waits 40 ms as at a word end.
+                if !outcome.pulseSent {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.endMidWord(id, step, outcome: outcome, front: front) }
+                } else {
+                    self.endMidWord(id, step, outcome: outcome, front: front)
                 }
-                // A third source is never read as one of the two.
-                let live = outcome == .otherSource ? nil : LayoutFixPolicy.source(ofID: InputSwitchCapsLock.currentSourceID())
-                let after = LayoutFixPlanner.afterHandOff(step, live: live)
-                var events: [OutputEvent] = []
-                for planStep in after.steps {
-                    switch planStep {
-                    case .key(let stroke): events.append(.key(stroke))
-                    case .text(let text): events += Self.typed(text)
-                    default: break
-                    }
-                }
-                // As text, nothing tells the source the held keys land in.
-                let unjudged = after.result == .text
-                self.submit(id, events, last: true, unjudged: unjudged, midWord: after.result)
             }
             guard AppFeature.inputSwitch.isAvailable else { return landed(.unavailable) }
             InputSwitchService.shared.handOff(to: step.target == .latin ? .english : .korean,
                                               timeout: LayoutFixThresholds().handOffTimeout, completion: landed)
         }
+    }
+
+    /// Main thread. The last batch of a mid-word plan, by where the source
+    /// landed; nothing if another app is in front now (D16).
+    private func endMidWord(_ id: PlanID, _ step: MidWordStep, outcome: InputSwitchHandOff.Outcome, front: pid_t?) {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == front else {
+            submit(id, [], last: true, unjudged: true, midWord: .dropped)
+            return
+        }
+        // A third source is never read as one of the two.
+        let live = outcome == .otherSource ? nil : LayoutFixPolicy.source(ofID: InputSwitchCapsLock.currentSourceID())
+        let after = LayoutFixPlanner.afterHandOff(step, live: live)
+        var events: [OutputEvent] = []
+        for planStep in after.steps {
+            switch planStep {
+            case .key(let stroke): events.append(.key(stroke))
+            case .text(let text): events += Self.typed(text)
+            default: break
+            }
+        }
+        // As text, nothing tells the source the held keys land in.
+        submit(id, events, last: true, unjudged: after.result == .text, midWord: after.result)
     }
 
     /// Main thread. `then(true)` once ⌘ is up, checked every 15 ms as the

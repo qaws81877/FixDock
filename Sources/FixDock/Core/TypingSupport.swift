@@ -500,7 +500,10 @@ struct TypingState {
                 return TapResponse(plan: plan)
             }
             guard let layoutFix else { break }
-            if var record = live, record.word != nil, record.delimiter == nil, chunk.midWord == .changed {
+            // A control character is no key of the word: F13-F16 carry U+0010,
+            // and the fast switch's key must never be sent again by an undo.
+            let typesText = key.typed.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0.value != 0x7F }
+            if var record = live, record.word != nil, record.delimiter == nil, chunk.midWord == .changed, typesText {
                 // The rest of a word changed while it was typed: ⌘Z takes it
                 // back too (5.7).
                 record.extend(with: key, until: now + layoutFix.config.rules.thresholds.undoWindowSeconds)
