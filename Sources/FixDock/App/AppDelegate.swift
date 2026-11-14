@@ -65,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     /// A Clear pressed just before Quit must land.
     func applicationWillTerminate(_ notification: Notification) {
         ClipboardHistoryService.flushIfLoaded()
+        LayoutFixService.shared.closeTextAccess()
     }
 
     /// Closes the panel whatever it is showing. `close()` rather than
