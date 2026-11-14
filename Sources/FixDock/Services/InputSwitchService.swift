@@ -306,15 +306,7 @@ final class InputSwitchService: ObservableObject {
     /// once, on the main thread, possibly before this returns.
     func handOff(to target: InputSwitchHandOff.Target, timeout: TimeInterval,
                  completion: @escaping (InputSwitchHandOff.Outcome) -> Void) {
-        let language = tap == nil ? nil : InputSwitchCapsLock.currentLanguage()
-        let now = ProcessInfo.processInfo.systemUptime
-        let facts = InputSwitchHandOff.Facts(
-            live: liveKeyCode != nil && tap != nil,
-            cleaningMode: cleaningModeIsActive,
-            transitionPending: pendingCaps != nil,
-            pulseInFlight: language.map { sentPulse?.inFlight(now: now, language: $0) ?? false } ?? false,
-            language: language)
-        switch handOffRoute.begin(target, facts: facts, completion: completion) {
+        switch handOffRoute.begin(target, facts: handOffFacts(), completion: completion) {
         case .end(let ending):
             ending.run()
         case .sendPulse(let id):
@@ -328,6 +320,22 @@ final class InputSwitchService: ObservableObject {
                 ending?.run()
             }
         }
+    }
+
+    /// Main thread. Whether `handOff(to:)` would send its pulse now.
+    func canHandOff(to target: InputSwitchHandOff.Target) -> Bool {
+        handOffRoute.wouldPulse(target, facts: handOffFacts())
+    }
+
+    private func handOffFacts() -> InputSwitchHandOff.Facts {
+        let language = tap == nil ? nil : InputSwitchCapsLock.currentLanguage()
+        let now = ProcessInfo.processInfo.systemUptime
+        return InputSwitchHandOff.Facts(
+            live: liveKeyCode != nil && tap != nil,
+            cleaningMode: cleaningModeIsActive,
+            transitionPending: pendingCaps != nil,
+            pulseInFlight: language.map { sentPulse?.inFlight(now: now, language: $0) ?? false } ?? false,
+            language: language)
     }
 
     // MARK: Long press

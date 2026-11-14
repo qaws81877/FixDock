@@ -296,10 +296,12 @@ final class TypingTap {
     }
 
     private func appChanged(to bundleID: String?) {
-        stateLock.withLock {
+        let drops = stateLock.withLock { () -> Bool in
             gate.frontApp = bundleID
-            gate.reset()
+            return gate.reset()
         }
+        // A mid-word plan posts nothing more (D16); the kick lets its held keys go.
+        if drops { postKick() }
     }
 
     // MARK: - Tap
@@ -506,7 +508,7 @@ final class TypingTap {
         guard stateLock.withLock({ gate.begin(id) }) else { return }
         guard case .snippet(let insert)? = claimed.plan.steps.first else {
             guard claimed.plan.steps.first == .waitForCommandUp else {
-                runPlain(id, claimed.plan.steps)
+                runPlain(id, claimed.plan.steps, midWord: claimed.plan.midWord)
                 return
             }
             afterCommandUp { [weak self] up in
@@ -515,7 +517,7 @@ final class TypingTap {
                     self?.submit(id, [], last: true)
                     return
                 }
-                self?.runPlain(id, Array(claimed.plan.steps.dropFirst()))
+                self?.runPlain(id, Array(claimed.plan.steps.dropFirst()), midWord: claimed.plan.midWord)
             }
             return
         }
@@ -572,7 +574,7 @@ final class TypingTap {
     /// Main thread. A plan of plain steps (the layout fix). It needs the
     /// field in front to be another app's: with a FixDock window key, the
     /// backspaces would not land where the word is.
-    private func runPlain(_ id: PlanID, _ steps: [PlanStep]) {
+    private func runPlain(_ id: PlanID, _ steps: [PlanStep], midWord: MidWordStep? = nil) {
         var steps = steps
         var handOff: TypedSource?
         if case .handOff(let target)? = steps.last {
@@ -580,6 +582,15 @@ final class TypingTap {
             steps.removeLast()
         }
         guard !Self.ownWindowIsKey else {
+            submit(id, [], last: true, abandoned: true)
+            return
+        }
+        // M5: a change while typing erases nothing unless the source can be
+        // handed over now; the word is then judged at its end (D3).
+        if let midWord, midWord.needsHandOff,
+           !(AppFeature.inputSwitch.isAvailable
+             && InputSwitchService.shared.canHandOff(to: midWord.target == .latin ? .english : .korean)) {
+            Self.log.debug("layout fix: kept, no hand-off while typing")
             submit(id, [], last: true, abandoned: true)
             return
         }
@@ -627,6 +638,10 @@ final class TypingTap {
                 break
             }
         }
+        if let midWord {
+            runMidWord(id, events, midWord)
+            return
+        }
         // Safari's fields with the Korean input method drop text that
         // comes right behind the backspaces taking down an open
         // syllable (owner list A, 2026-11-13: the word went, the
@@ -663,6 +678,54 @@ final class TypingTap {
         }
     }
 
+    /// Main thread. The rest of a mid-word plan (3.4, 5.5): the erase goes
+    /// out, the source is asked for, and the word's keys go out again where
+    /// it landed (`LayoutFixPlanner.afterHandOff`), with the keys typed
+    /// meanwhile held behind them. If another app is in front by then,
+    /// nothing more goes out (D16).
+    private func runMidWord(_ id: PlanID, _ erase: [OutputEvent], _ step: MidWordStep) {
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        submit(id, erase, last: false) { [weak self] posted in
+            guard let self, posted, self.stateLock.withLock({ self.gate.handingOff(id) }) else { return }
+            let landed = { [weak self] (outcome: InputSwitchHandOff.Outcome) in
+                guard let self else { return }
+                // Text right behind the backspaces of an open syllable is lost
+                // in Safari's fields (list A); with no pulse to wait for, it
+                // waits 40 ms as at a word end.
+                if !outcome.pulseSent {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.endMidWord(id, step, outcome: outcome, front: front) }
+                } else {
+                    self.endMidWord(id, step, outcome: outcome, front: front)
+                }
+            }
+            guard AppFeature.inputSwitch.isAvailable else { return landed(.unavailable) }
+            InputSwitchService.shared.handOff(to: step.target == .latin ? .english : .korean,
+                                              timeout: LayoutFixThresholds().handOffTimeout, completion: landed)
+        }
+    }
+
+    /// Main thread. The last batch of a mid-word plan, by where the source
+    /// landed; nothing if another app is in front now (D16).
+    private func endMidWord(_ id: PlanID, _ step: MidWordStep, outcome: InputSwitchHandOff.Outcome, front: pid_t?) {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == front else {
+            submit(id, [], last: true, unjudged: true, midWord: .dropped)
+            return
+        }
+        // A third source is never read as one of the two.
+        let live = outcome == .otherSource ? nil : LayoutFixPolicy.source(ofID: InputSwitchCapsLock.currentSourceID())
+        let after = LayoutFixPlanner.afterHandOff(step, live: live)
+        var events: [OutputEvent] = []
+        for planStep in after.steps {
+            switch planStep {
+            case .key(let stroke): events.append(.key(stroke))
+            case .text(let text): events += Self.typed(text)
+            default: break
+            }
+        }
+        // As text, nothing tells the source the held keys land in.
+        submit(id, events, last: true, unjudged: after.result == .text, midWord: after.result)
+    }
+
     /// Main thread. `then(true)` once ⌘ is up, checked every 15 ms as the
     /// paste waits for modifiers; `then(false)` if it is still down after
     /// 1.5 s, well inside the hold's limit.
@@ -696,9 +759,10 @@ final class TypingTap {
     /// Main thread. Gives output to the gate and kicks the tap to post it.
     /// `then` hears true once it is posted, false if the hold is gone.
     private func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false,
-                        unjudged: Bool = false, then: ((Bool) -> Void)? = nil) {
+                        unjudged: Bool = false, midWord: MidWordResult? = nil, then: ((Bool) -> Void)? = nil) {
         let accepted = stateLock.withLock { () -> Bool in
-            guard gate.submit(id, events, last: last, abandoned: abandoned, unjudged: unjudged) else { return false }
+            guard gate.submit(id, events, last: last, abandoned: abandoned, unjudged: unjudged, midWord: midWord)
+            else { return false }
             if let then { kickWaiters.append((id, then)) }
             return true
         }
@@ -706,6 +770,11 @@ final class TypingTap {
             then?(false)
             return
         }
+        postKick()
+    }
+
+    /// Wakes the tap to post what the gate has pending.
+    private func postKick() {
         // A modifier event that changes nothing: no app acts on it, and the
         // tap swallows it. Never a key, so never the fast switch's.
         guard let kick = CGEvent(source: CGEventSource(stateID: .hidSystemState)) else { return }

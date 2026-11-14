@@ -135,13 +135,94 @@ struct LayoutFixUndo: Equatable {
     let app: String?
     /// What the change typed: the other reading, the punctuation behind it
     /// and the Space.
-    let shown: String
+    var shown: String
     /// The word and the punctuation behind it as the field showed them before.
-    let original: String
-    let delimiter: KeyStroke
-    let learned: LearnedKey
+    var original: String
+    /// nil while a word changed as it was typed is still being typed.
+    var delimiter: KeyStroke?
+    var learned: LearnedKey
     /// When ⌘Z stops taking it back.
     var expires: TimeInterval = 0
+    /// A change made while the word was typed (3.4): its keys so far.
+    var word: MidWordRecord?
+
+    /// The person typed on in the changed word: ⌘Z takes that back too.
+    mutating func extend(with key: TypedKey, until expires: TimeInterval) {
+        guard var word else { return }
+        word.keys.append(key.reading(in: word.typedIn))
+        self.word = word
+        shown = LayoutFixPlanner.render(word.keys, in: word.target)
+        original = LayoutFixPlanner.render(word.keys, in: word.typedIn)
+        learned = LayoutFixPlanner.learnedKey(word.keys, typedIn: word.typedIn)
+        self.expires = expires
+    }
+
+    /// The changed word ended with this Space.
+    mutating func seal(by delimiter: KeyStroke, until expires: TimeInterval) {
+        self.delimiter = delimiter
+        shown += " "
+        self.expires = expires
+    }
+}
+
+/// A word changed while it was typed, as ⌘Z needs it.
+struct MidWordRecord: Equatable {
+    /// Punctuation in front of the word, which the change left where it was.
+    let leading: [TypedKey]
+    /// Every key of the word so far, read in the source it was typed in.
+    var keys: [TypedKey]
+    let typedIn: TypedSource
+    /// Where the change sent it.
+    let target: TypedSource
+}
+
+/// A mid-word plan in flight: the word's keys and where the plan sends
+/// them. The reducer takes it up when the plan ends.
+struct MidWordClaim: Equatable {
+    let leading: [TypedKey]
+    /// Read in the source they were typed in.
+    let keys: [TypedKey]
+    let typedIn: TypedSource
+    let target: TypedSource
+    /// The source the tap has read them in so far.
+    let before: TypedSource
+    /// An undo: the word the learned count hears of once it is back.
+    let reverts: LearnedKey?
+}
+
+extension TypedKey {
+    /// The key in key-space notation (3.1); nil for a key that types no
+    /// letter. A Latin capital counts as Shift, as `readings` counts it.
+    var keySpaceLetter: Character? {
+        guard typed.count == 1, let character = typed.first else { return nil }
+        if let key = HangulTwoSet.key(typing: character) { return key }
+        guard character.isASCII, character.isLetter else { return nil }
+        return character.isUppercase && HangulTwoSet.shiftedKeyLetters.contains(character)
+            ? character : Character(character.lowercased())
+    }
+
+    /// The same key as `source` types it: a letter key's letter or jamo,
+    /// Shift kept as the input method keeps it. Anything else as it is.
+    func reading(in source: TypedSource) -> TypedKey {
+        guard let key = keySpaceLetter else { return self }
+        let isJamo = HangulTwoSet.isJamo(typed.first!)
+        switch source {
+        case .latin:
+            guard isJamo else { return self }
+            return TypedKey(stroke: stroke, isRepeat: isRepeat, typed: stroke.shift ? key.uppercased() : key.lowercased())
+        case .hangul2:
+            guard !isJamo else { return self }
+            return TypedKey(stroke: stroke, isRepeat: isRepeat, typed: HangulTwoSet.hangul(fromKeySpace: String(key)))
+        }
+    }
+}
+
+extension RawKey {
+    /// The same key as `source` types it (`TypedKey.reading`).
+    func reading(in source: TypedSource) -> RawKey {
+        let key = TypedKey(stroke: stroke, isRepeat: isRepeat, typed: characters).reading(in: source)
+        return RawKey(kind: kind, origin: origin, stroke: stroke, isRepeat: isRepeat, characters: key.typed)
+    }
 }
 
 /// What the layout fix tells its service after a plan, on the main thread.
@@ -385,7 +466,8 @@ struct LayoutFixRules {
 
         switch readings.typedIn {
         case .latin:
-            if latin.hasWord(startingWith: readings.english) { return .keep(.m2) }
+            if latin.hasWord(startingWith: readings.english)
+                || Self.technicalWords.contains(where: { $0.utf8.starts(with: readings.english) }) { return .keep(.m2) }
             guard hangul.hasCommonWord(startingWith: readings.korean) else { return .keep(.m3) }
             // Everything before the syllable still open has to be whole.
             let text = HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))
@@ -462,9 +544,86 @@ enum LayoutFixPlanner {
         ReplacementPlan(steps: [.waitForCommandUp,
                                 .expect(record.shown),
                                 .backspaces(record.shown.count, completionCheck: nil),
-                                .text(record.original),
-                                .key(record.delimiter),
-                                .handOff(record.learned.source)])
+                                .text(record.original)]
+                            + (record.delimiter.map { [.key($0)] } ?? [])
+                            + [.handOff(record.learned.source)])
+    }
+
+    /// A change while typing (3.4), at the key that decided it, which is
+    /// swallowed: the field must show the word so far from its start (as
+    /// 7.10 checks an edited word), then the word is erased, and the rest
+    /// of the plan (`MidWordStep`) sends every key of it again once the
+    /// source is the target (R2). With the claim come the reducer's record
+    /// of it and the undo record, live once the keys are out.
+    static func midWord(_ token: LayoutToken, to target: TypedSource, text: String, app: String?)
+        -> (plan: ReplacementPlan, claim: MidWordClaim, undo: LayoutFixUndo) {
+        let typedIn: TypedSource = target == .latin ? .hangul2 : .latin
+        let onScreen = Array(token.keys.dropLast())
+        let typed = onScreen.map(\.typed).joined()
+        let backspaces: PlanStep = typedIn == .latin
+            // One per key; a completion selected behind them is checked as at a word end.
+            ? .backspaces(onScreen.count, completionCheck: typed)
+            // The composed count, from the clean start the check saw.
+            : .backspaces(HangulTwoSet.backspaces(erasing: typed), completionCheck: nil)
+        let leading = token.leading.map(\.typed).joined()
+        let original = render(token.keys, in: typedIn)
+        let plan = ReplacementPlan(steps: [.expectWordStart(leading + render(onScreen, in: typedIn)), backspaces],
+                                   midWord: MidWordStep(target: target, typedIn: typedIn, keys: token.keys.map(\.stroke),
+                                                        original: original, interrupted: text, needsHandOff: true))
+        let claim = MidWordClaim(leading: token.leading, keys: token.keys, typedIn: typedIn, target: target,
+                                 before: typedIn, reverts: nil)
+        let undo = LayoutFixUndo(app: app, shown: render(token.keys, in: target), original: original, delimiter: nil,
+                                 learned: learnedKey(token.keys, typedIn: typedIn),
+                                 word: MidWordRecord(leading: token.leading, keys: token.keys, typedIn: typedIn, target: target))
+        return (plan, claim, undo)
+    }
+
+    /// ⌘Z in the middle of a word changed while it was typed (5.7): once ⌘
+    /// is up and the field still shows the changed word from its start, it
+    /// is erased, the source it was typed in is asked for, and its keys go
+    /// out again there, so it is back exactly as typed, a last syllable
+    /// still open, and can be typed on. With no hand-off it goes back as text.
+    static func undoInWord(_ record: LayoutFixUndo, _ word: MidWordRecord) -> (plan: ReplacementPlan, claim: MidWordClaim) {
+        let shownKeys = word.keys.map { $0.reading(in: word.target) }
+        let count = word.target == .latin ? shownKeys.count : HangulTwoSet.backspaces(erasing: shownKeys.map(\.typed).joined())
+        let plan = ReplacementPlan(steps: [.waitForCommandUp,
+                                           .expectWordStart(word.leading.map(\.typed).joined() + record.shown),
+                                           .backspaces(count, completionCheck: nil)],
+                                   midWord: MidWordStep(target: word.typedIn, typedIn: word.typedIn,
+                                                        keys: word.keys.map(\.stroke), original: record.original,
+                                                        interrupted: record.original, needsHandOff: false))
+        let claim = MidWordClaim(leading: word.leading, keys: word.keys, typedIn: word.typedIn, target: word.typedIn,
+                                 before: word.target, reverts: record.learned)
+        return (plan, claim)
+    }
+
+    /// What a mid-word plan sends once the hand-off has ended, by the source
+    /// live then (`live`, nil for one the rules do not read). In either of
+    /// the word's two sources its keys go out again and the input method
+    /// composes them there: in the target that is the change (or the undo),
+    /// in the source they were typed in it is the word as typed (5.5: the
+    /// time limit, a pulse refused). Anywhere else the word goes back as text.
+    static func afterHandOff(_ step: MidWordStep, live: TypedSource?) -> (steps: [PlanStep], result: MidWordResult) {
+        guard let live, live == step.target || live == step.typedIn else { return ([.text(step.original)], .text) }
+        return (step.keys.map { .key($0) }, .keys(live))
+    }
+
+    /// `keys` as the field shows them when `source` typed them.
+    static func render(_ keys: [TypedKey], in source: TypedSource) -> String {
+        switch source {
+        case .latin:
+            return keys.map { $0.reading(in: .latin).typed }.joined()
+        case .hangul2:
+            return HangulTwoSet.hangul(fromKeySpace: keys.map { $0.keySpaceLetter.map(String.init) ?? $0.typed }.joined())
+        }
+    }
+
+    /// The learned-set key of a word's keys read in `typedIn`, as
+    /// `LayoutFixRules.learnedKey` spells it.
+    static func learnedKey(_ keys: [TypedKey], typedIn: TypedSource) -> LearnedKey {
+        let word = LayoutToken(keys).keys
+        let text = typedIn == .latin ? word.map(\.typed).joined() : String(word.compactMap(\.keySpaceLetter))
+        return LearnedKey(keys: text, source: typedIn)
     }
 }
 
@@ -475,6 +634,9 @@ struct LayoutFixConsumer {
         let rules: LayoutFixRules
         /// Bundle identifiers of the apps the person turned the tool off for.
         let ignoredApps: Set<String>
+        /// Rule 3.4 is on (off by default, D6) and the fast switch is
+        /// installed to hand the source over (M5, D3).
+        var whileTyping = false
     }
 
     var config: Config
@@ -485,6 +647,8 @@ struct LayoutFixConsumer {
     func consider(_ event: TypingEvent, chunk: TypingChunk, earlier: EarlierClaim,
                   frontApp: String?) -> (verdict: Verdict, undo: LayoutFixUndo?, skip: LayoutFixSkip?) {
         guard case .boundary(let delimiter) = event else { return (.pass, nil, nil) }
+        // Changed while it was typed, or that change taken back: judged once.
+        if chunk.midWord == .changed { return (.pass, nil, .rule(.m6)) }
         if let frontApp, config.ignoredApps.contains(frontApp) { return (.pass, nil, .ignoredApp) }
         let token = LayoutToken(chunk.keys)
         // Typed since an edit: judged like any word, and the plan asks the
@@ -505,6 +669,21 @@ struct LayoutFixConsumer {
         let undo = LayoutFixUndo(app: frontApp, shown: text + trailing + " ", original: original + trailing,
                                  delimiter: delimiter.stroke, learned: learned)
         return (.claim(plan), undo, nil)
+    }
+
+    /// Rule 3.4 on a letter key, `chunk` including it, with the switch on:
+    /// the word so far is changed before it ends. Once per word (M6); the
+    /// field has to show the word from its start.
+    func considerWhileTyping(chunk: TypingChunk, earlier: EarlierClaim, frontApp: String?)
+        -> (plan: ReplacementPlan, claim: MidWordClaim, undo: LayoutFixUndo)? {
+        guard chunk.midWord == .none, chunk.anchored || chunk.sinceEdit else { return nil }
+        if let frontApp, config.ignoredApps.contains(frontApp) { return nil }
+        let token = LayoutToken(chunk.keys)
+        // A closing mark on this key: the word was judged at the key before.
+        guard token.trailing.isEmpty,
+              case .change(let target, let text) = config.rules.decideWhileTyping(token, anchored: true, earlier: earlier)
+        else { return nil }
+        return LayoutFixPlanner.midWord(token, to: target, text: text, app: frontApp)
     }
 }
 
@@ -546,6 +725,12 @@ enum LayoutFixPolicy {
     /// Input sources whose keys the rules can read.
     static let knownSourceIDs: Set<String> = ["com.apple.keylayout.ABC", "com.apple.keylayout.US",
                                              "com.apple.inputmethod.Korean.2SetKorean"]
+
+    /// The layout an input source types, of the two the rules read.
+    static func source(ofID id: String?) -> TypedSource? {
+        guard let id, knownSourceIDs.contains(id) else { return nil }
+        return id.hasPrefix("com.apple.inputmethod.Korean") ? .hangul2 : .latin
+    }
 
     static func mode(_ facts: LayoutFixFacts) -> LayoutFixMode {
         guard facts.installed, facts.enabled else { return .off }

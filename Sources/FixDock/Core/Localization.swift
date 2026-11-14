@@ -1021,6 +1021,9 @@ struct Strings {
     let layoutFixLearnedNone: String
     let layoutFixLearnedCaption: String
     let layoutFixLearnedRemoveAll: String
+    let layoutFixWhileTyping: String
+    let layoutFixWhileTypingCaption: String
+    let layoutFixWhileTypingNeedsSwitch: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1950,6 +1953,9 @@ struct Strings {
         layoutFixLearnedNone: "No word learned yet.",
         layoutFixLearnedCaption: "Press ⌘Z right after a change to put the word back as you typed it. A word put back three times is left as typed from then on. Removing it here lets FixDock fix it again.",
         layoutFixLearnedRemoveAll: "Remove All",
+        layoutFixWhileTyping: "Fix while typing",
+        layoutFixWhileTypingCaption: "Before you finish a word, as soon as no word on the current layout starts with what you typed and a common word on the other layout does, FixDock fixes it on the spot and switches the input source, so you type the rest on the right layout. Press ⌘Z right away to put back what you typed. Off by default.",
+        layoutFixWhileTypingNeedsSwitch: "Needs the fast Korean/English switch installed. Until then words are fixed only when you finish them.",
         versionFormat: "Version %@"
     )
 }
