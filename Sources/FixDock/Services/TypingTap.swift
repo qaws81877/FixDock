@@ -6,6 +6,7 @@ import AppKit
 import Carbon.HIToolbox
 import Combine
 import CoreGraphics
+import os
 
 /// The one key tap the typing tools share. It turns each event into a
 /// `RawKey` and hands it to `TypingGate` (`Core/TypingSupport.swift`), which
@@ -340,6 +341,7 @@ final class TypingTap {
                 return Unmanaged.passUnretained(event)
             }
             let secureInput = IsSecureEventInputEnabled()
+            var skips: [LayoutFixSkip] = []
             let (start, failed, posted, notices) = stateLock.withLock {
                 () -> (ClaimedPlan?, [(Bool) -> Void], [(Bool) -> Void], [LayoutFixNotice]) in
                 // A kick that outlived its hold posts nothing.
@@ -348,8 +350,10 @@ final class TypingTap {
                 perform(response.commands, proxy: proxy)
                 let posted = kickWaiters.map(\.done)
                 kickWaiters = []
+                skips = gate.takeSkips()
                 return (response.start, failed, posted, response.notices)
             }
+            Self.logSkips(skips)
             if !failed.isEmpty || !posted.isEmpty || !notices.isEmpty {
                 DispatchQueue.main.async { [weak self] in
                     failed.forEach { $0(false) }
@@ -383,12 +387,15 @@ final class TypingTap {
         default:
             return Unmanaged.passUnretained(event)
         }
+        var skips: [LayoutFixSkip] = []
         let (response, failed) = stateLock.withLock { () -> (GateResponse, [(Bool) -> Void]) in
             let response = gate.receive(raw, secureInput: secureInput, now: now)
             if let ticket = response.keep, kept[ticket] == nil { kept[ticket] = event.copy() }
             perform(response.commands, proxy: proxy)
+            skips = gate.takeSkips()
             return (response, waitersOfLostPlans())
         }
+        Self.logSkips(skips)
         if !failed.isEmpty { DispatchQueue.main.async { failed.forEach { $0(false) } } }
         if let start = response.start { self.start(start) }
         return response.pass ? Unmanaged.passUnretained(event) : nil
@@ -471,6 +478,20 @@ final class TypingTap {
                 post(up)
             case .discard(let ticket):
                 kept[ticket] = nil
+            }
+        }
+    }
+
+    /// Debug level only, so not kept on disk: why the layout fix left a
+    /// word as typed. Never the word.
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "io.github.qaws81877.fixdock",
+                                    category: "layoutFix")
+
+    private static func logSkips(_ skips: [LayoutFixSkip]) {
+        for skip in skips {
+            switch skip {
+            case .ignoredApp: log.debug("layout fix: kept, ignored app")
+            case .rule(let reason): log.debug("layout fix: kept, rule \(String(describing: reason), privacy: .public)")
             }
         }
     }
@@ -567,8 +588,11 @@ final class TypingTap {
         // erased because the keys had been read as Latin letters).
         if case .expect(let shown)? = steps.first {
             let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            guard let front, SelectedTextReader.textBeforeCaret(processID: front, length: shown.utf16.count,
-                                                                timeout: 0.15) == shown else {
+            let read = front.flatMap {
+                SelectedTextReader.textBeforeCaret(processID: $0, length: shown.utf16.count, timeout: 0.15)
+            }
+            guard read == shown else {
+                Self.log.debug("layout fix: kept, field \(read == nil ? "unreadable" : "mismatch", privacy: .public)")
                 submit(id, [], last: true, abandoned: true)
                 return
             }

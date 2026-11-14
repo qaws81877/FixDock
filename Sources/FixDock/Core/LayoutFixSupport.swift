@@ -180,6 +180,12 @@ enum KeepReason: Equatable {
     case typedIsAWord
 }
 
+/// Why a finished word was left as typed, for the debug log. Never the word.
+enum LayoutFixSkip: Equatable {
+    case ignoredApp
+    case rule(KeepReason)
+}
+
 enum LayoutFixDecision: Equatable {
     case keep(KeepReason)
     /// The word becomes `text`, the same keys read in the other layout.
@@ -455,24 +461,28 @@ struct LayoutFixConsumer {
     var config: Config
 
     /// `chunk` is the finished word. `earlier` is rule N11's signal. A claim
-    /// ended by Space comes with the record ⌘Z would take it back by.
+    /// ended by Space comes with the record ⌘Z would take it back by; a word
+    /// left as typed, with why.
     func consider(_ event: TypingEvent, chunk: TypingChunk, earlier: EarlierClaim,
-                  frontApp: String?) -> (verdict: Verdict, undo: LayoutFixUndo?) {
-        guard case .boundary(let delimiter) = event else { return (.pass, nil) }
-        if let frontApp, config.ignoredApps.contains(frontApp) { return (.pass, nil) }
+                  frontApp: String?) -> (verdict: Verdict, undo: LayoutFixUndo?, skip: LayoutFixSkip?) {
+        guard case .boundary(let delimiter) = event else { return (.pass, nil, nil) }
+        if let frontApp, config.ignoredApps.contains(frontApp) { return (.pass, nil, .ignoredApp) }
         let token = LayoutToken(chunk.keys)
-        guard case .change(let target, let text) = config.rules.decideAtWordEnd(token, anchored: chunk.anchored, earlier: earlier)
-        else { return (.pass, nil) }
+        let target: TypedSource, text: String
+        switch config.rules.decideAtWordEnd(token, anchored: chunk.anchored, earlier: earlier) {
+        case .keep(let reason): return (.pass, nil, .rule(reason))
+        case .change(let to, let changed): (target, text) = (to, changed)
+        }
         let plan = LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter)
         // Only after Space: a Tab may have moved to another field and a
         // Return may have sent a message or run a command, so what is in
         // front of the caret then is not the changed word.
-        guard delimiter.typed == " ", let learned = config.rules.learnedKey(of: token) else { return (.claim(plan), nil) }
+        guard delimiter.typed == " ", let learned = config.rules.learnedKey(of: token) else { return (.claim(plan), nil, nil) }
         let trailing = token.trailing.map(\.typed).joined()
         let original = learned.source == .latin ? learned.keys : HangulTwoSet.hangul(fromKeySpace: learned.keys)
         let undo = LayoutFixUndo(app: frontApp, shown: text + trailing + " ", original: original + trailing,
                                  delimiter: delimiter.stroke, learned: learned)
-        return (.claim(plan), undo)
+        return (.claim(plan), undo, nil)
     }
 }
 

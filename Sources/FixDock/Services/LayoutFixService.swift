@@ -229,16 +229,25 @@ final class LayoutFixService: ObservableObject {
     }
 
     /// Electron's own switch for an Electron app; the one assistive apps
-    /// use for a Chromium browser, which does not take Electron's back.
+    /// use for a Chromium browser, which does not take Electron's back. A
+    /// Chromium browser is told by its framework, not its name: it keeps its
+    /// renderer helper inside, as Chrome's "Google Chrome Framework" and
+    /// Aside's "Aside Framework" do (owner, 2026-11-14: Aside was never
+    /// asked, so nothing was fixed there).
     private func textSwitch(_ bundle: URL) -> CFString? {
         if let known = textSwitches[bundle] { return known }
-        let names = (try? FileManager.default.contentsOfDirectory(
-            atPath: bundle.appendingPathComponent("Contents/Frameworks").path)) ?? []
+        let folder = bundle.appendingPathComponent("Contents/Frameworks")
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
         let frameworks = names.filter { $0.hasSuffix(" Framework.framework") }
         let found: CFString?
         if frameworks.contains(where: { $0.contains("Electron") }) {
             found = "AXManualAccessibility" as CFString
-        } else if frameworks.contains(where: { name in ["Chrom", "Edge", "Brave"].contains { name.contains($0) } }) {
+        } else if frameworks.contains(where: { name in
+            ["Chrom", "Edge", "Brave"].contains { name.contains($0) }
+                || ((try? FileManager.default.contentsOfDirectory(
+                    atPath: folder.appendingPathComponent("\(name)/Versions/Current/Helpers").path)) ?? [])
+                    .contains { $0.hasSuffix(" Helper (Renderer).app") }
+        }) {
             found = "AXEnhancedUserInterface" as CFString
         } else {
             found = nil
