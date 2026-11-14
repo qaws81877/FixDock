@@ -480,8 +480,9 @@ struct TypingGate {
         case .otherOwn:
             // The fast switch's pulse changes the layout the held keys
             // would be read in, so they go first. During a hand-off it is
-            // the change they wait for.
-            if hold?.handingOff == true {
+            // the change they wait for. Quit protection's copy of a
+            // command is not: what was typed before it still goes first.
+            if hold?.handingOff == true, Self.functionKeys.contains(raw.stroke.keyCode) {
                 state.sourceChanged()
                 return GateResponse()
             }

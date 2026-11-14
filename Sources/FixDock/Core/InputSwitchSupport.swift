@@ -623,10 +623,11 @@ struct InputSwitchHandOff {
 
     /// macOS says the source changed; `language` is the new one's. Still
     /// the language the wait began in (the person's own switch key went
-    /// back and forth, or a notice came early): the wait goes on.
+    /// back and forth, or a notice came early), or a language that could
+    /// not be read: the wait goes on.
     mutating func sourceChanged(language: String?) -> Ending? {
-        guard let current = waiting else { return nil }
-        if let language, current.target.matches(language) { return end(.arrived) }
+        guard let current = waiting, let language else { return nil }
+        if current.target.matches(language) { return end(.arrived) }
         if language == current.from { return nil }
         disabled = true
         return end(.otherSource)

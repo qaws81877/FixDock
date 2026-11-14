@@ -431,12 +431,15 @@ enum LayoutFixPlanner {
     /// ⌘Z after a change: once ⌘ is up, what the change typed is erased and
     /// the word goes back as the field showed it, then the delimiter. The
     /// text is injected, so an open syllable it had comes back closed.
+    /// Then the source the word was typed in is asked for again (5.7): the
+    /// fast switch finds out then whether the change's hand-off moved it.
     static func undo(_ record: LayoutFixUndo) -> ReplacementPlan {
         ReplacementPlan(steps: [.waitForCommandUp,
                                 .expect(record.shown),
                                 .backspaces(record.shown.count, completionCheck: nil),
                                 .text(record.original),
-                                .key(record.delimiter)])
+                                .key(record.delimiter),
+                                .handOff(record.learned.source)])
     }
 }
 
