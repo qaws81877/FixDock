@@ -23,6 +23,7 @@ struct KeyStroke: Hashable {
     private static let commandFlag: UInt64 = 1 << 20
     private static let deleteKey: UInt16 = 0x33
     private static let zKey: UInt16 = 0x06
+    private static let aKey: UInt16 = 0x00
     /// Left, Right, Down, Up, Escape, Home, End, Page Up, Page Down, forward delete.
     private static let caretKeys: Set<UInt16> = [0x7B, 0x7C, 0x7D, 0x7E, 0x35, 0x73, 0x77, 0x74, 0x79, 0x75]
 
@@ -34,6 +35,11 @@ struct KeyStroke: Hashable {
     /// ⌘Z with no other modifier.
     var isCommandZ: Bool {
         keyCode == Self.zKey
+            && rawFlags & (Self.commandFlag | Self.controlFlag | Self.optionFlag | Self.shiftFlag) == Self.commandFlag
+    }
+    /// ⌘A with no other modifier.
+    var isSelectAll: Bool {
+        keyCode == Self.aKey
             && rawFlags & (Self.commandFlag | Self.controlFlag | Self.optionFlag | Self.shiftFlag) == Self.commandFlag
     }
 }
@@ -112,7 +118,8 @@ enum TypingEvent: Equatable {
 /// The one buffer: what was typed since the last break. Text snippets read
 /// the two strings, which run character for character and forget everything
 /// past `TextSnippetSupport.bufferLimit`. The layout fix reads `keys`, the
-/// whole word key by key, and only while its start on screen is known.
+/// whole word key by key, while its start on screen is known, or, after an
+/// edit took the start away, the keys since that edit (7.10).
 struct TypingChunk: Equatable {
     /// The keys as Latin letters.
     private(set) var keyedText = ""
@@ -124,6 +131,11 @@ struct TypingChunk: Equatable {
     /// Whether `keys` begins where the word begins on screen. Nothing that
     /// was typed before the tap looked counts as known.
     private(set) var anchored = false
+    /// Not anchored, but `keys` holds every key since an edit took the
+    /// word's start away (a backspace past it, Option-Backspace, Command-A).
+    /// What is in front of them is the field's to say, at the word's end
+    /// (7.10).
+    private(set) var sinceEdit = false
 
     /// A word longer than this is no word; its keys are not kept.
     private static let keyLimit = 64
@@ -135,7 +147,7 @@ struct TypingChunk: Equatable {
     mutating func append(_ key: TypedKey) {
         keyedText = TextSnippetSupport.bufferAppending(keyedText, typed: key.keyed)
         typedText = TextSnippetSupport.bufferAppending(typedText, typed: key.typed)
-        guard anchored else { return }
+        guard anchored || sinceEdit else { return }
         if keys.count < Self.keyLimit {
             keys.append(key)
         } else {
@@ -148,9 +160,11 @@ struct TypingChunk: Equatable {
         if !typedText.isEmpty { typedText.removeLast() }
         // One backspace is one key only where nothing was composed. On an
         // empty word it removed something from before the word's start, and
-        // in the Korean source it can remove a whole syllable.
+        // in the Korean source it can remove a whole syllable. Either way the
+        // keys typed next are still known, unless nothing was known before:
+        // after a context change a backspace does not start judging again.
         if keys.isEmpty || keys.contains(where: { $0.typed.contains(where: HangulTwoSet.isJamo) }) {
-            unanchor()
+            if anchored || sinceEdit { loseStart() } else { unanchor() }
         } else {
             keys.removeLast()
         }
@@ -167,6 +181,15 @@ struct TypingChunk: Equatable {
     mutating func unanchor() {
         keys = []
         anchored = false
+        sinceEdit = false
+    }
+
+    /// An edit took the word's start away: the keys from here on are kept,
+    /// what is in front of them is unknown. The snippet strings stay.
+    mutating func loseStart() {
+        keys = []
+        anchored = false
+        sinceEdit = true
     }
 }
 
@@ -201,6 +224,10 @@ enum PlanStep: Equatable {
     /// erases nothing and its key goes on: the keys the tap read can differ
     /// from what the field's input method made of them.
     case expect(String)
+    /// As `expect`, for a word whose start the keys do not know (7.10): the
+    /// field shows exactly this right before the caret, and in front of it
+    /// a space or line break, a zero-width mark, or the field's start.
+    case expectWordStart(String)
     /// After the plan's output, the input source is handed to this one
     /// through the fast switch (D14). Only as a plan's last step.
     case handOff(TypedSource)
@@ -307,7 +334,7 @@ struct TypingState {
         // Nothing typed since a whitespace key, a click or an app change:
         // nothing is open to settle, and the next key shows its own source.
         // So the word after a hand-off is judged.
-        if chunk.anchored, chunk.keys.isEmpty { return }
+        if chunk.anchored || chunk.sinceEdit, chunk.keys.isEmpty { return }
         chunk.unanchor()
     }
 
@@ -324,14 +351,20 @@ struct TypingState {
         switch event {
         case .pointer:
             reset()
+        case .chord where raw.stroke.isSelectAll:
+            // Command-A is an edit within the field, not a move away from
+            // it: what is typed next replaces the selection (7.10).
+            chunk.forget()
+            chunk.loseStart()
         case .reset, .chord, .caretMove:
             chunk.forget()
         case .delete:
             chunk.removeLast()
         case .deleteMore:
-            // More than one character went; how many is not known.
+            // More than one character went; how many is not known. The keys
+            // typed next are.
             chunk.removeLast()
-            chunk.unanchor()
+            chunk.loseStart()
         case .nonText:
             // A dead key shows a mark and types nothing yet.
             if raw.stroke.option { chunk.unanchor() }
@@ -343,8 +376,9 @@ struct TypingState {
             if verdict == .pass, let layoutFix {
                 var skip: LayoutFixSkip?
                 (verdict, claimedChange, skip) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
-                // A space after a space or a click ends no word: nothing to log.
-                let noWord = chunk.anchored && chunk.keys.isEmpty
+                // A space after a space, a click or an edit ends no word:
+                // nothing to log.
+                let noWord = (chunk.anchored || chunk.sinceEdit) && chunk.keys.isEmpty
                 if let skip, !noWord, skips.count < 8 { skips.append(skip) }
             }
             reset()

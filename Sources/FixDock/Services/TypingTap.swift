@@ -597,6 +597,23 @@ final class TypingTap {
                 return
             }
         }
+        // A word typed since an edit: the field also says where it starts
+        // (7.10). Anything else in front of it keeps the text as it is.
+        if case .expectWordStart(let word)? = steps.first {
+            let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            let read = front.flatMap {
+                SelectedTextReader.wordBeforeCaret(processID: $0, length: word.utf16.count, timeout: 0.15)
+            }
+            guard let read, LayoutFixPlanner.showsWordStart(word, read: read.text, atFieldStart: read.atFieldStart) else {
+                var why = "unreadable"
+                if let read {
+                    why = (read.atFieldStart ? read.text : String(read.text.dropFirst())) == word ? "not a word start" : "mismatch"
+                }
+                Self.log.debug("layout fix: kept, field \(why, privacy: .public)")
+                submit(id, [], last: true, abandoned: true)
+                return
+            }
+        }
         var events: [OutputEvent] = []
         for step in steps {
             switch step {
@@ -606,7 +623,7 @@ final class TypingTap {
                 events += Self.typed(text)
             case .key(let stroke):
                 events.append(.key(stroke))
-            case .snippet, .waitForCommandUp, .expect, .handOff:
+            case .snippet, .waitForCommandUp, .expect, .expectWordStart, .handOff:
                 break
             }
         }

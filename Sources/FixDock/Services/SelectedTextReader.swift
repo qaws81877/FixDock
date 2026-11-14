@@ -84,6 +84,19 @@ enum SelectedTextReader {
     /// app does not say within `timeout`, or the caret is nearer the start.
     /// Asks what `focusedTextSelection` asks, never a role.
     static func textBeforeCaret(processID: pid_t, length: Int, timeout: TimeInterval) -> String? {
+        textBeforeCaret(processID: processID, length: length, timeout: timeout, withUnitInFront: false)?.text
+    }
+
+    /// As `textBeforeCaret`, with the one UTF-16 unit in front of those
+    /// `length` where the field has one; `atFieldStart` where it has none, the
+    /// caret being exactly `length` units from the start (7.10).
+    static func wordBeforeCaret(processID: pid_t, length: Int,
+                                timeout: TimeInterval) -> (text: String, atFieldStart: Bool)? {
+        textBeforeCaret(processID: processID, length: length, timeout: timeout, withUnitInFront: true)
+    }
+
+    private static func textBeforeCaret(processID: pid_t, length: Int, timeout: TimeInterval,
+                                        withUnitInFront: Bool) -> (text: String, atFieldStart: Bool)? {
         guard AXIsProcessTrusted(), processID != ProcessInfo.processInfo.processIdentifier, length > 0
         else { return nil }
         let deadline = ProcessInfo.processInfo.systemUptime + timeout
@@ -102,7 +115,10 @@ enum SelectedTextReader {
         else { return nil }
         let caret = FocusedTextSelection(range: NSRange(location: range.location, length: range.length),
                                          textLength: textLength, element: focused, deadline: deadline)
-        return caret.text(in: NSRange(location: range.location - length, length: length))
+        let front = withUnitInFront && range.location > length ? 1 : 0
+        guard let text = caret.text(in: NSRange(location: range.location - length - front, length: length + front))
+        else { return nil }
+        return (text, front == 0)
     }
 
     /// Gives `element` what is left until `deadline` to answer, set on each
