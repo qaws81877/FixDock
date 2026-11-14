@@ -400,7 +400,8 @@ enum LayoutFixPlanner {
     /// delimiter was swallowed, so the word and the punctuation behind it
     /// are the last things in the field. They are erased, the other reading
     /// and the same punctuation typed, then the delimiter. Punctuation in
-    /// front of the word stays where it is.
+    /// front of the word stays where it is. Then the input source is asked
+    /// for the target (D14), where the fast switch can give it.
     static func wordEnd(_ token: LayoutToken, to target: TypedSource, text: String, delimiter: TypedKey) -> ReplacementPlan {
         let erased = token.keys + token.trailing
         let typed = erased.map(\.typed).joined()
@@ -423,7 +424,8 @@ enum LayoutFixPlanner {
         return ReplacementPlan(steps: [.expect(shown),
                                        backspaces,
                                        .text(text + trailing),
-                                       .key(delimiter.stroke)])
+                                       .key(delimiter.stroke),
+                                       .handOff(target)])
     }
 
     /// ⌘Z after a change: once ⌘ is up, what the change typed is erased and

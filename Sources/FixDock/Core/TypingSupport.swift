@@ -201,6 +201,9 @@ enum PlanStep: Equatable {
     /// erases nothing and its key goes on: the keys the tap read can differ
     /// from what the field's input method made of them.
     case expect(String)
+    /// After the plan's output, the input source is handed to this one
+    /// through the fast switch (D14). Only as a plan's last step.
+    case handOff(TypedSource)
 }
 
 /// What a typing tool wants done to the text on screen. The tap's executor
@@ -292,6 +295,10 @@ struct TypingState {
     /// open syllable, so a count of keys no longer says what a backspace
     /// takes, and the rest of the word arrives in another layout.
     mutating func sourceChanged() {
+        // Nothing typed since a whitespace key, a click or an app change:
+        // nothing is open to settle, and the next key shows its own source.
+        // So the word after a hand-off is judged.
+        if chunk.anchored, chunk.keys.isEmpty { return }
         chunk.unanchor()
     }
 
@@ -410,7 +417,9 @@ struct TypingGate {
         /// Some output has left; the plan can no longer be taken back.
         var posted = false
         var held: [(ticket: Int, raw: RawKey)] = []
-        var pending: (events: [OutputEvent], last: Bool, abandoned: Bool)?
+        var pending: (events: [OutputEvent], last: Bool, abandoned: Bool, unjudged: Bool)?
+        /// The output is out and the input source is being handed over.
+        var handingOff = false
     }
 
     private(set) var state = TypingState()
@@ -470,7 +479,12 @@ struct TypingGate {
             return GateResponse()
         case .otherOwn:
             // The fast switch's pulse changes the layout the held keys
-            // would be read in, so they go first.
+            // would be read in, so they go first. During a hand-off it is
+            // the change they wait for.
+            if hold?.handingOff == true {
+                state.sourceChanged()
+                return GateResponse()
+            }
             return GateResponse(commands: sourceMayChange())
         case .physical:
             break
@@ -554,6 +568,14 @@ struct TypingGate {
         hold = nil
         response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now)
         response.commands.append(batch.abandoned ? .sendOn(current.swallowed) : .discard(current.swallowed))
+        if batch.unjudged {
+            // A hand-off's pulse went out: their characters were read in the
+            // source before it. They go on as typed and the word they start
+            // is not judged.
+            if !current.held.isEmpty { state.interrupt() }
+            response.commands += current.held.map { .sendOn($0.ticket) }
+            return response
+        }
         var rest = current.held[...]
         while let next = rest.popFirst() {
             let judged = judge(next.raw, ticket: next.ticket, secureInput: secureInput, now: now)
@@ -595,13 +617,25 @@ struct TypingGate {
         return true
     }
 
+    /// The plan's output is out and the input source is being handed over
+    /// (D14): until the plan ends, the fast switch's pulse and key pass
+    /// without letting the held keys go, so they land in the new source.
+    /// false: the hold is gone.
+    mutating func handingOff(_ id: PlanID) -> Bool {
+        guard hold?.plan == id else { return false }
+        hold?.handingOff = true
+        return true
+    }
+
     /// Output for the tap to post at the next kick. `last` ends the plan;
-    /// `abandoned` (with no output) sends its key on instead. false: the
-    /// hold is gone, post no kick.
-    mutating func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false) -> Bool {
+    /// `abandoned` (with no output) sends its key on instead; `unjudged`
+    /// sends the held keys on without asking the tools. false: the hold is
+    /// gone, post no kick.
+    mutating func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false,
+                         unjudged: Bool = false) -> Bool {
         guard hold?.plan == id else { return false }
         let earlier = hold?.pending?.events ?? []
-        hold?.pending = (earlier + events, last, abandoned)
+        hold?.pending = (earlier + events, last, abandoned, unjudged)
         return true
     }
 
