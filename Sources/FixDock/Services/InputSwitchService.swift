@@ -43,6 +43,8 @@ final class InputSwitchService: ObservableObject {
     private var sentPulse: InputSwitchSentPulse?
     /// Kept by the source-change notification, so a press costs no TIS call.
     private var cachedLanguage: String?
+    /// The layout fix's request for the source after a word (`handOff`).
+    private var handOffRoute = InputSwitchHandOff()
 
     private init() {
         SessionActivity.shared.onChange { [weak self] _ in self?.syncWithPreferences() }
@@ -217,6 +219,7 @@ final class InputSwitchService: ObservableObject {
         ) else { return }
         self.tap = tap
         cachedLanguage = InputSwitchCapsLock.currentLanguage()
+        handOffRoute.enable()
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
@@ -233,6 +236,8 @@ final class InputSwitchService: ObservableObject {
         runLoopSource = nil
         router.reset()
         cancelTransition()
+        let ending = handOffRoute.cancel()
+        ending?.run()
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -291,6 +296,38 @@ final class InputSwitchService: ObservableObject {
               let pulse = makePulse(from: event) else { return false }
         post(pulse)
         return true
+    }
+
+    // MARK: Hand-off
+
+    /// Main thread. The layout fix asks for `target` after a word it fixed
+    /// (docs/typo-switch.md 5.5): one pulse, built here like a long press's,
+    /// then the wait for the source-change notice. `completion` runs exactly
+    /// once, on the main thread, possibly before this returns.
+    func handOff(to target: InputSwitchHandOff.Target, timeout: TimeInterval,
+                 completion: @escaping (InputSwitchHandOff.Outcome) -> Void) {
+        let language = tap == nil ? nil : InputSwitchCapsLock.currentLanguage()
+        let now = ProcessInfo.processInfo.systemUptime
+        let facts = InputSwitchHandOff.Facts(
+            live: liveKeyCode != nil && tap != nil,
+            cleaningMode: cleaningModeIsActive,
+            transitionPending: pendingCaps != nil,
+            pulseInFlight: language.map { sentPulse?.inFlight(now: now, language: $0) ?? false } ?? false,
+            language: language)
+        switch handOffRoute.begin(target, facts: facts, completion: completion) {
+        case .end(let ending):
+            ending.run()
+        case .sendPulse(let id):
+            guard postGeneratedPulse() else {
+                let ending = handOffRoute.pulseRefused()
+                ending?.run()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
+                let ending = self?.handOffRoute.timeout(id: id)
+                ending?.run()
+            }
+        }
     }
 
     // MARK: Long press
@@ -353,6 +390,11 @@ final class InputSwitchService: ObservableObject {
         let language = InputSwitchCapsLock.currentLanguage()
         cachedLanguage = language
         if let language, pendingCaps != nil { completeCapsTransition(language: language) }
+        let ending = handOffRoute.sourceChanged(language: language)
+        if ending?.outcome == .otherSource {
+            InputSwitchSystem.log.info("hand-off: another source arrived; off until the fast switch starts again")
+        }
+        ending?.run()
     }
 
     private func cancelTransition() {

@@ -552,6 +552,12 @@ final class TypingTap {
     /// field in front to be another app's: with a FixDock window key, the
     /// backspaces would not land where the word is.
     private func runPlain(_ id: PlanID, _ steps: [PlanStep]) {
+        var steps = steps
+        var handOff: TypedSource?
+        if case .handOff(let target)? = steps.last {
+            handOff = target
+            steps.removeLast()
+        }
         guard !Self.ownWindowIsKey else {
             submit(id, [], last: true, abandoned: true)
             return
@@ -576,7 +582,7 @@ final class TypingTap {
                 events += Self.typed(text)
             case .key(let stroke):
                 events.append(.key(stroke))
-            case .snippet, .waitForCommandUp, .expect:
+            case .snippet, .waitForCommandUp, .expect, .handOff:
                 break
             }
         }
@@ -587,13 +593,31 @@ final class TypingTap {
         // paste's key up does; keys typed meanwhile stay held.
         guard let split = events.firstIndex(where: { if case .text = $0 { return true } else { return false } }),
               split > 0 else {
-            submit(id, events, last: true)
+            finish(id, events, handOff: handOff)
             return
         }
         submit(id, Array(events[..<split]), last: false) { [weak self] posted in
             guard posted else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
-                self?.submit(id, Array(events[split...]), last: true)
+                self?.finish(id, Array(events[split...]), handOff: handOff)
+            }
+        }
+    }
+
+    /// Main thread. A plain plan's last output; with a hand-off, the source
+    /// is asked for once that output is posted (D14), and the keys typed
+    /// meanwhile stay held until it lands or the fast switch gives up.
+    private func finish(_ id: PlanID, _ events: [OutputEvent], handOff target: TypedSource?) {
+        // Never creates the fast switch's service when it is not installed.
+        guard let target, AppFeature.inputSwitch.isAvailable else {
+            submit(id, events, last: true)
+            return
+        }
+        submit(id, events, last: false) { [weak self] posted in
+            guard let self, posted, self.stateLock.withLock({ self.gate.handingOff(id) }) else { return }
+            InputSwitchService.shared.handOff(to: target == .latin ? .english : .korean,
+                                              timeout: LayoutFixThresholds().handOffTimeout) { outcome in
+                self.submit(id, [], last: true, unjudged: outcome.pulseSent)
             }
         }
     }
@@ -631,9 +655,9 @@ final class TypingTap {
     /// Main thread. Gives output to the gate and kicks the tap to post it.
     /// `then` hears true once it is posted, false if the hold is gone.
     private func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false,
-                        then: ((Bool) -> Void)? = nil) {
+                        unjudged: Bool = false, then: ((Bool) -> Void)? = nil) {
         let accepted = stateLock.withLock { () -> Bool in
-            guard gate.submit(id, events, last: last, abandoned: abandoned) else { return false }
+            guard gate.submit(id, events, last: last, abandoned: abandoned, unjudged: unjudged) else { return false }
             if let then { kickWaiters.append((id, then)) }
             return true
         }

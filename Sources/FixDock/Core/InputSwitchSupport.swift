@@ -523,3 +523,135 @@ enum InputSwitchEnglishRoute: Equatable {
 enum InputSwitchLanguage {
     static func isEnglish(_ language: String) -> Bool { language.hasPrefix("en") }
 }
+
+// MARK: Hand-off (the layout fix, docs/typo-switch.md 5.5)
+
+/// The layout fix asking for the input source after a word it fixed: one
+/// pulse, then the wait for macOS to say where it landed. Every request ends
+/// exactly once: its completion is handed back by the one call that ends it
+/// and is gone from here before that call returns.
+struct InputSwitchHandOff {
+    enum Target: Equatable {
+        case english, korean
+
+        func matches(_ language: String) -> Bool {
+            switch self {
+            case .english: return InputSwitchLanguage.isEnglish(language)
+            case .korean: return language.hasPrefix("ko")
+            }
+        }
+    }
+
+    enum Outcome: Equatable {
+        /// Nothing posted: the fast switch is not live, cleaning mode is on,
+        /// a long press or a pulse is under way, another hand-off waits, or
+        /// a third source was met since the fast switch last started.
+        case unavailable
+        /// The source already is the target; nothing posted.
+        case alreadyThere
+        /// The pulse could not be made; nothing posted.
+        case refused
+        case arrived
+        /// No change of source within the time limit.
+        case timedOut
+        /// A source that is not the target: the hand-off stays off.
+        case otherSource
+        /// The fast switch went away during the wait.
+        case cancelled
+
+        /// A pulse went out, so the source may have changed under keys
+        /// typed meanwhile.
+        var pulseSent: Bool {
+            switch self {
+            case .unavailable, .alreadyThere, .refused: return false
+            case .arrived, .timedOut, .otherSource, .cancelled: return true
+            }
+        }
+    }
+
+    struct Facts: Equatable {
+        /// The fast switch's key is live and its tap runs.
+        var live: Bool
+        var cleaningMode: Bool
+        /// A long press is on its way to English.
+        var transitionPending: Bool
+        var pulseInFlight: Bool
+        /// The current source's language; nil when it cannot be read.
+        var language: String?
+    }
+
+    typealias Completion = (Outcome) -> Void
+
+    /// A request that has ended. The caller runs it once the route's state
+    /// is settled.
+    struct Ending {
+        let outcome: Outcome
+        let completion: Completion
+
+        func run() { completion(outcome) }
+    }
+
+    enum Begin {
+        case end(Ending)
+        /// Post the pulse and arm the time limit for request `id`.
+        case sendPulse(id: Int)
+    }
+
+    private var waiting: (id: Int, target: Target, from: String, completion: Completion)?
+    /// Set when a third source arrived; the pulse cannot be trusted to
+    /// toggle between the two sources the layout fix reads.
+    private(set) var disabled = false
+    private var lastID = 0
+
+    var isWaiting: Bool { waiting != nil }
+
+    mutating func begin(_ target: Target, facts: Facts, completion: @escaping Completion) -> Begin {
+        let blocked = waiting != nil || disabled || !facts.live || facts.cleaningMode
+            || facts.transitionPending || facts.pulseInFlight
+        guard !blocked, let language = facts.language else {
+            return .end(Ending(outcome: .unavailable, completion: completion))
+        }
+        if target.matches(language) { return .end(Ending(outcome: .alreadyThere, completion: completion)) }
+        lastID += 1
+        waiting = (lastID, target, language, completion)
+        return .sendPulse(id: lastID)
+    }
+
+    mutating func pulseRefused() -> Ending? {
+        end(.refused)
+    }
+
+    /// macOS says the source changed; `language` is the new one's. Still
+    /// the language the wait began in (the person's own switch key went
+    /// back and forth, or a notice came early), or a language that could
+    /// not be read: the wait goes on.
+    mutating func sourceChanged(language: String?) -> Ending? {
+        guard let current = waiting, let language else { return nil }
+        if current.target.matches(language) { return end(.arrived) }
+        if language == current.from { return nil }
+        disabled = true
+        return end(.otherSource)
+    }
+
+    /// The time limit of request `id`; a request that already ended is not touched.
+    mutating func timeout(id: Int) -> Ending? {
+        guard waiting?.id == id else { return nil }
+        return end(.timedOut)
+    }
+
+    mutating func cancel() -> Ending? {
+        end(.cancelled)
+    }
+
+    /// The fast switch started again: a third source met earlier is no
+    /// longer held against it.
+    mutating func enable() {
+        disabled = false
+    }
+
+    private mutating func end(_ outcome: Outcome) -> Ending? {
+        guard let current = waiting else { return nil }
+        waiting = nil
+        return Ending(outcome: outcome, completion: current.completion)
+    }
+}
