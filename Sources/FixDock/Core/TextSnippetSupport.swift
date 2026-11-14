@@ -57,8 +57,9 @@ extension TextSnippet {
 /// The Korean 2-Set input method, as far as text snippets need it. While it
 /// is the input source a key event carries the jamo it types, not the Latin
 /// letter of the key, so triggers are matched on `latinKey`. Its backspace
-/// removes one key from the syllable still being composed and a whole
-/// character before that, which `backspaces(erasing:)` counts.
+/// removes one key from the syllable still being composed (a double
+/// consonant starting it in two steps) and a whole character before that,
+/// which `backspaces(erasing:)` counts.
 enum HangulTwoSet {
     private static let keys: [Character: Character] = [
         "ㅂ": "q", "ㅃ": "q", "ㅈ": "w", "ㅉ": "w", "ㄷ": "e", "ㄸ": "e", "ㄱ": "r", "ㄲ": "r",
@@ -101,14 +102,20 @@ enum HangulTwoSet {
     }
 
     /// 2-Set composition, counting what a backspace takes: a whole committed
-    /// character, or one key of the syllable still being composed.
+    /// character, or one key of the syllable still being composed. A double
+    /// consonant that starts that syllable takes two: the input method leaves
+    /// its single consonant first (measured 2026-11-15: Shift-T then Backspace
+    /// shows ㅅ, so "The" typed in 2-Set became "ㅅThe").
     private struct Composer {
+        private static let doubleInitials: Set<Character> = ["ㄲ", "ㄸ", "ㅃ", "ㅆ", "ㅉ"]
         private(set) var committed = 0
         private var initial: Character?
         private var vowel: [Character] = []
         private var final: [Character] = []
 
-        var composing: Int { (initial == nil ? 0 : 1) + vowel.count + final.count }
+        var composing: Int {
+            (initial.map { Self.doubleInitials.contains($0) ? 2 : 1 } ?? 0) + vowel.count + final.count
+        }
 
         private mutating func commit() {
             if initial != nil || !vowel.isEmpty { committed += 1 }
