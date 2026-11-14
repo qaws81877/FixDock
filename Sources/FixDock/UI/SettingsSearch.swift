@@ -151,6 +151,8 @@ extension AppFeature {
             return [\.clipboardHistoryEnable, \.clipboardHistoryShortcut, \.clipboardHistoryRetentionTitle,
                     \.clipboardHistoryRecordsMedia, \.clipboardHistoryImageBudgetTitle,
                     \.clipboardHistoryExcludedTitle]
+        case .layoutFix:
+            return [\.layoutFixEnable, \.layoutFixExcludedTitle, \.layoutFixLearnedTitle]
         }
     }
 }

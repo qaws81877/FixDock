@@ -21,6 +21,7 @@ final class KeyTapHealth: ObservableObject {
     enum Client: String {
         case quitProtection = "quit protection"
         case textSnippets = "text snippets"
+        case layoutFix = "layout fix"
     }
 
     enum TapState: Equatable {

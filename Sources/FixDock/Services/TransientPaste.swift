@@ -20,11 +20,14 @@ final class TransientPaste {
     private var restoreWork: DispatchWorkItem?
     private var isPerforming = false
 
+    /// `postShortcut`, when given, posts Command-V in this function's place
+    /// at the moment it would have, and answers whether it did.
     @discardableResult
     func paste(_ text: String,
                willPostShortcut: (() -> Void)? = nil,
                didPostShortcut: (() -> Void)? = nil,
-               didFail: (() -> Void)? = nil) -> Bool {
+               didFail: (() -> Void)? = nil,
+               postShortcut: ((@escaping (Bool) -> Void) -> Void)? = nil) -> Bool {
         guard Thread.isMainThread else { return false }
         guard !isPerforming else { return false }
         isPerforming = true
@@ -76,7 +79,8 @@ final class TransientPaste {
                     expectedChangeCount: changeCount,
                     willPost: willPostShortcut,
                     didPost: didPostShortcut,
-                    didFail: didFail
+                    didFail: didFail,
+                    postShortcut: postShortcut
                 ) {
                     self.isPerforming = false
                     self.scheduleRestore(snapshot: snapshot, changeCount: changeCount)
@@ -140,6 +144,7 @@ final class TransientPaste {
                                                        willPost: (() -> Void)?,
                                                        didPost: (() -> Void)?,
                                                        didFail: (() -> Void)?,
+                                                       postShortcut: ((@escaping (Bool) -> Void) -> Void)? = nil,
                                                        completion: @escaping () -> Void) {
         let held = CGEventSource.flagsState(.combinedSessionState)
             .intersection([.maskCommand, .maskAlternate, .maskShift, .maskControl])
@@ -156,7 +161,8 @@ final class TransientPaste {
                         completion()
                         return
                     }
-                    postPasteShortcut(willPost: willPost) { succeeded in
+                    let post = postShortcut ?? { postPasteShortcut(willPost: willPost, completion: $0) }
+                    post { succeeded in
                         if succeeded {
                             didPost?()
                         } else {
@@ -174,6 +180,7 @@ final class TransientPaste {
                                            willPost: willPost,
                                            didPost: didPost,
                                            didFail: didFail,
+                                           postShortcut: postShortcut,
                                            completion: completion)
         }
     }

@@ -57,6 +57,8 @@ extension AppFeature {
             return page { InputSwitchSettings() }
         case .clipboardHistory:
             return page { ClipboardHistorySettings() }
+        case .layoutFix:
+            return page { LayoutFixSettings() }
         }
     }
 

@@ -27,9 +27,12 @@ enum SettingsBackup {
         DefaultsKey.recorderSystemAudioTapVerified,
         // Keyed by this Mac's display ids.
         DefaultsKey.screenshotLastRegions,
+        // Processes running on this Mac.
+        DefaultsKey.layoutFixTextAccess,
         // Developer-run arguments.
         DefaultsKey.airdropAutoZipFolderOverride,
         DefaultsKey.inputSwitchDeveloperClaim,
+        DefaultsKey.layoutFixDeveloperClaim,
         DefaultsKey.permissionListNamesLegacy,
     ]
 

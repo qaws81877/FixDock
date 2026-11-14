@@ -31,6 +31,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
     case screenRecorder
     case inputSwitch
     case clipboardHistory
+    case layoutFix
 
     var id: String { rawValue }
 
@@ -40,12 +41,13 @@ enum AppFeature: String, CaseIterable, Identifiable {
             || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip
             || self == .cleaner || self == .screenshot || self == .screenRecorder
             || self == .inputSwitch || self == .clipboardHistory
+            || self == .layoutFix
     }
 
     /// Grants the module cannot run without. Installing asks for any missing.
     var requiredPermissions: [PermissionKind] {
         switch self {
-        case .quitWindowProtection, .cleaningMode, .textSnippets, .inputSwitch: return [.accessibility]
+        case .quitWindowProtection, .cleaningMode, .textSnippets, .inputSwitch, .layoutFix: return [.accessibility]
         case .cleaner: return [.fullDiskAccess]
         case .screenshot, .screenRecorder: return [.screenRecording]
         // The history records without a grant; only its paste needs
@@ -66,6 +68,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .textSnippets: key = DefaultsKey.textSnippetsEnabled
         case .airdropAutoZip: key = DefaultsKey.airdropAutoZipEnabled
         case .clipboardHistory: key = DefaultsKey.clipboardHistoryEnabled
+        case .layoutFix: key = DefaultsKey.layoutFixEnabled
         case .cleaningMode, .mediaTools, .cleaner,
              .screenshot, .screenRecorder:
             return
@@ -89,7 +92,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         switch self {
         case .urlCleaner:
             return .files
-        case .quitWindowProtection, .textSnippets, .inputSwitch, .clipboardHistory:
+        case .quitWindowProtection, .textSnippets, .inputSwitch, .clipboardHistory, .layoutFix:
             return .keyboard
         case .cleaningMode, .mediaTools, .airdropAutoZip, .cleaner, .screenshot, .screenRecorder:
             return .tools
@@ -109,6 +112,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenRecorder: return "record.circle"
         case .inputSwitch: return "globe"
         case .clipboardHistory: return "list.clipboard"
+        case .layoutFix: return "character.cursor.ibeam"
         }
     }
 
@@ -125,6 +129,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenRecorder: return strings.featureRecorderName
         case .inputSwitch: return strings.featureInputSwitchName
         case .clipboardHistory: return strings.featureClipboardHistoryName
+        case .layoutFix: return strings.featureLayoutFixName
         }
     }
 
@@ -141,6 +146,7 @@ enum AppFeature: String, CaseIterable, Identifiable {
         case .screenRecorder: return strings.featureRecorderSummary
         case .inputSwitch: return strings.featureInputSwitchSummary
         case .clipboardHistory: return strings.featureClipboardHistorySummary
+        case .layoutFix: return strings.featureLayoutFixSummary
         }
     }
 }

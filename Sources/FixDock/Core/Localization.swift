@@ -1000,6 +1000,27 @@ struct Strings {
     let settingsForward: String
     let settingsShowSidebar: String
     let settingsHideSidebar: String
+    let featureLayoutFixName: String
+    let featureLayoutFixSummary: String
+    let layoutFixEnable: String
+    let layoutFixEnableCaption: String
+    let layoutFixLimitsCaption: String
+    let layoutFixActiveNow: String
+    let layoutFixNeedsAccessibility: String
+    let layoutFixRestOtherFixerFormat: String
+    let layoutFixRestDeveloperBuild: String
+    let layoutFixRestUnknownLayout: String
+    let layoutFixRestListsMissing: String
+    let layoutFixRestListsLoading: String
+    let layoutFixExcludedTitle: String
+    let layoutFixExcludedNone: String
+    let layoutFixExcludedAdd: String
+    let layoutFixExcludedRemove: String
+    let layoutFixExcludedCaption: String
+    let layoutFixLearnedTitle: String
+    let layoutFixLearnedNone: String
+    let layoutFixLearnedCaption: String
+    let layoutFixLearnedRemoveAll: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1908,6 +1929,27 @@ struct Strings {
         settingsForward: "Forward",
         settingsShowSidebar: "Show Sidebar",
         settingsHideSidebar: "Hide Sidebar",
+        featureLayoutFixName: "Korean/English auto-fix",
+        featureLayoutFixSummary: "A word typed on the wrong layout is retyped in the right one when you finish it.",
+        layoutFixEnable: "Fix words typed on the wrong layout",
+        layoutFixEnableCaption: "When you press Space, Tab or Return after a word that only makes sense on the other layout, FixDock erases it and types it in that layout. Keys are judged in memory on this Mac; nothing you type is stored or sent.",
+        layoutFixLimitsCaption: "Left as typed: words with digits, addresses, all-capital words, and a word you moved into with the arrow keys or edited after a shortcut. The input source itself is not switched.",
+        layoutFixActiveNow: "Active",
+        layoutFixNeedsAccessibility: "Accessibility permission is needed to see what you type.",
+        layoutFixRestOtherFixerFormat: "Resting while %@ is running.",
+        layoutFixRestDeveloperBuild: "Off in the developer build, so two FixDock copies never fix the same word.",
+        layoutFixRestUnknownLayout: "Resting: the current input source is neither ABC nor Korean 2-Set.",
+        layoutFixRestListsMissing: "Off: the word lists are missing from this copy of FixDock.",
+        layoutFixRestListsLoading: "Loading the word lists…",
+        layoutFixExcludedTitle: "Excluded apps",
+        layoutFixExcludedNone: "No app is excluded.",
+        layoutFixExcludedAdd: "Add app",
+        layoutFixExcludedRemove: "Remove",
+        layoutFixExcludedCaption: "Nothing is fixed while one of these apps is in front.",
+        layoutFixLearnedTitle: "Learned words",
+        layoutFixLearnedNone: "No word learned yet.",
+        layoutFixLearnedCaption: "Press ⌘Z right after a change to put the word back as you typed it. A word put back three times is left as typed from then on. Removing it here lets FixDock fix it again.",
+        layoutFixLearnedRemoveAll: "Remove All",
         versionFormat: "Version %@"
     )
 }

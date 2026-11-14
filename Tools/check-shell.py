@@ -23,6 +23,7 @@ FEATURE_ORDER = [
     "screenRecorder",
     "inputSwitch",
     "clipboardHistory",
+    "layoutFix",
 ]
 ALLOWED_URLS = {
     "https://github.com/vorssaint/vorssaint-utils",
@@ -31,6 +32,8 @@ ALLOWED_URLS = {
     "https://github.com/qaws81877/homebrew-tap",
     "https://api.github.com/repos/qaws81877/FixDock/releases/latest",
     "https://www.gnu.org/licenses/gpl-3.0.en.html",
+    "https://github.com/hermitdave/FrequencyWords",
+    "https://creativecommons.org/licenses/by-sa/4.0/",
     "https://fixdock-feedback.answlals1236.workers.dev",
 }
 FORBIDDEN = [
@@ -201,6 +204,8 @@ def main():
         "github.com/codingnoye/gksdud",
         "Copyright (c) 2026 CodingNoye",
         "Permission is hereby granted, free of charge",
+        "github.com/hermitdave/FrequencyWords",
+        "Attribution-ShareAlike 4.0",
     ):
         if needle not in notice:
             errors += fail(f"NOTICE is missing {needle}")
@@ -254,7 +259,8 @@ def main():
         "self == .urlCleaner || self == .quitWindowProtection || self == .cleaningMode\n"
         "            || self == .textSnippets || self == .mediaTools || self == .airdropAutoZip\n"
         "            || self == .cleaner || self == .screenshot || self == .screenRecorder\n"
-        "            || self == .inputSwitch || self == .clipboardHistory\n" not in catalog
+        "            || self == .inputSwitch || self == .clipboardHistory\n"
+        "            || self == .layoutFix\n" not in catalog
     ):
         errors += fail("only the URL cleaner, quit protection, cleaning mode, text snippets, media, AirDrop auto-zip, cleaner, screenshot, screen recorder, input switch and clipboard history should have a service")
 
@@ -332,6 +338,18 @@ def main():
         ("SystemAdministration.framework", ["Services/InputSwitchSystem.swift"]),
         ('"kern.bootsessionuuid"', ["Services/InputSwitchSystem.swift"]),
         ("OwnKeyEvent.inputSwitchMarker", ["Services/InputSwitchService.swift"]),
+        # Typing tools share one tap, and only it posts their output (docs/typo-switch.md 5.12).
+        ("CGEvent.tapCreate", ["Services/CleaningModeManager.swift", "Services/InputSwitchService.swift",
+                               "Services/QuitProtectionService.swift", "Services/TypingTap.swift"]),
+        ("OwnKeyEvent.textSnippetMarker", ["Services/TypingTap.swift"]),
+        ("OwnKeyEvent.typingRelayMarker", ["Services/TypingTap.swift"]),
+        ("TypingTap.shared.setSnippets", ["Services/TextSnippetService.swift"]),
+        ("TypingTap.shared.setLayoutFix", ["Services/LayoutFixService.swift"]),
+        # The other fixer's identifier is known in one place (docs/typo-switch.md, section 6).
+        ("com.hebbianai.catchtype", ["Core/LayoutFixSupport.swift"]),
+        # Layout fix: one owner of the learned-words file, the guard's only constructor.
+        ('"LayoutFix.json"', ["Core/LayoutFixLearnedStore.swift"]),
+        ("LayoutFixLearnedRecords(", ["Core/LayoutFixLearnedStore.swift"]),
         ("IOHIDSetModifierLockState", ["Services/InputSwitchCapsLock.swift"]),
         # Clipboard history: one owner of the file, the guard's only
         # constructor, one store (docs/clipboard-history.md, deletion guard).
@@ -367,6 +385,9 @@ def main():
     deletion = re.compile(
         r"\b(removeItem|trashItem|unlink|unlinkat|moveItem|replaceItem|rename|renameat|renamex_np"
         r"|renameatx_np|rmdir|removefile|exchangedata|truncate|ftruncate)\b|\bremove\s*\(\s*[a-zA-Z_.]*(path|url|URL)")
+    # The learned-words store never removes, moves or renames a file either. Comments count too.
+    if deletion.search((ROOT / "Sources/FixDock/Core/LayoutFixLearnedStore.swift").read_text(encoding="utf-8")):
+        errors += fail("LayoutFixLearnedStore.swift must not remove, move or rename a file")
     for path in swift_files:
         if path.name.startswith("ClipboardHistory") or path.name == "ClipboardIgnoredApps.swift":
             text = path.read_text(encoding="utf-8")
@@ -426,10 +447,16 @@ def main():
         ("Core/ClipboardHistorySupport.swift", ["CoreGraphics", "Foundation"]),
         ("Core/ClipboardHistoryBlobs.swift", ["CryptoKit", "Foundation", "ImageIO"]),
         ("Core/ClipboardHistoryKinds.swift", ["Foundation"]),
+        ("Core/TypingSupport.swift", ["Foundation"]),
+        ("Core/LayoutFixSupport.swift", ["Foundation"]),
+        ("Core/LayoutFixLearnedStore.swift", ["Foundation"]),
     ):
         found = re.findall(r"^import (\w+)", (sources / relative).read_text(encoding="utf-8"), re.M)
         if found != expected:
             errors += fail(f"{relative} must import only {expected}, imports {found}")
+    # The layout fix reads keys with their Shift state; swappedLayout folds it away (docs/typo-switch.md 5.12).
+    if "swappedLayout" in (sources / "Core/LayoutFixSupport.swift").read_text(encoding="utf-8"):
+        errors += fail("LayoutFixSupport.swift must not use swappedLayout")
     switch_system = (sources / "Services/InputSwitchSystem.swift").read_text(encoding="utf-8")
     if re.search(r"^import (AppKit|SwiftUI)", switch_system, re.M) or re.search(r"\bNS(App|Application|Workspace)\b", switch_system):
         errors += fail("InputSwitchSystem.swift must not use AppKit (it also runs headless)")
@@ -497,6 +524,17 @@ def main():
         errors += fail("build.sh does not set the FixDock bundle id")
     if "arm64-apple-macosx14.0" not in build:
         errors += fail("build.sh does not target macOS 14 arm64")
+    # The layout fix's word lists (docs/typo-switch.md 4.4): in the bundle, one word per line.
+    if 'cp -R Resources/Lexicon "$STAGE/Contents/Resources/"' not in build:
+        errors += fail("build.sh does not copy Resources/Lexicon into the bundle")
+    for name in ("en.txt", "ko.txt"):
+        try:
+            lines = (ROOT / "Resources/Lexicon" / name).read_text(encoding="utf-8").split("\n")
+        except (OSError, UnicodeDecodeError) as error:
+            errors += fail(f"Resources/Lexicon/{name}: {error}")
+            continue
+        if lines[-1] != "" or any(not line or any(c.isspace() for c in line) for line in lines[:-1]):
+            errors += fail(f"Resources/Lexicon/{name} must be one word per line, no blank or spaced line")
 
     for relative in URL_SCAN_ROOTS:
         for path in iter_text_files(relative):

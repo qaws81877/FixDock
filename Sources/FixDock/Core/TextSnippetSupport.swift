@@ -626,3 +626,108 @@ enum TextSnippetSupport {
         try? JSONEncoder().encode(snippets)
     }
 }
+
+/// Text snippets as a tool of the shared typing tap: the matching above,
+/// answered as a plan the tap's executor runs.
+struct SnippetConsumer {
+    /// The enabled snippets, split by expansion mode when they load; a key
+    /// only scans.
+    struct Config {
+        let immediate: [TextSnippet]
+        let delimiter: [TextSnippet]
+        /// The Hangul triggers among them, spelled as key events carry them
+        /// and matched against what the field received.
+        let immediateTyped: [TextSnippet]
+        let delimiterTyped: [TextSnippet]
+
+        init(_ all: [TextSnippet]) {
+            immediate = all.filter { $0.enabled && $0.expansion == .immediate }
+            delimiter = all.filter { $0.enabled && $0.expansion == .afterDelimiter }
+            immediateTyped = TextSnippetSupport.typedHangulTriggers(immediate)
+            delimiterTyped = TextSnippetSupport.typedHangulTriggers(delimiter)
+        }
+
+        var isEmpty: Bool { immediate.isEmpty && delimiter.isEmpty }
+    }
+
+    var config: Config
+
+    /// `chunk` includes the current key for `.text`; for `.boundary` it is
+    /// the finished word.
+    func consider(_ event: TypingEvent, chunk: TypingChunk) -> Verdict {
+        switch event {
+        case .boundary(let key):
+            // A delimiter can complete an afterDelimiter trigger. The typed
+            // delimiter is swallowed and kept after the replacement, either
+            // in the same paste or as the original key after typed injection.
+            let result = TextSnippetSupport.keyedMatch(buffer: chunk.keyedText,
+                                                       screen: chunk.typedText,
+                                                       expansion: .afterDelimiter,
+                                                       snippets: config.delimiter,
+                                                       typedTriggers: config.delimiterTyped,
+                                                       swallowed: "",
+                                                       swallowedAsTyped: "")
+            guard let match = result.match else { return result.completed ? .passAndForget : .pass }
+            return .claim(ReplacementPlan(steps: [.snippet(SnippetInsert(
+                deleteCount: match.deleteCount,
+                typedTrigger: match.typedTrigger,
+                template: match.snippet.replacement,
+                trailing: key.stroke,
+                trailingText: key.typed,
+                failure: KeyStroke(keyCode: key.stroke.keyCode, rawFlags: 0)))]))
+        case .text(let key):
+            let result = TextSnippetSupport.keyedMatch(buffer: chunk.keyedText,
+                                                       screen: chunk.typedText,
+                                                       expansion: .immediate,
+                                                       snippets: config.immediate,
+                                                       typedTriggers: config.immediateTyped,
+                                                       swallowed: key.keyed,
+                                                       swallowedAsTyped: key.typed)
+            guard let match = result.match else { return result.completed ? .passAndForget : .pass }
+            return .claim(ReplacementPlan(steps: [.snippet(SnippetInsert(
+                deleteCount: match.deleteCount,
+                typedTrigger: match.typedTrigger,
+                template: match.snippet.replacement,
+                trailing: nil,
+                trailingText: "",
+                failure: key.stroke))]))
+        case .delete, .deleteMore, .caretMove, .chord, .nonText, .pointer, .reset:
+            return .pass
+        }
+    }
+}
+
+// MARK: - Key-space notation
+
+/// A word written as the keys that type it on a QWERTY board, keeping Shift
+/// where Shift changes the jamo: a–z plus the seven capitals Q W E R T O P.
+/// "안녕" is "dkssud" and "빠" is "Qk". `latinKeys` and `swappedLayout` cannot
+/// serve here: the first maps ㅂ and ㅃ to one key, the second reads a capital
+/// with no jamo of its own as the plain jamo.
+extension HangulTwoSet {
+    /// The keys whose shifted jamo is a different letter.
+    static let shiftedKeyLetters: Set<Character> = Set(shiftedKeys.values)
+
+    /// The key that types `jamo`, capital for a jamo that needs Shift.
+    static func key(typing jamo: Character) -> Character? {
+        shiftedKeys[jamo] ?? keys[jamo]
+    }
+
+    /// nil when a character of `text` has no key.
+    static func keySpace(ofHangul text: String) -> String? {
+        var result = ""
+        for jamo in typedJamo(text) {
+            guard let key = key(typing: jamo) else { return nil }
+            result.append(key)
+        }
+        return result
+    }
+
+    /// Key-space notation composed as 2-Set types it. Anything that is not
+    /// one of its letters stays, a capital outside the seven included.
+    static func hangul(fromKeySpace keySpace: String) -> String {
+        composed(keySpace.map { key in
+            key.isLowercase || shiftedKeyLetters.contains(key) ? jamoForLetter[key] ?? key : key
+        })
+    }
+}
