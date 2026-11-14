@@ -247,6 +247,15 @@ struct TypingState {
     /// change's record, or the word an undo puts back.
     private var claimedChange: LayoutFixUndo?
     private var claimedRevert: LearnedKey?
+    /// Words the layout fix left as typed, with why, until the tap logs
+    /// them. A few at most: nothing else ever reads them.
+    private var skips: [LayoutFixSkip] = []
+
+    /// The skips since the last call, for the debug log.
+    mutating func takeSkips() -> [LayoutFixSkip] {
+        defer { skips = [] }
+        return skips
+    }
 
     /// An app change or a click: whatever was half-typed is no longer where
     /// the backspaces would land, and the next word starts fresh.
@@ -332,7 +341,11 @@ struct TypingState {
             // or not, keeps the layout fix away from the word (rule N11).
             var verdict = snippets?.consider(event, chunk: chunk) ?? .pass
             if verdict == .pass, let layoutFix {
-                (verdict, claimedChange) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
+                var skip: LayoutFixSkip?
+                (verdict, claimedChange, skip) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
+                // A space after a space or a click ends no word: nothing to log.
+                let noWord = chunk.anchored && chunk.keys.isEmpty
+                if let skip, !noWord, skips.count < 8 { skips.append(skip) }
             }
             reset()
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
@@ -458,6 +471,9 @@ struct TypingGate {
 
     /// An app change.
     mutating func reset() { state.reset() }
+
+    /// The layout fix's skips since the last call, for the debug log.
+    mutating func takeSkips() -> [LayoutFixSkip] { state.takeSkips() }
 
     // MARK: Tap thread
 
