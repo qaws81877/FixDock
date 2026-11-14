@@ -407,8 +407,12 @@ enum LayoutFixPlanner {
     /// are the last things in the field. They are erased, the other reading
     /// and the same punctuation typed, then the delimiter. Punctuation in
     /// front of the word stays where it is. Then the input source is asked
-    /// for the target (D14), where the fast switch can give it.
-    static func wordEnd(_ token: LayoutToken, to target: TypedSource, text: String, delimiter: TypedKey) -> ReplacementPlan {
+    /// for the target (D14), where the fast switch can give it. A word typed
+    /// since an edit (`sinceEdit`, 7.10) is checked from its start: the field
+    /// must show its punctuation in front too, after a space or the field's
+    /// start.
+    static func wordEnd(_ token: LayoutToken, to target: TypedSource, text: String, delimiter: TypedKey,
+                        sinceEdit: Bool = false) -> ReplacementPlan {
         let erased = token.keys + token.trailing
         let typed = erased.map(\.typed).joined()
         let trailing = token.trailing.map(\.typed).joined()
@@ -427,11 +431,26 @@ enum LayoutFixPlanner {
             let keySpace = token.keys.compactMap { $0.typed.first.flatMap(HangulTwoSet.key(typing:)) }
             shown = HangulTwoSet.hangul(fromKeySpace: String(keySpace)) + trailing
         }
-        return ReplacementPlan(steps: [.expect(shown),
+        let leading = token.leading.map(\.typed).joined()
+        return ReplacementPlan(steps: [sinceEdit ? .expectWordStart(leading + shown) : .expect(shown),
                                        backspaces,
                                        .text(text + trailing),
                                        .key(delimiter.stroke),
                                        .handOff(target)])
+    }
+
+    /// Whether the field shows `word` at a word's start (7.10). `read` is the
+    /// text right before the caret: `word` and the one UTF-16 unit in front
+    /// of it, or `word` alone where the field starts (`atFieldStart`). In
+    /// front counts as a start: whitespace, a line break, or a zero-width
+    /// mark (a contenteditable field keeps one where it is empty).
+    static func showsWordStart(_ word: String, read: String, atFieldStart: Bool) -> Bool {
+        if atFieldStart { return read == word }
+        let units = Array(read.utf16)
+        guard units.count == word.utf16.count + 1,
+              String(utf16CodeUnits: Array(units.dropFirst()), count: units.count - 1) == word,
+              let before = Unicode.Scalar(units[0]) else { return false }
+        return CharacterSet.whitespacesAndNewlines.contains(before) || before == "\u{FEFF}" || before == "\u{200B}"
     }
 
     /// ⌘Z after a change: once ⌘ is up, what the change typed is erased and
@@ -468,12 +487,15 @@ struct LayoutFixConsumer {
         guard case .boundary(let delimiter) = event else { return (.pass, nil, nil) }
         if let frontApp, config.ignoredApps.contains(frontApp) { return (.pass, nil, .ignoredApp) }
         let token = LayoutToken(chunk.keys)
+        // Typed since an edit: judged like any word, and the plan asks the
+        // field where the word starts (7.10).
+        let sinceEdit = !chunk.anchored && chunk.sinceEdit
         let target: TypedSource, text: String
-        switch config.rules.decideAtWordEnd(token, anchored: chunk.anchored, earlier: earlier) {
+        switch config.rules.decideAtWordEnd(token, anchored: chunk.anchored || sinceEdit, earlier: earlier) {
         case .keep(let reason): return (.pass, nil, .rule(reason))
         case .change(let to, let changed): (target, text) = (to, changed)
         }
-        let plan = LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter)
+        let plan = LayoutFixPlanner.wordEnd(token, to: target, text: text, delimiter: delimiter, sinceEdit: sinceEdit)
         // Only after Space: a Tab may have moved to another field and a
         // Return may have sent a message or run a command, so what is in
         // front of the caret then is not the changed word.
