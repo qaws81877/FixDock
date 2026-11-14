@@ -14,6 +14,7 @@ struct LayoutFixSettings: View {
     @ObservedObject private var permissions = Permissions.shared
     @ObservedObject private var service = LayoutFixService.shared
     @AppStorage(DefaultsKey.layoutFixEnabled) private var enabled = false
+    @AppStorage(DefaultsKey.layoutFixWhileTyping) private var whileTyping = false
     private var s: Strings { l10n.s }
 
     var body: some View {
@@ -40,6 +41,22 @@ struct LayoutFixSettings: View {
                         .foregroundStyle(service.mode == .active ? Color.green : Color.orange)
                 }
                 KeyTapStatusView(client: .layoutFix)
+            }
+
+            Section {
+                Toggle(s.layoutFixWhileTyping, isOn: $whileTyping)
+                    .disabled(!enabled)
+                    .onChange(of: whileTyping) { _, _ in
+                        LayoutFixService.shared.syncWithPreferences()
+                    }
+                Text(s.layoutFixWhileTypingCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if whileTyping, !AppFeature.inputSwitch.isAvailable {
+                    Label(s.layoutFixWhileTypingNeedsSwitch, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
 
             Section(s.layoutFixExcludedTitle) {

@@ -605,10 +605,19 @@ struct InputSwitchHandOff {
 
     var isWaiting: Bool { waiting != nil }
 
+    /// Whether `begin` would post the pulse now. The layout fix erases
+    /// nothing in the middle of a word unless it would (M5).
+    func wouldPulse(_ target: Target, facts: Facts) -> Bool {
+        guard !isBlocked(facts), let language = facts.language else { return false }
+        return !target.matches(language)
+    }
+
+    private func isBlocked(_ facts: Facts) -> Bool {
+        waiting != nil || disabled || !facts.live || facts.cleaningMode || facts.transitionPending || facts.pulseInFlight
+    }
+
     mutating func begin(_ target: Target, facts: Facts, completion: @escaping Completion) -> Begin {
-        let blocked = waiting != nil || disabled || !facts.live || facts.cleaningMode
-            || facts.transitionPending || facts.pulseInFlight
-        guard !blocked, let language = facts.language else {
+        guard !isBlocked(facts), let language = facts.language else {
             return .end(Ending(outcome: .unavailable, completion: completion))
         }
         if target.matches(language) { return .end(Ending(outcome: .alreadyThere, completion: completion)) }

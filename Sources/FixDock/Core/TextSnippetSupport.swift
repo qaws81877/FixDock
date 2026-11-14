@@ -652,6 +652,14 @@ struct SnippetConsumer {
 
     var config: Config
 
+    /// Rule N11 while a word is typed (3.4): the word so far, as Latin keys
+    /// (`keyed`) or as the field received it (`typed`), starts an enabled
+    /// trigger or is one.
+    func mayStillClaim(keyed: String, typed: String) -> Bool {
+        (config.immediate + config.delimiter).contains { $0.trigger.hasPrefix(keyed) }
+            || (config.immediateTyped + config.delimiterTyped).contains { $0.trigger.hasPrefix(typed) }
+    }
+
     /// `chunk` includes the current key for `.text`; for `.boundary` it is
     /// the finished word.
     func consider(_ event: TypingEvent, chunk: TypingChunk) -> Verdict {

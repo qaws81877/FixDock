@@ -135,7 +135,10 @@ final class LayoutFixService: ObservableObject {
         if newMode == .active, let lists {
             var rules = LayoutFixRules(latin: lists.latin, hangul: lists.hangul)
             rules.learned = Set(learned)
-            TypingTap.shared.setLayoutFix(LayoutFixConsumer.Config(rules: rules, ignoredApps: Set(stored)))
+            // While typing only where the fast switch can hand the source over (D3).
+            let whileTyping = defaults.bool(forKey: DefaultsKey.layoutFixWhileTyping) && AppFeature.inputSwitch.isAvailable
+            TypingTap.shared.setLayoutFix(LayoutFixConsumer.Config(rules: rules, ignoredApps: Set(stored),
+                                                                   whileTyping: whileTyping))
         } else {
             TypingTap.shared.setLayoutFix(nil)
         }

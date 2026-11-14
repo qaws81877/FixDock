@@ -136,6 +136,12 @@ struct TypingChunk: Equatable {
     /// What is in front of them is the field's to say, at the word's end
     /// (7.10).
     private(set) var sinceEdit = false
+    /// Whether the word was already tried while it was typed (3.4): tried
+    /// and left as typed, or changed (or that change taken back), which
+    /// rule M6 judges no more, at its end either.
+    private(set) var midWord = MidWordMark.none
+
+    enum MidWordMark: Equatable { case none, tried, changed }
 
     /// A word longer than this is no word; its keys are not kept.
     private static let keyLimit = 64
@@ -191,6 +197,23 @@ struct TypingChunk: Equatable {
         anchored = false
         sinceEdit = true
     }
+
+    /// A while-typing change was asked for: the word is not tried again.
+    mutating func markTried() {
+        if midWord == .none { midWord = .tried }
+    }
+
+    /// A mid-word plan sent the word's keys again: the field shows `keys`
+    /// from where the word starts, and `old` (as the keys were read before)
+    /// no longer. Rule M6: the word is not judged again.
+    mutating func becomeChanged(_ keys: [TypedKey], replacing old: String) {
+        let new = keys.map(\.typed).joined()
+        if typedText.hasSuffix(old) { typedText = String(typedText.dropLast(old.count)) + new }
+        self.keys = keys
+        anchored = true
+        sinceEdit = false
+        midWord = .changed
+    }
 }
 
 /// A snippet expansion as plain data: the backspaces, the text they clear,
@@ -233,10 +256,49 @@ enum PlanStep: Equatable {
     case handOff(TypedSource)
 }
 
+/// The rest of a plan that changes a word while it is typed (3.4, R2 of
+/// 5.5), or puts such a word back in its middle (5.7). Once the plan's
+/// steps have erased the word, the input source is asked for `target`, and
+/// the word's keys are sent again for the input method to compose, in
+/// whichever of the word's two sources is live then. In any other source
+/// the word goes back as text.
+struct MidWordStep: Equatable {
+    let target: TypedSource
+    /// The source the keys were typed in.
+    let typedIn: TypedSource
+    let keys: [KeyStroke]
+    /// The word as it was typed, as text.
+    let original: String
+    /// What takes the rest's place when the hold is let go after the erase
+    /// (a click, a command, a source key, the watchdog): the word as the
+    /// plan meant it, as text, before whatever let the hold go.
+    let interrupted: String
+    /// A change erases nothing unless the hand-off can be asked for (M5);
+    /// an undo puts the word back without it.
+    let needsHandOff: Bool
+}
+
+/// How a mid-word plan ended.
+enum MidWordResult: Equatable {
+    /// The word's keys went out again with this source live.
+    case keys(TypedSource)
+    /// The word went back as text: the source is not one of the two.
+    case text
+    /// Another app came to the front after the erase: nothing more went out
+    /// (D16).
+    case dropped
+}
+
 /// What a typing tool wants done to the text on screen. The tap's executor
 /// runs it; the tools themselves post nothing.
 struct ReplacementPlan: Equatable {
     let steps: [PlanStep]
+    var midWord: MidWordStep?
+
+    init(steps: [PlanStep], midWord: MidWordStep? = nil) {
+        self.steps = steps
+        self.midWord = midWord
+    }
 }
 
 enum Verdict: Equatable {
@@ -274,6 +336,9 @@ struct TypingState {
     /// change's record, or the word an undo puts back.
     private var claimedChange: LayoutFixUndo?
     private var claimedRevert: LearnedKey?
+    /// Set with a claim made while a word is typed (3.4), or with ⌘Z in the
+    /// middle of such a word, and taken up when its plan ends.
+    private var midWordClaim: MidWordClaim?
     /// Words the layout fix left as typed, with why, until the tap logs
     /// them. A few at most: nothing else ever reads them.
     private var skips: [LayoutFixSkip] = []
@@ -302,13 +367,33 @@ struct TypingState {
     mutating func dropClaim() {
         claimedChange = nil
         claimedRevert = nil
+        midWordClaim = nil
     }
 
     /// The last claim's plan ended. With output on screen a change becomes
-    /// undoable and an undo is told to the layout fix's service.
-    mutating func planEnded(posted: Bool, now: TimeInterval) -> [LayoutFixNotice] {
+    /// undoable and an undo is told to the layout fix's service. A mid-word
+    /// plan says how it ended (`midWord`): the word's keys went out again in
+    /// a source, and the chunk now reads them in it, or the word went back
+    /// as text, or nothing more went out.
+    mutating func planEnded(posted: Bool, now: TimeInterval, midWord result: MidWordResult? = nil) -> [LayoutFixNotice] {
         defer { dropClaim() }
         guard posted, let layoutFix else { return [] }
+        if let claim = midWordClaim {
+            guard let result, result != .dropped else { return [] }
+            if case .keys(let source) = result {
+                let before = (claim.leading + claim.keys.map { $0.reading(in: claim.before) }).map(\.typed).joined()
+                chunk.becomeChanged(claim.leading + claim.keys.map { $0.reading(in: source) }, replacing: before)
+                // Changed, not put back as typed: ⌘Z can take it back.
+                if claim.reverts == nil, source == claim.target, var change = claimedChange {
+                    change.expires = now + layoutFix.config.rules.thresholds.undoWindowSeconds
+                    undo = change
+                }
+            } else {
+                // Back as text: its last syllable is closed, the keys no longer say what is there.
+                chunk.unanchor()
+            }
+            return claim.reverts.map { [.reverted($0)] } ?? []
+        }
         if var change = claimedChange {
             change.expires = now + layoutFix.config.rules.thresholds.undoWindowSeconds
             undo = change
@@ -342,11 +427,21 @@ struct TypingState {
     mutating func receive(_ raw: RawKey, secureInput: Bool, now: TimeInterval = 0) -> TapResponse {
         guard let event = TypingEvent(raw, secureInput: secureInput) else { return TapResponse() }
         if let record = secureInput ? nil : takesBack(raw, now: now) {
+            if let word = record.word, record.delimiter == nil {
+                // In the middle of a word changed while it was typed: it goes
+                // back key by key in the source it was typed in, and can be
+                // typed on (5.7).
+                let undone = LayoutFixPlanner.undoInWord(record, word)
+                undo = nil
+                midWordClaim = undone.claim
+                return TapResponse(plan: undone.plan)
+            }
             // The screen ends with the delimiter again: the next word starts there.
             reset()
             claimedRevert = record.learned
             return TapResponse(plan: LayoutFixPlanner.undo(record))
         }
+        let live = undo
         undo = nil
         switch event {
         case .pointer:
@@ -368,7 +463,8 @@ struct TypingState {
         case .nonText:
             // A dead key shows a mark and types nothing yet.
             if raw.stroke.option { chunk.unanchor() }
-        case .boundary:
+        case .boundary(let key):
+            let changedWhileTyping = chunk.midWord == .changed
             // The chunk a tool sees at a boundary is the finished word. One
             // tool acts on it: a snippet trigger that completed here, expanded
             // or not, keeps the layout fix away from the word (rule N11).
@@ -383,6 +479,13 @@ struct TypingState {
             }
             reset()
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
+            // A word changed while it was typed stays undoable past its Space
+            // (5.7), as a word-end change does.
+            if changedWhileTyping, key.typed == " ", var record = live, record.word != nil, record.delimiter == nil,
+               let layoutFix {
+                record.seal(by: key.stroke, until: now + layoutFix.config.rules.thresholds.undoWindowSeconds)
+                undo = record
+            }
         case .text(let key):
             // For a text key it includes the key itself.
             chunk.append(key)
@@ -391,9 +494,29 @@ struct TypingState {
                 break
             case .passAndForget:
                 chunk.forget()
+                return TapResponse()
             case .claim(let plan):
                 chunk.forget()
                 return TapResponse(plan: plan)
+            }
+            guard let layoutFix else { break }
+            if var record = live, record.word != nil, record.delimiter == nil, chunk.midWord == .changed {
+                // The rest of a word changed while it was typed: ⌘Z takes it
+                // back too (5.7).
+                record.extend(with: key, until: now + layoutFix.config.rules.thresholds.undoWindowSeconds)
+                undo = record
+            } else if layoutFix.config.whileTyping {
+                // Rule N11 while typing: a trigger may still complete.
+                let token = LayoutToken(chunk.keys).keys
+                let mayClaim = snippets?.mayStillClaim(keyed: token.map(\.keyed).joined(),
+                                                       typed: token.map(\.typed).joined()) ?? false
+                if let found = layoutFix.considerWhileTyping(chunk: chunk, earlier: mayClaim ? .mayStillClaim : .none,
+                                                            frontApp: frontApp) {
+                    chunk.markTried()
+                    midWordClaim = found.claim
+                    claimedChange = found.undo
+                    return TapResponse(plan: found.plan)
+                }
             }
         }
         return TapResponse()
@@ -460,13 +583,17 @@ struct TypingGate {
         /// Ticket of the key that claimed the plan.
         let swallowed: Int
         let since: TimeInterval
+        /// The plan changes a word while it is typed, or puts one back.
+        let midWord: MidWordStep?
         var begun = false
         /// Some output has left; the plan can no longer be taken back.
         var posted = false
         var held: [(ticket: Int, raw: RawKey)] = []
-        var pending: (events: [OutputEvent], last: Bool, abandoned: Bool, unjudged: Bool)?
+        var pending: (events: [OutputEvent], last: Bool, abandoned: Bool, unjudged: Bool, midWord: MidWordResult?)?
         /// The output is out and the input source is being handed over.
         var handingOff = false
+        /// Another app came to the front: the mid-word plan posts nothing more.
+        var dropped = false
     }
 
     private(set) var state = TypingState()
@@ -503,8 +630,18 @@ struct TypingGate {
 
     func isHolding(_ id: PlanID) -> Bool { hold?.plan == id }
 
-    /// An app change.
-    mutating func reset() { state.reset() }
+    /// An app change. A mid-word plan posts nothing more there (D16): one
+    /// that has erased its word leaves it so, one that has not sends its
+    /// key on, and the held keys follow in order at the next kick. true:
+    /// the tap must kick.
+    @discardableResult
+    mutating func reset() -> Bool {
+        state.reset()
+        guard let current = hold, current.midWord != nil, !current.dropped else { return false }
+        hold?.dropped = true
+        hold?.pending = ([], true, !current.posted, true, .dropped)
+        return true
+    }
 
     /// The layout fix's skips since the last call, for the debug log.
     mutating func takeSkips() -> [LayoutFixSkip] { state.takeSkips() }
@@ -576,6 +713,16 @@ struct TypingGate {
     /// plan that has posted nothing is given up with its key sent on too.
     private mutating func letGo() -> [GateCommand] {
         guard let current = hold else { return [] }
+        if current.posted, !current.dropped, let midWord = current.midWord {
+            // The word is erased and its keys have not gone out again: it
+            // goes in as the plan meant it, as text, ahead of what let the
+            // hold go, and nothing more of the plan follows (D19: the word
+            // is still in front of the person). Not once another app is in
+            // front (D16).
+            hold = nil
+            state.dropClaim()
+            return [.output(.text(midWord.interrupted)), .discard(current.swallowed)] + current.held.map { .sendOn($0.ticket) }
+        }
         var commands: [GateCommand] = []
         if current.posted {
             hold?.held = []
@@ -617,8 +764,13 @@ struct TypingGate {
             return response
         }
         hold = nil
-        response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now)
+        response.notices = state.planEnded(posted: current.posted && !batch.abandoned, now: now, midWord: batch.midWord)
         response.commands.append(batch.abandoned ? .sendOn(current.swallowed) : .discard(current.swallowed))
+        if case .keys(let source)? = batch.midWord {
+            // Keys typed while the source was handed over land in the source
+            // the word's keys went out in, and are read as that source types them.
+            current.held = current.held.map { ($0.ticket, $0.raw.reading(in: source)) }
+        }
         if batch.unjudged {
             // A hand-off's pulse went out: their characters were read in the
             // source before it. They go on as typed and the word they start
@@ -655,6 +807,10 @@ struct TypingGate {
         state.interrupt()
         guard let current = hold else { return [] }
         hold = nil
+        if current.posted, !current.dropped, let midWord = current.midWord {
+            // An erased word goes in as text, as when a click lets go.
+            return [.output(.text(midWord.interrupted)), .discard(current.swallowed)] + current.held.map { .sendOn($0.ticket) }
+        }
         return [current.posted ? .discard(current.swallowed) : .sendOn(current.swallowed)]
             + current.held.map { .sendOn($0.ticket) }
     }
@@ -673,20 +829,20 @@ struct TypingGate {
     /// without letting the held keys go, so they land in the new source.
     /// false: the hold is gone.
     mutating func handingOff(_ id: PlanID) -> Bool {
-        guard hold?.plan == id else { return false }
+        guard hold?.plan == id, hold?.dropped == false else { return false }
         hold?.handingOff = true
         return true
     }
 
     /// Output for the tap to post at the next kick. `last` ends the plan;
     /// `abandoned` (with no output) sends its key on instead; `unjudged`
-    /// sends the held keys on without asking the tools. false: the hold is
-    /// gone, post no kick.
+    /// sends the held keys on without asking the tools; `midWord` says how a
+    /// mid-word plan ended. false: the hold is gone or dropped, post no kick.
     mutating func submit(_ id: PlanID, _ events: [OutputEvent], last: Bool, abandoned: Bool = false,
-                         unjudged: Bool = false) -> Bool {
-        guard hold?.plan == id else { return false }
+                         unjudged: Bool = false, midWord: MidWordResult? = nil) -> Bool {
+        guard hold?.plan == id, hold?.dropped == false else { return false }
         let earlier = hold?.pending?.events ?? []
-        hold?.pending = (earlier + events, last, abandoned, unjudged)
+        hold?.pending = (earlier + events, last, abandoned, unjudged, midWord)
         return true
     }
 
@@ -707,7 +863,7 @@ struct TypingGate {
         let swallowed = ticket ?? takeTicket()
         nextPlan += 1
         let id = PlanID(raw: nextPlan)
-        hold = Hold(plan: id, swallowed: swallowed, since: now)
+        hold = Hold(plan: id, swallowed: swallowed, since: now, midWord: plan.midWord)
         return GateResponse(pass: false, keep: swallowed, commands: commands, start: ClaimedPlan(id: id, plan: plan))
     }
 }

@@ -65,6 +65,8 @@ enum DefaultsKey {
     /// unregistered so enableOnFirstInstall can tell a first install from Off.
     static let layoutFixEnabled = "layoutFixEnabled"
     static let layoutFixIgnoredApps = "layoutFixIgnoredApps"
+    /// Rule 3.4, the fix while a word is typed. Off unless turned on (D6).
+    static let layoutFixWhileTyping = "layoutFixWhileTyping"
     /// The apps whose accessibility the layout fix switched on, by process
     /// and launch time, set back at the next start after a crash.
     static let layoutFixTextAccess = "layoutFixTextAccess"

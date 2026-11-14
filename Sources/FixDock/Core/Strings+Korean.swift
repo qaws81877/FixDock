@@ -927,6 +927,9 @@ extension Strings {
         layoutFixLearnedNone: "아직 학습한 낱말이 없습니다.",
         layoutFixLearnedCaption: "바뀐 직후 ⌘Z를 누르면 친 그대로 되돌립니다. 세 번 되돌린 낱말은 그 뒤로 친 그대로 둡니다. 여기서 지우면 다시 교정합니다.",
         layoutFixLearnedRemoveAll: "모두 지우기",
+        layoutFixWhileTyping: "치는 도중에도 교정",
+        layoutFixWhileTypingCaption: "낱말을 끝까지 치기 전이라도, 지금 자판으로는 이어질 낱말이 없고 다른 자판으로는 흔한 낱말이 시작되면 그 자리에서 고치고 입력 소스도 함께 바꿉니다. 나머지 글자는 바뀜 자판으로 이어서 치면 됩니다. 바로 ⌘Z를 누르면 친 그대로 되돌립니다. 기본은 꺼져 있습니다.",
+        layoutFixWhileTypingNeedsSwitch: "빠른 한/영 전환이 설치되어 있어야 작동합니다. 그전까지는 낱말을 끝냈을 때만 고칩니다.",
         versionFormat: "버전 %@"
     )
 }
