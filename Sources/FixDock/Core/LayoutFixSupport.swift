@@ -22,6 +22,12 @@ struct LayoutFixThresholds: Equatable {
     var commonRank = 5_000
     var minKeysWhileTyping = 4
     var whileTypingMaxRank = 20_000
+    /// Rule M8 (7.13): a word this many keys long typed in the Latin source,
+    /// shorter than `minKeysWhileTyping`, is judged too, under a stricter
+    /// rule. In the Korean source it is not (owner, 2026-11-15). nil: off.
+    var shortKeysWhileTyping: Int? = 3
+    /// M8: the one syllable is a Korean list word this common.
+    var shortWhileTypingKoreanRank = 5_000
     var learnAfterReverts = 3
     /// Rule C5: with this many whole syllables or more, a Korean reading
     /// counts without being a list word (owner, 2026-11-13). nil: off.
@@ -60,6 +66,13 @@ struct Lexicon {
                 guard let keys = HangulTwoSet.keySpace(ofHangul: word),
                       HangulTwoSet.hangul(fromKeySpace: keys) == word else { continue }
                 entries.append((Array(keys.utf8), rank))
+            }
+        }
+        if language == .hangul2 {
+            for word in LayoutFixRules.addedWords.flatMap(\.words) {
+                guard let keys = HangulTwoSet.keySpace(ofHangul: word),
+                      HangulTwoSet.hangul(fromKeySpace: keys) == word else { continue }
+                entries.append((Array(keys.utf8), Int32(LayoutFixRules.addedWordRank)))
             }
         }
         guard !entries.isEmpty else { return nil }
@@ -256,7 +269,7 @@ struct LayoutToken: Equatable {
 }
 
 enum KeepReason: Equatable {
-    case n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, m1, m2, m3, m5, m6, m7
+    case n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, m1, m2, m3, m5, m6, m7, m8
     /// The usual case: what was typed is a word and the other reading is not.
     case typedIsAWord
 }
@@ -292,6 +305,25 @@ struct LayoutFixRules {
                                                  "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ",
                                                  "뭐", "봐", "줘", "꽤", "쭉", "푹"]
     private static let chatWordRank = 1_000
+    /// Korean words the subtitle list lacks, chosen by FixDock (owner,
+    /// 2026-11-15, 7.14), each group with why it is here. The Korean list
+    /// loads them at `addedWordRank`, so every rule takes them as list words.
+    static let addedWords: [(why: String, words: [String])] = [
+        ("food and fruit, named in everyday chat",
+         ["귤", "한라봉", "떡볶이", "김밥", "짜장면", "짬뽕", "족발", "보쌈", "순대", "어묵", "깍두기", "고추장",
+          "참기름", "녹차", "빙수", "호떡", "붕어빵", "참외", "키위", "대추", "고구마", "오이", "배추", "상추",
+          "깻잎", "시금치", "팥", "잼", "찌개", "미역", "멸치", "고등어", "삼겹살", "불고기", "냉면", "비빔밥",
+          "김치찌개", "된장찌개", "떡국", "컵라면", "야식", "밀크티", "아메리카노"]),
+        ("things at home and on a desk",
+         ["프라이팬", "국자", "젓가락", "텀블러", "목도리", "물티슈", "선풍기", "충전기", "이어폰", "태블릿", "볼펜",
+          "지우개", "공책"]),
+        ("words of a repair counter",
+         ["액정", "침수", "견적", "보증", "메인보드", "단자", "출고", "무상", "유상", "초기화", "애플케어", "맥북",
+          "아이폰", "에어팟", "워치", "트랙패드", "힌지", "기판", "발열", "부팅", "재부팅", "먹통", "수리비", "반납"]),
+        ("short loanwords", ["앱", "깃", "팁", "줌", "캡처", "카톡", "블투", "탭", "봇", "밈", "짤", "줌인"]),
+        ("interjections", ["헐", "헉", "엥", "흠", "짱", "꿀잼", "노잼", "넵", "냠냠", "히히"]),
+    ]
+    static let addedWordRank = 2_000
     /// Particles a known word may carry, since the list holds spaced words.
     private static let particles: [(text: String, keys: [UInt8])] =
         ["은", "는", "이", "가", "을", "를", "에", "의", "도", "로", "와", "과", "만", "에서", "으로", "에게", "한테",
@@ -458,7 +490,8 @@ struct LayoutFixRules {
         guard anchored else { return .keep(.n1) }
         let (found, reason) = readings(of: token)
         guard let readings = found else { return .keep(reason ?? .n8) }
-        if token.keys.count < thresholds.minKeysWhileTyping { return .keep(.m1) }
+        let short = token.keys.count < thresholds.minKeysWhileTyping
+        if short, token.keys.count != thresholds.shortKeysWhileTyping || readings.typedIn == .hangul2 { return .keep(.m1) }
         if earlier != .none { return .keep(.n11) }
         let typedKeys = readings.learnedKey.keys
         if learned.contains(where: { $0.source == readings.typedIn && $0.keys.hasPrefix(typedKeys) }) { return .keep(.n9) }
@@ -473,6 +506,14 @@ struct LayoutFixRules {
             let text = HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))
             let settled = String(text.dropLast())
             guard settled.isEmpty || Self.isHangulSyllables(settled) else { return .keep(.m3) }
+            if short {
+                // M8: one whole syllable with a final consonant (밥, 갈) that
+                // is itself a common word, so the word end would change it too.
+                guard text.count == 1, Self.isHangulSyllables(text),
+                      (text.unicodeScalars.first!.value - 0xAC00) % 28 != 0,
+                      let rank = hangul.rank(of: readings.korean), rank <= thresholds.shortWhileTypingKoreanRank
+                else { return .keep(.m8) }
+            }
             return .change(to: .hangul2, text: text)
         case .hangul2:
             if hangul.hasWord(startingWith: readings.korean) { return .keep(.m2) }
