@@ -22,13 +22,12 @@ struct LayoutFixThresholds: Equatable {
     var commonRank = 5_000
     var minKeysWhileTyping = 4
     var whileTypingMaxRank = 20_000
-    /// Rule M8 (7.13): a word this many keys long, shorter than
-    /// `minKeysWhileTyping`, is judged too, under a stricter rule. nil: off.
+    /// Rule M8 (7.13): a word this many keys long typed in the Latin source,
+    /// shorter than `minKeysWhileTyping`, is judged too, under a stricter
+    /// rule. In the Korean source it is not (owner, 2026-11-15). nil: off.
     var shortKeysWhileTyping: Int? = 3
-    /// M8 in the Latin source: the one syllable is a Korean list word this common.
+    /// M8: the one syllable is a Korean list word this common.
     var shortWhileTypingKoreanRank = 5_000
-    /// M8 in the Korean source: an English word this common starts with the keys.
-    var shortWhileTypingEnglishRank = 1_000
     var learnAfterReverts = 3
     /// Rule C5: with this many whole syllables or more, a Korean reading
     /// counts without being a list word (owner, 2026-11-13). nil: off.
@@ -121,11 +120,6 @@ struct Lexicon {
     func rank(of keys: [UInt8]) -> Int? {
         let index = partitionPoint { $0.lexicographicallyPrecedes(keys) }
         return index < words.count && words[index] == keys ? Int(ranks[index]) : nil
-    }
-
-    /// The best rank of the words that start with `keys`.
-    func bestRank(startingWith keys: [UInt8]) -> Int? {
-        ranks[range(startingWith: keys)].min().map(Int.init)
     }
 
     func hasWord(startingWith keys: [UInt8]) -> Bool {
@@ -497,7 +491,7 @@ struct LayoutFixRules {
         let (found, reason) = readings(of: token)
         guard let readings = found else { return .keep(reason ?? .n8) }
         let short = token.keys.count < thresholds.minKeysWhileTyping
-        if short, token.keys.count != thresholds.shortKeysWhileTyping { return .keep(.m1) }
+        if short, token.keys.count != thresholds.shortKeysWhileTyping || readings.typedIn == .hangul2 { return .keep(.m1) }
         if earlier != .none { return .keep(.n11) }
         let typedKeys = readings.learnedKey.keys
         if learned.contains(where: { $0.source == readings.typedIn && $0.keys.hasPrefix(typedKeys) }) { return .keep(.n9) }
@@ -523,15 +517,6 @@ struct LayoutFixRules {
             return .change(to: .hangul2, text: text)
         case .hangul2:
             if hangul.hasWord(startingWith: readings.korean) { return .keep(.m2) }
-            if short {
-                // M8: only a vowel left on its own (ㅛㅕㅕ, ㅗ디) is never a Korean
-                // word typed on purpose. Whole syllables may start one the
-                // list lacks (늠름, 쨘); consonants alone are chat (ㅎㄷㄷ).
-                let typed = HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))
-                guard typed.unicodeScalars.contains(where: { (0x314F...0x3163).contains($0.value) }),
-                      let best = latin.bestRank(startingWith: readings.english),
-                      best <= thresholds.shortWhileTypingEnglishRank else { return .keep(.m8) }
-            }
             guard latin.hasCommonWord(startingWith: readings.english) else { return .keep(.m3) }
             return .change(to: .latin, text: readings.englishText)
         }
