@@ -69,6 +69,13 @@ struct Lexicon {
                 entries.append((Array(keys.utf8), rank))
             }
         }
+        if language == .hangul2 {
+            for word in LayoutFixRules.addedWords.flatMap(\.words) {
+                guard let keys = HangulTwoSet.keySpace(ofHangul: word),
+                      HangulTwoSet.hangul(fromKeySpace: keys) == word else { continue }
+                entries.append((Array(keys.utf8), Int32(LayoutFixRules.addedWordRank)))
+            }
+        }
         guard !entries.isEmpty else { return nil }
         // The same keys twice keep the better rank.
         entries.sort { $0.keys == $1.keys ? $0.rank < $1.rank : $0.keys.lexicographicallyPrecedes($1.keys) }
@@ -304,6 +311,25 @@ struct LayoutFixRules {
                                                  "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ",
                                                  "뭐", "봐", "줘", "꽤", "쭉", "푹"]
     private static let chatWordRank = 1_000
+    /// Korean words the subtitle list lacks, chosen by FixDock (owner,
+    /// 2026-11-15, 7.14), each group with why it is here. The Korean list
+    /// loads them at `addedWordRank`, so every rule takes them as list words.
+    static let addedWords: [(why: String, words: [String])] = [
+        ("food and fruit, named in everyday chat",
+         ["귤", "한라봉", "떡볶이", "김밥", "짜장면", "짬뽕", "족발", "보쌈", "순대", "어묵", "깍두기", "고추장",
+          "참기름", "녹차", "빙수", "호떡", "붕어빵", "참외", "키위", "대추", "고구마", "오이", "배추", "상추",
+          "깻잎", "시금치", "팥", "잼", "찌개", "미역", "멸치", "고등어", "삼겹살", "불고기", "냉면", "비빔밥",
+          "김치찌개", "된장찌개", "떡국", "컵라면", "야식", "밀크티", "아메리카노"]),
+        ("things at home and on a desk",
+         ["프라이팬", "국자", "젓가락", "텀블러", "목도리", "물티슈", "선풍기", "충전기", "이어폰", "태블릿", "볼펜",
+          "지우개", "공책"]),
+        ("words of a repair counter",
+         ["액정", "침수", "견적", "보증", "메인보드", "단자", "출고", "무상", "유상", "초기화", "애플케어", "맥북",
+          "아이폰", "에어팟", "워치", "트랙패드", "힌지", "기판", "발열", "부팅", "재부팅", "먹통", "수리비", "반납"]),
+        ("short loanwords", ["앱", "깃", "팁", "줌", "캡처", "카톡", "블투", "탭", "봇", "밈", "짤", "줌인"]),
+        ("interjections", ["헐", "헉", "엥", "흠", "짱", "꿀잼", "노잼", "넵", "냠냠", "히히"]),
+    ]
+    static let addedWordRank = 2_000
     /// Particles a known word may carry, since the list holds spaced words.
     private static let particles: [(text: String, keys: [UInt8])] =
         ["은", "는", "이", "가", "을", "를", "에", "의", "도", "로", "와", "과", "만", "에서", "으로", "에게", "한테",
