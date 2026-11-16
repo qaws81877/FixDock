@@ -24,6 +24,12 @@ Gates, in order, before calling a change done:
   A `./build.sh --install` copy is self-built and never updates itself;
   after a release, install the notarized zip there instead (move the old
   app aside, do not delete it).
+  Every replacement of `/Applications/FixDock.app`, self-built or not,
+  moves the old copy to `~/Library/Application Support/<bundle id>/PreviousApps/`
+  and adds a `docs/PROGRESS.md` line with that path and the new
+  `FixDockSourceRevision`. Before saying what the owner runs, read that key
+  from the installed `Info.plist`; two installs on 2026-11-15 went
+  unrecorded and PROGRESS named an older build.
   After merging, `git fetch`: if other PRs reached `main` since your build,
   reinstall from the merged `main` so the owner's app is not missing them.
 - If another session is working in the main tree, ask the owner before
@@ -75,6 +81,15 @@ Proof:
   `xcrun swiftc -swift-version 5 -o <out> <Sources files> <stubs>.swift <dir>/main.swift`.
   Top-level statements are allowed only in a file named `main.swift`. Stub
   `AppFeature`, `Permissions` or `DefaultsKey` instead of pulling in the app.
+- A Korean/English layout fix change (rules, thresholds or word lists in
+  `Core/LayoutFixSupport.swift`) is proven by every
+  `docs/harness/layout-fix/*/run.sh <sources root>` and the `mutations-*.sh`
+  next to them, read for 3.4 on as well as the word end: a list's words
+  also feed the while-typing prefix rules, and a name's start changed
+  correct Korean mid-word (밈처럼 → `alacjfja`) while the word end stayed
+  clean. Put each case a review finds into a harness and see it fail on the
+  old build before fixing. The harnesses live only in the main checkout's
+  `docs/`; for a worktree pass its `Sources/FixDock` as the root.
 - Self-update has three harnesses, all on scratch data: the pure policy
   (`Core/UpdatePolicy.swift` alone); the verifier and transport on the real
   release zip, tampered zips and a local feed (`Tools/make-local-feed.sh`,
