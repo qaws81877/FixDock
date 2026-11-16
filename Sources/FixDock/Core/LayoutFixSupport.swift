@@ -32,8 +32,53 @@ struct LayoutFixThresholds: Equatable {
     /// Rule C5: with this many whole syllables or more, a Korean reading
     /// counts without being a list word (owner, 2026-11-13). nil: off.
     var wholeSyllables: Int? = 2
+    /// Rule C7 (owner, 2026-11-15): typed in the Korean source with a jamo
+    /// left over and no list word either way, the keys must score this much
+    /// higher as English than as Korean typing. nil: off.
+    var keyScoreMargin: Double? = 2.47
     var undoWindowSeconds: TimeInterval = 5
     var handOffTimeout: TimeInterval = 0.5
+}
+
+/// Letter trigrams of one list's words in key space, lowercased: how much a
+/// key sequence looks like that language typed on its own layout (rule C7).
+struct KeyTrigram {
+    /// a to z, then the word's start and its end.
+    private static let symbols = 28
+    private var trigrams = [Int32](repeating: 0, count: symbols * symbols * symbols)
+    private var contexts = [Int32](repeating: 0, count: symbols * symbols)
+    private var used = 0
+
+    init(_ words: [[UInt8]]) {
+        var seen = [Bool](repeating: false, count: Self.symbols)
+        for word in words {
+            let sequence = Self.sequence(word)
+            for symbol in sequence { seen[symbol] = true }
+            for index in 2..<sequence.count {
+                let context = sequence[index - 2] * Self.symbols + sequence[index - 1]
+                contexts[context] += 1
+                trigrams[context * Self.symbols + sequence[index]] += 1
+            }
+        }
+        used = seen.filter { $0 }.count
+    }
+
+    /// Keys are letters only: the lists' words and a reading's key space.
+    private static func sequence(_ keys: [UInt8]) -> [Int] {
+        [26, 26] + keys.map { Int(($0 | 0x20) - UInt8(ascii: "a")) } + [27]
+    }
+
+    /// Mean log probability per key, with add-0.1 smoothing.
+    func score(_ keys: [UInt8]) -> Double {
+        let sequence = Self.sequence(keys)
+        var total = 0.0
+        for index in 2..<sequence.count {
+            let context = sequence[index - 2] * Self.symbols + sequence[index - 1]
+            total += log((Double(trigrams[context * Self.symbols + sequence[index]]) + 0.1)
+                         / (Double(contexts[context]) + 0.1 * Double(used)))
+        }
+        return total / Double(sequence.count - 2)
+    }
 }
 
 /// One language's words in key-space notation, sorted, so that an exact
@@ -46,6 +91,7 @@ struct Lexicon {
     private let ranks: [Int32]
     /// How many of `words[..<index]` have a rank within the while-typing limit.
     private let commonBefore: [Int32]
+    let keyModel: KeyTrigram
 
     var count: Int { words.count }
 
@@ -89,13 +135,14 @@ struct Lexicon {
         for rank in ranks {
             commonBefore.append(commonBefore[commonBefore.count - 1] + (Int(rank) <= whileTypingMaxRank ? 1 : 0))
         }
-        return Lexicon(words: words, ranks: ranks, commonBefore: commonBefore)
+        return Lexicon(words: words, ranks: ranks, commonBefore: commonBefore, keyModel: KeyTrigram(words))
     }
 
-    private init(words: [[UInt8]], ranks: [Int32], commonBefore: [Int32]) {
+    private init(words: [[UInt8]], ranks: [Int32], commonBefore: [Int32], keyModel: KeyTrigram) {
         self.words = words
         self.ranks = ranks
         self.commonBefore = commonBefore
+        self.keyModel = keyModel
     }
 
     /// The first index whose word does not satisfy `isBefore`.
@@ -368,6 +415,26 @@ struct LayoutFixRules {
         let learnedKey: LearnedKey
     }
 
+    /// Rule C7's guard: Korean chat, which no list holds and so scores as
+    /// English. Shorthand opens with two consonants, alone or before a
+    /// syllable (ㅁㄴㅇㄹ, ㅇㄷ야). A face opens with ㅠ ㅜ or ㅡ and closes with
+    /// the same vowel, alone or in an open syllable (ㅠ개ㅠ, ㅠㄱ듀), or with a
+    /// laugh (ㅠ갴ㅋ); or it is jamo with no other vowel (ㅜㅜㅇㅁㅇ).
+    private static func isChatShape(_ text: String) -> Bool {
+        let scalars = Array(text.unicodeScalars)
+        let consonant = { (scalar: Unicode.Scalar) in (0x3131...0x314E).contains(scalar.value) }
+        let vowel = { (scalar: Unicode.Scalar) in (0x314F...0x3163).contains(scalar.value) }
+        // Each tear vowel with its index as a syllable's vowel.
+        let tears: [Unicode.Scalar: UInt32] = ["ㅜ": 13, "ㅠ": 17, "ㅡ": 18]
+        if scalars.prefix(2).allSatisfy(consonant) { return true }
+        if let first = scalars.first, let last = scalars.last, let tear = tears[first] {
+            if last == first || last == "ㅋ" || last == "ㅎ" { return true }
+            let syllable = last.value &- 0xAC00
+            if syllable < 11_172, syllable % 28 == 0, syllable % 588 / 28 == tear { return true }
+        }
+        return scalars.allSatisfy { consonant($0) || vowel($0) } && scalars.filter(vowel).allSatisfy { tears[$0] != nil }
+    }
+
     private static func isHangulSyllables(_ text: String) -> Bool {
         !text.isEmpty && text.unicodeScalars.allSatisfy { (0xAC00...0xD7A3).contains($0.value) }
     }
@@ -472,6 +539,15 @@ struct LayoutFixRules {
         if typed == nil, other == nil, readings.typedIn == .latin, let needed = thresholds.wholeSyllables,
            korean.text.count >= needed, Self.isHangulSyllables(korean.text) {
             return .change(to: .hangul2, text: korean.text)
+        }
+        // C7: typed in the Korean source, a jamo left over, neither reading a
+        // list word (herdr is ㅗㄷㄱㅇㄱ). A slip or a chat tail (안녕ㅎ, 웃겨ㅋㅋ)
+        // still reads as Korean typing. Five keys at least: a slip in a short
+        // word (ㄷ구 for 두) reads as English too often.
+        if typed == nil, other == nil, readings.typedIn == .hangul2, let margin = thresholds.keyScoreMargin,
+           token.keys.count >= 5, !Self.isChatShape(korean.text),
+           latin.keyModel.score(readings.english) - hangul.keyModel.score(readings.english) > margin {
+            return .change(to: .latin, text: readings.englishText)
         }
         guard let otherRank = other else { return .keep(typed == nil ? .n8 : .typedIsAWord) }
         if let typedRank = typed {
