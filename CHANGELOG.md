@@ -3,6 +3,7 @@
 ## Unreleased
 
 - New tool, Korean/English auto-fix: a word typed on the wrong layout (dkssud for 안녕, ㅗ디ㅣㅐ for hello) is erased and typed in the right one when you press Space, Tab or Return after it. It judges on this Mac with two bundled word lists (adapted from FrequencyWords, CC BY-SA 4.0, credited in NOTICE). Words with digits, addresses, all-capital words and words edited after an arrow key or a shortcut are left alone. It rests while macOS secure input is on (password fields), while another layout fixer runs, and in the apps you exclude. Two-key words typed on the English layout are left alone, since `rm` and `cp` are as likely as 그 and 체. The input source itself is not switched yet.
+- Korean/English auto-fix: a name no word list holds, typed on the Korean layout (herdr, supabase), is now fixed too when its keys read clearly as English rather than Korean typing. It judges only words of five keys or more. Korean with a slip or a chat tail (안녕ㅎ, 웃겨ㅋㅋ), shorthand (ㅇㄷ, ㅇㄷ야) and faces (ㅠ개ㅠㅠ) are left as typed.
 - Text snippets now run on a typing tap shared with the auto-fix. Keys typed while an expansion or a multi-line paste is under way are held and arrive after it, in order; before, they could land in front of a paste.
 
 ## 1.1.1
