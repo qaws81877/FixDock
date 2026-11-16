@@ -89,7 +89,8 @@ struct Lexicon {
     private let words: [[UInt8]]
     /// Line number in the list file, 1 the most frequent.
     private let ranks: [Int32]
-    /// How many of `words[..<index]` have a rank within the while-typing limit.
+    /// How many of `words[..<index]` count while typing: a list line within
+    /// the while-typing rank limit, or a Korean added word.
     private let commonBefore: [Int32]
     let keyModel: KeyTrigram
 
@@ -99,7 +100,7 @@ struct Lexicon {
     /// their own keys. A Korean word is kept only if its keys compose back
     /// into it. nil when nothing is left.
     static func load(_ text: String, as language: TypedSource, whileTypingMaxRank: Int) -> Lexicon? {
-        var entries: [(keys: [UInt8], rank: Int32)] = []
+        var entries: [(keys: [UInt8], rank: Int32, whileTyping: Bool)] = []
         var rank: Int32 = 0
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
             rank += 1
@@ -107,33 +108,47 @@ struct Lexicon {
             switch language {
             case .latin:
                 guard word.utf8.allSatisfy({ (UInt8(ascii: "a")...UInt8(ascii: "z")).contains($0) }) else { continue }
-                entries.append((Array(word.utf8), rank))
+                entries.append((Array(word.utf8), rank, Int(rank) <= whileTypingMaxRank))
             case .hangul2:
                 guard let keys = HangulTwoSet.keySpace(ofHangul: word),
                       HangulTwoSet.hangul(fromKeySpace: keys) == word else { continue }
-                entries.append((Array(keys.utf8), rank))
+                entries.append((Array(keys.utf8), rank, Int(rank) <= whileTypingMaxRank))
+            }
+        }
+        if language == .latin {
+            // At the word end only: a name's start would read Korean typed
+            // right on 2-Set as English mid-word (밈처럼 opens like alacritty).
+            for word in LayoutFixRules.addedEnglishWords.flatMap(\.words) {
+                entries.append((Array(word.utf8), Int32(LayoutFixRules.addedEnglishWordRank), false))
             }
         }
         if language == .hangul2 {
             for word in LayoutFixRules.addedWords.flatMap(\.words) {
                 guard let keys = HangulTwoSet.keySpace(ofHangul: word),
                       HangulTwoSet.hangul(fromKeySpace: keys) == word else { continue }
-                entries.append((Array(keys.utf8), Int32(LayoutFixRules.addedWordRank)))
+                entries.append((Array(keys.utf8), Int32(LayoutFixRules.addedWordRank), true))
             }
         }
         guard !entries.isEmpty else { return nil }
-        // The same keys twice keep the better rank.
+        // The same keys twice keep the better rank, and count while typing
+        // if either does.
         entries.sort { $0.keys == $1.keys ? $0.rank < $1.rank : $0.keys.lexicographicallyPrecedes($1.keys) }
         var words: [[UInt8]] = []
         var ranks: [Int32] = []
-        for entry in entries where words.last != entry.keys {
+        var whileTyping: [Bool] = []
+        for entry in entries {
+            if words.last == entry.keys {
+                whileTyping[whileTyping.count - 1] = whileTyping[whileTyping.count - 1] || entry.whileTyping
+                continue
+            }
             words.append(entry.keys)
             ranks.append(entry.rank)
+            whileTyping.append(entry.whileTyping)
         }
         var commonBefore: [Int32] = [0]
         commonBefore.reserveCapacity(words.count + 1)
-        for rank in ranks {
-            commonBefore.append(commonBefore[commonBefore.count - 1] + (Int(rank) <= whileTypingMaxRank ? 1 : 0))
+        for counts in whileTyping {
+            commonBefore.append(commonBefore[commonBefore.count - 1] + (counts ? 1 : 0))
         }
         return Lexicon(words: words, ranks: ranks, commonBefore: commonBefore, keyModel: KeyTrigram(words))
     }
@@ -371,6 +386,52 @@ struct LayoutFixRules {
         ("interjections", ["헐", "헉", "엥", "흠", "짱", "꿀잼", "노잼", "넵", "냠냠", "히히"]),
     ]
     static let addedWordRank = 2_000
+    /// English names the lists lack or rank low, chosen by FixDock (owner,
+    /// 2026-11-16, 7.16): what a developer at a Mac types by name, each group
+    /// with why it is here. The English list loads them at
+    /// `addedEnglishWordRank`. Left out: a name whose 2-Set reading is
+    /// consonants alone (zed is ㅋㄷㅇ) or one syllable, or a Korean word.
+    static let addedEnglishWords: [(why: String, words: [String])] = [
+        ("AI models, their makers and AI coding tools",
+         ["anthropic", "claude", "opus", "sonnet", "haiku", "fable", "openai", "chatgpt", "gemini", "deepmind",
+          "deepseek", "mistral", "qwen", "kimi", "moonshot", "grok", "xai", "llama", "ollama", "perplexity",
+          "copilot", "codex", "cohere", "groq", "cerebras", "huggingface", "midjourney", "anythingllm",
+          "openrouter", "minimax", "cursor", "windsurf", "cline", "aider", "devin", "kiro", "antigravity",
+          "coderabbit", "superwhisper", "macwhisper", "lmstudio", "langchain", "llamaindex", "pytorch",
+          "tensorflow", "jupyter", "jupyterlab", "pydantic", "numpy", "pandas", "herdr", "omo", "opencode"]),
+        ("command-line tools a developer types by name",
+         ["awscli", "ffmpeg", "cmake", "coreutils", "pyenv", "pipx", "openssl", "ripgrep", "helm", "protobuf",
+          "graphviz", "pandoc", "swiftlint", "swiftformat", "swiftgen", "redis", "mkcert", "cocoapods", "openjdk",
+          "cloudflared", "llvm", "lazygit", "lazydocker", "maven", "xcodegen", "starship", "nmap", "htop", "btop",
+          "ansible", "qemu", "watchman", "rclone", "fastfetch", "colima", "podman", "gradle", "flyctl", "atuin",
+          "shellcheck", "zoxide", "postgresql", "postgres", "kustomize", "hugo", "powershell", "chezmoi",
+          "tailscale", "fastlane", "direnv", "argocd", "trivy", "exiftool", "gitleaks", "ruff", "terragrunt",
+          "terraform", "opentofu", "nginx", "caddy", "rustup", "buildx", "rbenv", "sops", "yazi", "scrcpy",
+          "pipenv", "virtualenv", "semgrep", "httpie", "mongosh", "ocrmypdf", "duckdb", "trufflehog", "bazelisk",
+          "minikube", "kubernetes", "jsonnet", "cosign", "tflint", "kubectx", "nushell", "syncthing", "wireshark",
+          "yamllint", "doctl", "ugrep", "sccache", "lefthook", "helmfile", "pgvector", "pulumi", "mariadb",
+          "certbot", "skopeo", "wrangler", "typst", "ncdu", "emacs", "ghidra", "tealdeer", "grpcurl", "ngrok",
+          "gcloud", "mycli", "conda", "miniconda", "anaconda", "pytest", "vitest", "eslint", "prettier", "biome",
+          "mise", "deno", "vite", "nodejs", "zellij", "neovim", "tmux", "esbuild", "webpack", "rollup", "babel",
+          "playwright", "puppeteer", "cypress", "storybook"]),
+        ("editors, terminals and Mac apps",
+         ["ghostty", "iterm", "wezterm", "alacritty", "warp", "vscode", "vscodium", "sublime", "intellij",
+          "pycharm", "datagrip", "webstorm", "raycast", "alfred", "obsidian", "notion", "figma", "postman",
+          "insomnia", "orbstack", "maccy", "hammerspoon", "karabiner", "aerospace", "spotify", "slack", "discord",
+          "telegram", "whatsapp", "zoom", "dropbox", "onedrive", "chromium", "librewolf", "vivaldi", "tableplus",
+          "dbeaver", "sourcetree", "tabby", "termius", "typora", "zotero", "anki", "inkscape", "blender", "gimp",
+          "krita", "handbrake", "audacity", "iina", "virtualbox", "vagrant", "cyberduck", "cleanshot", "shottr",
+          "bartender", "espanso", "jira", "confluence", "trello", "asana"]),
+        ("languages, frameworks and hosted services",
+         ["typescript", "javascript", "python", "golang", "kotlin", "swiftui", "appkit", "nextjs", "svelte",
+          "sveltekit", "nuxt", "astro", "remix", "angular", "django", "flask", "fastapi", "rails", "laravel",
+          "redux", "tailwind", "tailwindcss", "prisma", "drizzle", "supabase", "firebase", "vercel", "netlify",
+          "cloudflare", "railway", "heroku", "mongodb", "mysql", "elixir", "haskell", "scala", "clojure", "flutter",
+          "lua", "perl", "php", "strapi", "streamlit", "traefik", "treesitter", "kafka", "rabbitmq",
+          "elasticsearch", "grafana", "prometheus", "datadog", "sentry", "stripe", "twilio", "openapi", "graphql",
+          "grpc"]),
+    ]
+    static let addedEnglishWordRank = 3_000
     /// Particles a known word may carry, since the list holds spaced words.
     private static let particles: [(text: String, keys: [UInt8])] =
         ["은", "는", "이", "가", "을", "를", "에", "의", "도", "로", "와", "과", "만", "에서", "으로", "에게", "한테",
@@ -382,16 +443,16 @@ struct LayoutFixRules {
     /// read as two whole Hangul syllables and be changed.
     private static let technicalWords: Set<String> = [
         "sudo", "grep", "chmod", "chown", "mkdir", "rmdir", "curl", "wget", "ssh", "scp", "rsync", "git", "npm", "npx",
-        "pnpm", "yarn", "brew", "pip", "cmd", "ctrl", "cmake", "clang", "swiftc", "xcrun", "zsh", "bash", "vim", "nvim",
-        "tmux", "kubectl", "docker", "json", "yaml", "yml", "xml", "html", "css", "svg", "png", "jpg", "jpeg", "gif",
+        "pnpm", "yarn", "brew", "pip", "cmd", "ctrl", "clang", "swiftc", "xcrun", "zsh", "bash", "vim", "nvim",
+        "kubectl", "docker", "json", "yaml", "yml", "xml", "html", "css", "svg", "png", "jpg", "jpeg", "gif",
         "pdf", "csv", "tsv", "sql", "src", "tmp", "usr", "env", "dns", "tls", "ssl", "tcp", "udp", "http", "https",
         "url", "uri", "api", "sdk", "cli", "gui", "ide", "cpu", "gpu", "ssd", "hdd", "usb", "hdmi", "wifi", "vpn",
-        "ios", "macos", "xcode", "github", "gitlab", "figma", "async", "await", "struct", "enum", "func", "const",
+        "ios", "macos", "xcode", "github", "gitlab", "async", "await", "struct", "enum", "func", "const",
         "printf", "println", "stdin", "stdout", "stderr", "nil", "null", "bool", "int", "str", "len", "args", "argv",
-        "kwargs", "regex", "repo", "config", "localhost", "admin", "login", "logout", "signup", "username", "cursor",
+        "kwargs", "regex", "repo", "config", "localhost", "admin", "login", "logout", "signup", "username",
         "covid", "cyan", "macbook", "iphone", "ipad", "airpods", "trackpad", "passcode", "spreadsheet", "aftermarket",
         "todo", "fixme", "readme", "changelog", "dockerfile", "makefile", "plist", "dylib", "uuid", "utf", "ascii",
-        "ipv", "smtp", "imap", "oauth", "jwt", "cors", "cron", "sqlite", "redis", "nginx", "linux", "ubuntu", "debian",
+        "ipv", "smtp", "imap", "oauth", "jwt", "cors", "cron", "sqlite", "linux", "ubuntu", "debian",
         "homebrew", "chrome", "safari", "firefox", "kakaotalk", "naver", "google", "youtube", "netflix", "wifi",
     ]
     private static let technicalWordRank = 20_000
