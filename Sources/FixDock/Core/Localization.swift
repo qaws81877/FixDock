@@ -1936,7 +1936,7 @@ struct Strings {
         featureLayoutFixSummary: "A word typed on the wrong layout is retyped in the right one when you finish it.",
         layoutFixEnable: "Fix words typed on the wrong layout",
         layoutFixEnableCaption: "When you press Space, Tab or Return after a word that only makes sense on the other layout, FixDock erases it and types it in that layout. Keys are judged in memory on this Mac; nothing you type is stored or sent.",
-        layoutFixLimitsCaption: "Left as typed: words with digits, addresses, all-capital words, and a word you moved into with the arrow keys or edited after a shortcut. The input source itself is not switched.",
+        layoutFixLimitsCaption: "Left as typed: words with digits, addresses, all-capital words, and a word you moved into with the arrow keys or edited after a shortcut. An English word (capitals and versions such as v2 too) with a Korean particle or ending typed onto it is split instead: staging에, API에서, v2에. With the fast Korean/English switch installed, the input source moves to the language of the fix.",
         layoutFixActiveNow: "Active",
         layoutFixNeedsAccessibility: "Accessibility permission is needed to see what you type.",
         layoutFixRestOtherFixerFormat: "Resting while %@ is running.",
