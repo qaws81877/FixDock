@@ -574,7 +574,8 @@ struct TypingState {
                 // The record stays until the plan ends: a refused hand-off
                 // leaves the word as it is, and ⌘Z still takes it back.
                 guard layoutFix.config.whileTyping, record.word?.lead == 0, !chunk.tailAsked,
-                      let found = layoutFix.considerBoundary(chunk: chunk, earlier: earlier(), frontApp: frontApp)
+                      let found = layoutFix.considerBoundary(chunk: chunk, earlier: earlier(), frontApp: frontApp,
+                                                             previous: previousWord)
                 else { break }
                 chunk.markTailAsked()
                 midWordClaim = found.claim
@@ -584,7 +585,8 @@ struct TypingState {
                 let earlier = earlier()
                 if let found = layoutFix.considerWhileTyping(chunk: chunk, earlier: earlier, frontApp: frontApp)
                     ?? (chunk.midWord == .none
-                        ? layoutFix.considerBoundary(chunk: chunk, earlier: earlier, frontApp: frontApp) : nil) {
+                        ? layoutFix.considerBoundary(chunk: chunk, earlier: earlier, frontApp: frontApp,
+                                                     previous: previousWord) : nil) {
                     chunk.markTried()
                     midWordClaim = found.claim
                     claimedChange = found.undo

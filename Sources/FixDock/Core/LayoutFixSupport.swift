@@ -488,6 +488,13 @@ struct LayoutFixRules {
     /// M9: how many the tail typed so far may sit in (dl of 이 sits in deadly).
     private static let tailEndings = 3
     private static let tailInside = 10
+    /// Rule C8a: 가 나 요 야 in key space, the short tails a Korean sentence
+    /// glues to an English word (push가) that those two counts refuse.
+    private static let sentenceTails: Set<String> = ["rk", "sk", "dy", "di"]
+    /// M9 takes three of them at a key; 야 waits for the word's end, since
+    /// English words go on after its keys (-ding, -dic, -dis). On a word M
+    /// already changed, which its end does not judge again (M6), 야 too.
+    private static let sentenceTailsAtAKey: Set<String> = ["rk", "sk", "dy"]
     /// The tails in key space, for M9's "a tail starts here".
     private static let tailKeys: [String] = tails.compactMap { HangulTwoSet.keySpace(ofHangul: $0) }
     /// Commands, abbreviations and names a person at a Mac types as they
@@ -509,6 +516,8 @@ struct LayoutFixRules {
         // Two-key commands and abbreviations, for rule C9 (rm is 그, db is 유, gh is 호).
         "rm", "cp", "mv", "ls", "cd", "ps", "db", "gh", "sh", "vi", "js", "ts", "py", "ui", "ux", "ok", "pr", "qa",
         "os", "io", "ai", "ml", "vm", "ip", "ci", "fs", "gc",
+        // Developer words the list ranks past commonRank, for rule C8a (owner, 2026-11-21: app가, user가).
+        "app", "user", "node", "diff",
     ]
     private static let technicalWordRank = 20_000
     private static let neverInside: Set<Character> = ["@", ":", "/", "\\", "_", "~", "#", "=", "&", "%", ".", "-"]
@@ -637,6 +646,18 @@ struct LayoutFixRules {
         return latin.rank(of: Array(lower.utf8)).map { $0 <= thresholds.whileTypingMaxRank } ?? false
     }
 
+    /// Rule C8a (P1, 2026-11-20): right after a word that ended in Korean,
+    /// 가 나 요 야 behind a lowercase stem that is a command, a list word within
+    /// `commonRank` or five letters long is a tail, though English words end
+    /// with or hold its keys (`tailEndings`, `tailInside`). Not when the whole
+    /// token reads as whole Hangul syllables: that is Korean typed on ABC (C5).
+    private func isSentenceTail(stem: String, tail: String, previous: TypedSource?) -> Bool {
+        guard previous == .hangul2, stem.count >= 3, stem.allSatisfy(\.isLowercase), Self.sentenceTails.contains(tail),
+              !Self.isHangulSyllables(HangulTwoSet.hangul(fromKeySpace: stem + tail)) else { return false }
+        return stem.count >= 5 || Self.technicalWords.contains(stem)
+            || latin.rank(of: Array(stem.utf8)).map { $0 <= thresholds.commonRank } ?? false
+    }
+
     /// Rule C8: the token as an English stem with a whole Korean tail glued
     /// on, the longest stem first, and the token as the learned set keeps it.
     /// A two-key tail behind a short lowercase stem must end at most
@@ -646,7 +667,7 @@ struct LayoutFixRules {
     /// jamo left over; one of consonants alone needs two different ones
     /// (server is ㄴㄷㄱㅍㄷㄱ), so a laugh (ㅋㅋㅋㅋ했어) is never split. nil when
     /// no split reads so.
-    private func splitReading(_ token: LayoutToken) -> (text: String, learned: LearnedKey)? {
+    private func splitReading(_ token: LayoutToken, previous: TypedSource? = nil) -> (text: String, learned: LearnedKey)? {
         let keys = token.keys
         guard keys.count >= 4, !keys.contains(where: { $0.stroke.option || $0.isRepeat }) else { return nil }
         let characters = keys.compactMap { $0.typed.count == 1 ? $0.typed.first : nil }
@@ -679,6 +700,7 @@ struct LayoutFixRules {
             let stem = String(english[..<split])
             guard Self.tailSet.contains(tail), isEnglishStem(stem) else { continue }
             if stem.count < 5, tailKeys.count == 2, stem.allSatisfy(\.isLowercase),
+               !isSentenceTail(stem: stem, tail: String(tailKeys).lowercased(), previous: previous),
                latin.count(holding: Array(String(tailKeys).lowercased().utf8), atEnd: true) > Self.tailEndings { continue }
             if typedIn == .hangul2 {
                 guard stem.count >= 5 || stem.allSatisfy(\.isUppercase) || stem.contains(where: \.isNumber) else { continue }
@@ -709,7 +731,7 @@ struct LayoutFixRules {
         let (found, reason) = readings(of: token)
         guard let readings = found else {
             // C8 where the readings refuse the stem: capitals (API에, Github에) or a digit (v2에).
-            if reason == .n5 || reason == .n2, earlier == .none, let split = splitReading(token),
+            if reason == .n5 || reason == .n2, earlier == .none, let split = splitReading(token, previous: previous),
                !learned.contains(split.learned) {
                 return .change(to: .hangul2, text: split.text)
             }
@@ -750,7 +772,7 @@ struct LayoutFixRules {
         // C8 (2026-11-20): neither reading a word, but an English word with a
         // Korean tail (stagingdp, ㅇ데ㅣㅐㅛ할게요): the stem stays English, the
         // tail becomes Korean, from either source.
-        if typed == nil, other == nil, let split = splitReading(token) {
+        if typed == nil, other == nil, let split = splitReading(token, previous: previous) {
             return .change(to: .hangul2, text: split.text)
         }
         // C5: typed in the Latin source, not an English word, and the keys
@@ -825,7 +847,10 @@ struct LayoutFixRules {
     /// two keys or more behind it (deploy + gk of 할게요) that sits in few English
     /// words. A lowercase stem needs four letters (dea + dp of deadpan). Returns
     /// the stem's key count; the tail goes to Korean while it is still typed.
-    func boundaryWhileTyping(_ token: LayoutToken, earlier: EarlierClaim) -> Int? {
+    /// `previous`: the language the word before ended in (C8a); `changed`:
+    /// M changed the word while it was typed.
+    func boundaryWhileTyping(_ token: LayoutToken, earlier: EarlierClaim, previous: TypedSource? = nil,
+                             changed: Bool = false) -> Int? {
         let keys = token.keys
         guard earlier == .none, keys.count >= 4, !(keys.last?.stroke.shift ?? false),
               !keys.contains(where: { $0.stroke.option || $0.isRepeat }) else { return nil }
@@ -837,11 +862,15 @@ struct LayoutFixRules {
         if latin.hasWord(startingWith: Array(lower.utf8)) || Self.technicalWords.contains(where: { $0.hasPrefix(lower) }) { return nil }
         for split in stride(from: keys.count - 2, through: 2, by: -1) {
             let tail = characters[split...]
+            let stem = String(characters[..<split])
             guard tail.allSatisfy({ $0.isLowercase || HangulTwoSet.shiftedKeyLetters.contains($0) }),
                   Self.tailKeys.contains(where: { $0.hasPrefix(String(tail)) }),
-                  isEnglishStem(String(characters[..<split])),
-                  split >= 4 || !characters[..<split].allSatisfy(\.isLowercase),
-                  latin.count(holding: Array(String(tail).lowercased().utf8), atEnd: false) <= Self.tailInside
+                  isEnglishStem(stem)
+            else { continue }
+            let sentenceTail = (changed ? Self.sentenceTails : Self.sentenceTailsAtAKey).contains(String(tail))
+                && isSentenceTail(stem: stem, tail: String(tail), previous: previous)
+            guard split >= 4 || !stem.allSatisfy(\.isLowercase) || sentenceTail,
+                  sentenceTail || latin.count(holding: Array(String(tail).lowercased().utf8), atEnd: false) <= Self.tailInside
             else { continue }
             return split
         }
@@ -1086,12 +1115,14 @@ struct LayoutFixConsumer {
     /// Korean tail starting behind an English word goes to Korean. The caller
     /// asks once per word: before any other change while typing, or right
     /// after the one that made the word English.
-    func considerBoundary(chunk: TypingChunk, earlier: EarlierClaim, frontApp: String?)
+    func considerBoundary(chunk: TypingChunk, earlier: EarlierClaim, frontApp: String?, previous: TypedSource? = nil)
         -> (plan: ReplacementPlan, claim: MidWordClaim, undo: LayoutFixUndo)? {
         guard chunk.anchored || chunk.sinceEdit else { return nil }
         if let frontApp, config.ignoredApps.contains(frontApp) { return nil }
         let token = LayoutToken(chunk.keys)
-        guard token.trailing.isEmpty, let stem = config.rules.boundaryWhileTyping(token, earlier: earlier) else { return nil }
+        guard token.trailing.isEmpty, let stem = config.rules.boundaryWhileTyping(token, earlier: earlier, previous: previous,
+                                                                                      changed: chunk.midWord == .changed)
+        else { return nil }
         return LayoutFixPlanner.boundary(token, stem: stem, app: frontApp)
     }
 }
