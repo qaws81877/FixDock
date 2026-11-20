@@ -520,6 +520,12 @@ struct LayoutFixRules {
         "app", "user", "node", "diff",
     ]
     private static let technicalWordRank = 20_000
+    /// Names with a digit that are stems of rule C8 (owner Q3, 2026-11-21):
+    /// file formats, codecs, protocols, chips and services, chosen by FixDock.
+    private static let versionNames: Set<String> = [
+        "mp3", "mp4", "h264", "h265", "ipv4", "ipv6", "utf8", "utf16", "x86", "x64", "arm64", "win32",
+        "m1", "m2", "m3", "m4", "s3", "ec2", "k8s", "ps4", "ps5",
+    ]
     private static let neverInside: Set<Character> = ["@", ":", "/", "\\", "_", "~", "#", "=", "&", "%", ".", "-"]
     /// Capitals after which a late Shift is forgiven: the double consonants.
     private static let doubleConsonantKeys: Set<Character> = ["Q", "W", "E", "R", "T"]
@@ -628,16 +634,16 @@ struct LayoutFixRules {
 
     /// Rules C8 and M9: the front of a token as an English word. A list word
     /// of three letters or more, written as lowercase, capitalised or a known
-    /// command; an acronym of two to six capitals (PR, API); or a short
-    /// version name with a digit (v2, mp3, ipv6) whose letters compose into no
-    /// Hangul syllable (vhs15 is 폰15).
+    /// command; an acronym of two to six capitals (PR, API); or a known
+    /// version name (owner Q3, 2026-11-21): v and digits (v2, V10), or one of
+    /// `versionNames`. Other letters with a digit (a1, x2) may be a password
+    /// or an id, and stay.
     private func isEnglishStem(_ stem: String) -> Bool {
         guard let first = stem.first, first.isLetter else { return false }
         if stem.contains(where: \.isNumber) {
-            let letters = stem.filter(\.isLetter)
-            return stem.count >= 2 && letters.count <= 3 && stem.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
-                && !HangulTwoSet.hangul(fromKeySpace: letters.lowercased()).unicodeScalars
-                    .contains { (0xAC00...0xD7A3).contains($0.value) }
+            let lower = stem.lowercased()
+            if lower.first == "v", (2...5).contains(lower.count), lower.dropFirst().allSatisfy(\.isNumber) { return true }
+            return Self.versionNames.contains(lower)
         }
         if stem.count >= 2, stem.count <= 6, stem.allSatisfy(\.isUppercase) { return true }
         guard stem.count >= 3, stem.dropFirst().allSatisfy(\.isLowercase) else { return false }
