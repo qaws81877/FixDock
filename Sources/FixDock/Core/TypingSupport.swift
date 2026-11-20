@@ -143,6 +143,10 @@ struct TypingChunk: Equatable {
 
     enum MidWordMark: Equatable { case none, tried, changed }
 
+    /// Rule M9 was asked for the word M6 changed: it is asked once, taken
+    /// or refused.
+    private(set) var tailAsked = false
+
     /// A word longer than this is no word; its keys are not kept.
     private static let keyLimit = 64
 
@@ -201,6 +205,10 @@ struct TypingChunk: Equatable {
     /// A while-typing change was asked for: the word is not tried again.
     mutating func markTried() {
         if midWord == .none { midWord = .tried }
+    }
+
+    mutating func markTailAsked() {
+        tailAsked = true
     }
 
     /// A mid-word plan sent the word's keys again: the field shows `keys`
@@ -349,15 +357,30 @@ struct TypingState {
         return skips
     }
 
+    /// The source the last mid-word plan handed the word over to, and how
+    /// many hand-offs still owe their notice. macOS tells of a change late,
+    /// after the word's keys went out again, and each notice reads the
+    /// source as it is when it is handled: after two plans (M, then M9) both
+    /// read the last one. Those notices are the plans' own, not a switch in
+    /// the middle of the word (M9 judges the word on).
+    private var handedOff: (source: TypedSource, owed: Int)?
+
+    /// Rule C9: the language the last finished word in this field ended in,
+    /// until a click, an app change, a caret move or an edit of more than a
+    /// character.
+    private var previousWord: TypedSource?
+
     /// An app change or a click: whatever was half-typed is no longer where
     /// the backspaces would land, and the next word starts fresh.
     mutating func reset() {
         chunk = TypingChunk(anchored: true)
         undo = nil
+        previousWord = nil
     }
 
     /// The tap stopped looking: nothing typed from here on is known.
     mutating func interrupt() {
+        previousWord = nil
         chunk.forget()
         undo = nil
         dropClaim()
@@ -381,8 +404,9 @@ struct TypingState {
         if let claim = midWordClaim {
             guard let result, result != .dropped else { return [] }
             if case .keys(let source) = result {
-                let before = (claim.leading + claim.keys.map { $0.reading(in: claim.before) }).map(\.typed).joined()
-                chunk.becomeChanged(claim.leading + claim.keys.map { $0.reading(in: source) }, replacing: before)
+                if source != claim.before { handedOff = (source, (handedOff?.owed ?? 0) + 1) }
+                let before = (claim.leading + claim.keys(readIn: claim.before)).map(\.typed).joined()
+                chunk.becomeChanged(claim.leading + claim.keys(readIn: source), replacing: before)
                 // Changed, not put back as typed: ⌘Z can take it back.
                 if claim.reverts == nil, source == claim.target, var change = claimedChange {
                     change.expires = now + layoutFix.config.rules.thresholds.undoWindowSeconds
@@ -410,6 +434,20 @@ struct TypingState {
               layoutFix != nil, let undo, undo.app == frontApp, now < undo.expires
         else { return nil }
         return undo
+    }
+
+    /// macOS's notice that the input source changed; `source` is the one it
+    /// has now (nil: neither of the two). A notice a mid-word plan's hand-off
+    /// still owes is that plan's own; any other is a change.
+    mutating func sourceChanged(noticed source: TypedSource?) {
+        if let owed = handedOff {
+            handedOff = nil
+            if source == owed.source {
+                if owed.owed > 1 { handedOff = (owed.source, owed.owed - 1) }
+                return
+            }
+        }
+        sourceChanged()
     }
 
     /// The input source changed or may have: the input method settles its
@@ -449,15 +487,18 @@ struct TypingState {
         case .chord where raw.stroke.isSelectAll:
             // Command-A is an edit within the field, not a move away from
             // it: what is typed next replaces the selection (7.10).
+            previousWord = nil
             chunk.forget()
             chunk.loseStart()
         case .reset, .chord, .caretMove:
+            previousWord = nil
             chunk.forget()
         case .delete:
             chunk.removeLast()
         case .deleteMore:
             // More than one character went; how many is not known. The keys
             // typed next are.
+            previousWord = nil
             chunk.removeLast()
             chunk.loseStart()
         case .nonText:
@@ -471,13 +512,27 @@ struct TypingState {
             var verdict = snippets?.consider(event, chunk: chunk) ?? .pass
             if verdict == .pass, let layoutFix {
                 var skip: LayoutFixSkip?
-                (verdict, claimedChange, skip) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp)
+                (verdict, claimedChange, skip) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp,
+                                                                    previous: previousWord)
                 // A space after a space, a click or an edit ends no word:
                 // nothing to log.
                 let noWord = (chunk.anchored || chunk.sinceEdit) && chunk.keys.isEmpty
                 if let skip, !noWord, skips.count < 8 { skips.append(skip) }
             }
+            // The word ends in the language a change hands off to, or in the
+            // source of its last letter; a space after a space keeps the last.
+            var finished = previousWord
+            if case .claim(let plan) = verdict, case .handOff(let target)? = plan.steps.last {
+                finished = target
+            } else if let last = chunk.keys.last(where: { $0.keySpaceLetter != nil })?.typed.first {
+                finished = HangulTwoSet.isJamo(last) ? .hangul2 : .latin
+            } else if !chunk.keys.isEmpty || !(chunk.anchored || chunk.sinceEdit) {
+                // A word with no letter, or one the tap lost track of: the
+                // language it ended in is not known.
+                finished = nil
+            }
             reset()
+            previousWord = finished
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
             // A word changed while it was typed stays undoable past its Space
             // (5.7), as a word-end change does.
@@ -503,18 +558,33 @@ struct TypingState {
             // A control character is no key of the word: F13-F16 carry U+0010,
             // and the fast switch's key must never be sent again by an undo.
             let typesText = key.typed.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0.value != 0x7F }
+            // Rule N11 while typing: a trigger may still complete.
+            let earlier = { [snippets, chunk] () -> EarlierClaim in
+                let token = LayoutToken(chunk.keys).keys
+                let mayClaim = snippets?.mayStillClaim(keyed: token.map(\.keyed).joined(),
+                                                       typed: token.map(\.typed).joined()) ?? false
+                return mayClaim ? .mayStillClaim : .none
+            }
             if var record = live, record.word != nil, record.delimiter == nil, chunk.midWord == .changed, typesText {
                 // The rest of a word changed while it was typed: ⌘Z takes it
                 // back too (5.7).
                 record.extend(with: key, until: now + layoutFix.config.rules.thresholds.undoWindowSeconds)
                 undo = record
+                // M9: the word just made English gets a Korean tail, once.
+                // The record stays until the plan ends: a refused hand-off
+                // leaves the word as it is, and ⌘Z still takes it back.
+                guard layoutFix.config.whileTyping, record.word?.lead == 0, !chunk.tailAsked,
+                      let found = layoutFix.considerBoundary(chunk: chunk, earlier: earlier(), frontApp: frontApp)
+                else { break }
+                chunk.markTailAsked()
+                midWordClaim = found.claim
+                claimedChange = found.undo
+                return TapResponse(plan: found.plan)
             } else if layoutFix.config.whileTyping {
-                // Rule N11 while typing: a trigger may still complete.
-                let token = LayoutToken(chunk.keys).keys
-                let mayClaim = snippets?.mayStillClaim(keyed: token.map(\.keyed).joined(),
-                                                       typed: token.map(\.typed).joined()) ?? false
-                if let found = layoutFix.considerWhileTyping(chunk: chunk, earlier: mayClaim ? .mayStillClaim : .none,
-                                                            frontApp: frontApp) {
+                let earlier = earlier()
+                if let found = layoutFix.considerWhileTyping(chunk: chunk, earlier: earlier, frontApp: frontApp)
+                    ?? (chunk.midWord == .none
+                        ? layoutFix.considerBoundary(chunk: chunk, earlier: earlier, frontApp: frontApp) : nil) {
                     chunk.markTried()
                     midWordClaim = found.claim
                     claimedChange = found.undo
@@ -750,8 +820,8 @@ struct TypingGate {
 
     /// macOS says the input source has changed: the word being typed is no
     /// longer judged. A hold is left alone; its keys were typed before.
-    mutating func sourceDidChange() {
-        state.sourceChanged()
+    mutating func sourceDidChange(to source: TypedSource? = nil) {
+        state.sourceChanged(noticed: source)
     }
 
     /// The executor's kick arrived: post what it submitted and, after the

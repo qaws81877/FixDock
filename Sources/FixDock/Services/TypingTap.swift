@@ -292,7 +292,8 @@ final class TypingTap {
     /// usually do it are caught as they arrive; this covers every other way
     /// (the menu, a shortcut the tap passes, another tool).
     func inputSourceChanged() {
-        stateLock.withLock { gate.sourceDidChange() }
+        let live = LayoutFixPolicy.source(ofID: InputSwitchCapsLock.currentSourceID())
+        stateLock.withLock { gate.sourceDidChange(to: live) }
     }
 
     private func appChanged(to bundleID: String?) {
