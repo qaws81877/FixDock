@@ -520,6 +520,12 @@ struct LayoutFixRules {
         "app", "user", "node", "diff",
     ]
     private static let technicalWordRank = 20_000
+    /// Names with a digit that are stems of rule C8 (owner Q3, 2026-11-21):
+    /// file formats, codecs, protocols, chips and services, chosen by FixDock.
+    private static let versionNames: Set<String> = [
+        "mp3", "mp4", "h264", "h265", "ipv4", "ipv6", "utf8", "utf16", "x86", "x64", "arm64", "win32",
+        "m1", "m2", "m3", "m4", "s3", "ec2", "k8s", "ps4", "ps5",
+    ]
     private static let neverInside: Set<Character> = ["@", ":", "/", "\\", "_", "~", "#", "=", "&", "%", ".", "-"]
     /// Capitals after which a late Shift is forgiven: the double consonants.
     private static let doubleConsonantKeys: Set<Character> = ["Q", "W", "E", "R", "T"]
@@ -628,22 +634,55 @@ struct LayoutFixRules {
 
     /// Rules C8 and M9: the front of a token as an English word. A list word
     /// of three letters or more, written as lowercase, capitalised or a known
-    /// command; an acronym of two to six capitals (PR, API); or a short
-    /// version name with a digit (v2, mp3, ipv6) whose letters compose into no
-    /// Hangul syllable (vhs15 is 폰15).
+    /// command; an acronym of two to six capitals (PR, API); or a known
+    /// version name (owner Q3, 2026-11-21): v and digits (v2, V10), or one of
+    /// `versionNames`. Other letters with a digit (a1, x2) may be a password
+    /// or an id, and stay.
     private func isEnglishStem(_ stem: String) -> Bool {
         guard let first = stem.first, first.isLetter else { return false }
         if stem.contains(where: \.isNumber) {
-            let letters = stem.filter(\.isLetter)
-            return stem.count >= 2 && letters.count <= 3 && stem.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
-                && !HangulTwoSet.hangul(fromKeySpace: letters.lowercased()).unicodeScalars
-                    .contains { (0xAC00...0xD7A3).contains($0.value) }
+            let lower = stem.lowercased()
+            if lower.first == "v", (2...5).contains(lower.count), lower.dropFirst().allSatisfy(\.isNumber) { return true }
+            return Self.versionNames.contains(lower)
         }
         if stem.count >= 2, stem.count <= 6, stem.allSatisfy(\.isUppercase) { return true }
         guard stem.count >= 3, stem.dropFirst().allSatisfy(\.isLowercase) else { return false }
         let lower = stem.lowercased()
         if Self.technicalWords.contains(lower) { return true }
         return latin.rank(of: Array(lower.utf8)).map { $0 <= thresholds.whileTypingMaxRank } ?? false
+    }
+
+    /// C8 typed in the Korean source, M8b and M3a (P2, owner 2026-11-21): a
+    /// stem of three or four lowercase letters that is a command or a list
+    /// word within `commonRank` (push, bug, node).
+    private func isShortStemOn2Set(_ stem: String) -> Bool {
+        guard stem.count >= 3, stem.count < 5, stem.allSatisfy(\.isLowercase) else { return false }
+        return Self.technicalWords.contains(stem) || latin.rank(of: Array(stem.utf8)).map { $0 <= thresholds.commonRank } ?? false
+    }
+
+    /// P2 (owner rule P2-3: no Korean slip may change): the keys, in key space,
+    /// are one slip from a Korean word, a key added, dropped or two neighbours
+    /// swapped (gladdmf is 힘을 with ㅇ twice); `prefix`: from the start of one.
+    private func readsAsKoreanSlip(_ keySpace: [Character], prefix: Bool = false) -> Bool {
+        let isKorean = { (variant: [Character]) -> Bool in
+            let bytes = Array(String(variant).utf8)
+            return prefix ? self.hangul.hasWord(startingWith: bytes) : self.hangulReading(bytes).rank != nil
+        }
+        let alphabet = Array("qwertyuiopasdfghjklzxcvbnmQWERTOP")
+        for i in 0...keySpace.count {
+            for key in alphabet {
+                var added = keySpace; added.insert(key, at: i)
+                if isKorean(added) { return true }
+            }
+            guard i < keySpace.count else { continue }
+            var dropped = keySpace; dropped.remove(at: i)
+            if !dropped.isEmpty, isKorean(dropped) { return true }
+            if i + 1 < keySpace.count {
+                var swapped = keySpace; swapped.swapAt(i, i + 1)
+                if isKorean(swapped) { return true }
+            }
+        }
+        return false
     }
 
     /// Rule C8a (P1, 2026-11-20): right after a word that ended in Korean,
@@ -703,7 +742,9 @@ struct LayoutFixRules {
                !isSentenceTail(stem: stem, tail: String(tailKeys).lowercased(), previous: previous),
                latin.count(holding: Array(String(tailKeys).lowercased().utf8), atEnd: true) > Self.tailEndings { continue }
             if typedIn == .hangul2 {
-                guard stem.count >= 5 || stem.allSatisfy(\.isUppercase) || stem.contains(where: \.isNumber) else { continue }
+                let shortStem = stem.count < 5 && !stem.allSatisfy(\.isUppercase) && !stem.contains(where: \.isNumber)
+                guard !shortStem || isShortStemOn2Set(stem) else { continue }
+                if shortStem, readsAsKoreanSlip(korean.compactMap { $0 }) { continue }
                 let read = HangulTwoSet.hangul(fromKeySpace: String(korean[..<split].map { $0.map(String.init) ?? "" }.joined()))
                 // A version name (v2, ㅍ2) is no laugh: the digit says so.
                 let consonantsOnly = !stem.contains(where: \.isNumber)
@@ -810,7 +851,16 @@ struct LayoutFixRules {
         let (found, reason) = readings(of: token)
         guard let readings = found else { return .keep(reason ?? .n8) }
         let short = token.keys.count < thresholds.minKeysWhileTyping
-        if short, token.keys.count != thresholds.shortKeysWhileTyping || readings.typedIn == .hangul2 { return .keep(.m1) }
+        if short, token.keys.count != thresholds.shortKeysWhileTyping { return .keep(.m1) }
+        if short, readings.typedIn == .hangul2 {
+            // M8b: three keys on 2-Set that are a whole command and read as no Korean (sdk, not app: 메ㅔ).
+            // Other three-key words wait for the fourth key (owner, 2026-11-15: you, ㅎㄷㄷ).
+            let english = String(decoding: readings.english, as: UTF8.self)
+            guard Self.technicalWords.contains(english), !hangul.hasWord(startingWith: readings.korean),
+                  !Self.isHangulSyllables(HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))),
+                  !readsAsKoreanSlip(Array(String(decoding: readings.korean, as: UTF8.self)), prefix: true)
+            else { return .keep(.m1) }
+        }
         if earlier != .none { return .keep(.n11) }
         let typedKeys = readings.learnedKey.keys
         if learned.contains(where: { $0.source == readings.typedIn && $0.keys.hasPrefix(typedKeys) }) { return .keep(.n9) }
@@ -836,7 +886,11 @@ struct LayoutFixRules {
             return .change(to: .hangul2, text: text)
         case .hangul2:
             if hangul.hasWord(startingWith: readings.korean) { return .keep(.m2) }
-            guard latin.hasCommonWord(startingWith: readings.english) else { return .keep(.m3) }
+            // M3a: a whole command counts too (node), unless the keys are a Korean slip.
+            guard latin.hasCommonWord(startingWith: readings.english)
+                    || (Self.technicalWords.contains(String(decoding: readings.english, as: UTF8.self))
+                        && !readsAsKoreanSlip(Array(String(decoding: readings.korean, as: UTF8.self)), prefix: true))
+            else { return .keep(.m3) }
             return .change(to: .latin, text: readings.englishText)
         }
     }
@@ -869,7 +923,7 @@ struct LayoutFixRules {
             else { continue }
             let sentenceTail = (changed ? Self.sentenceTails : Self.sentenceTailsAtAKey).contains(String(tail))
                 && isSentenceTail(stem: stem, tail: String(tail), previous: previous)
-            guard split >= 4 || !stem.allSatisfy(\.isLowercase) || sentenceTail,
+            guard split >= 4 || !stem.allSatisfy(\.isLowercase) || sentenceTail || (changed && isShortStemOn2Set(stem)),
                   sentenceTail || latin.count(holding: Array(String(tail).lowercased().utf8), atEnd: false) <= Self.tailInside
             else { continue }
             return split
