@@ -416,7 +416,10 @@ struct TypingState {
         if let claim = midWordClaim {
             guard let result, result != .dropped else { return [] }
             if case .keys(let source) = result {
-                if source != claim.before { handedOff = (source, (handedOff?.owed ?? 0) + 1) }
+                if source != claim.before {
+                    handedOff = (source, (handedOff?.owed ?? 0) + 1)
+                    stampedLate = source
+                }
                 let before = (claim.leading + claim.keys(readIn: claim.before)).map(\.typed).joined()
                 chunk.becomeChanged(claim.leading + claim.keys(readIn: source), replacing: before)
                 // Changed, not put back as typed: ⌘Z can take it back.
@@ -448,10 +451,28 @@ struct TypingState {
         return undo
     }
 
+    /// P5 (2026-11-22): the source the last mid-word hand-off landed in, while
+    /// macOS may still stamp keys with the old layout's characters.
+    private var stampedLate: TypedSource?
+
+    /// A physical key as `stampedLate` types it (a key macOS already stamps
+    /// in that source reads the same).
+    func readingStamped(_ raw: RawKey) -> RawKey {
+        guard let landed = stampedLate else { return raw }
+        return raw.reading(in: landed)
+    }
+
+    /// The person switched the source: nothing a plan handed off is owed or stamped late.
+    mutating func sourceSwitchedByPerson() {
+        handedOff = nil
+        stampedLate = nil
+    }
+
     /// macOS's notice that the input source changed; `source` is the one it
     /// has now (nil: neither of the two). A notice a mid-word plan's hand-off
     /// still owes is that plan's own; any other is a change.
     mutating func sourceChanged(noticed source: TypedSource?) {
+        if source != stampedLate { stampedLate = nil }
         if let owed = handedOff {
             handedOff = nil
             if source == owed.source {
@@ -785,10 +806,12 @@ struct TypingGate {
         case .physical:
             break
         }
+        let raw = state.readingStamped(raw)
         if Self.functionKeys.contains(raw.stroke.keyCode), hold == nil {
             // It may be the key that switches the source. Judged as before
             // for snippets; the layout fix lets go of the word.
             let response = judge(raw, ticket: nil, secureInput: secureInput, now: now)
+            state.sourceSwitchedByPerson()
             state.sourceChanged()
             return response
         }
@@ -847,6 +870,7 @@ struct TypingGate {
     /// notice). The word being typed is no longer judged; held keys go
     /// ahead of the change.
     mutating func sourceMayChange() -> [GateCommand] {
+        state.sourceSwitchedByPerson()
         state.sourceChanged()
         guard hold != nil else { return [] }
         state.interrupt()
