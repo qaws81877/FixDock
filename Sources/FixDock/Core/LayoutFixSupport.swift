@@ -971,6 +971,26 @@ enum LayoutFixPlanner {
                                        .handOff(target)])
     }
 
+    /// Rule C10: the field shows `before`, the Space and the word (`shown`,
+    /// as `token`'s keys put it there); both are erased, then typed as they
+    /// end, then the delimiter, and the source goes to Korean.
+    static func beforeAndWordEnd(before: String, beforeText: String, space: TypedKey, token: LayoutToken, shown: String,
+                                 text: String, delimiter: TypedKey) -> ReplacementPlan {
+        let erased = token.keys + token.trailing
+        let typed = erased.map(\.typed).joined()
+        let backspaces: [PlanStep]
+        if !token.keys.contains(where: { $0.typed.first.map(HangulTwoSet.isJamo) ?? false }) {
+            // All typed in the Latin source: one backspace per key.
+            backspaces = [.backspaces(before.count + space.typed.count + erased.count, completionCheck: before + space.typed + typed)]
+        } else {
+            // The word as the input method composed it, counted from the Space; then the Space and the word before.
+            backspaces = [.backspaces(HangulTwoSet.backspaces(erasing: typed), completionCheck: nil),
+                          .backspaces(before.count + space.typed.count, completionCheck: nil)]
+        }
+        return ReplacementPlan(steps: [.expect(before + space.typed + shown)] + backspaces
+                               + [.text(beforeText + space.typed + text), .key(delimiter.stroke), .handOff(.hangul2)])
+    }
+
     /// Whether the field shows `word` at a word's start (7.10). `read` is the
     /// text right before the caret: `word` and the one UTF-16 unit in front
     /// of it, or `word` alone where the field starts (`atFieldStart`). In
@@ -1148,6 +1168,40 @@ struct LayoutFixConsumer {
         let undo = LayoutFixUndo(app: frontApp, shown: text + trailing + " ", original: original + trailing,
                                  delimiter: delimiter.stroke, learned: learned)
         return (.claim(plan), undo, nil)
+    }
+
+    /// Rule C10 (P3, owner 2026-11-21) at the Space that ends `chunk`, a word
+    /// ending in Korean: `before`, the word right before it, which N10 kept,
+    /// changes on C9's terms. `undo`: the record of the change this Space
+    /// makes to `chunk` itself, if any. One plan for both words, and one
+    /// record, so ⌘Z takes both back.
+    func considerBefore(_ before: LayoutToken, space: TypedKey, chunk: TypingChunk, undo: LayoutFixUndo?,
+                        delimiter: TypedKey, frontApp: String?) -> (plan: ReplacementPlan, undo: LayoutFixUndo)? {
+        if let frontApp, config.ignoredApps.contains(frontApp) { return nil }
+        let rules = config.rules
+        guard case .change(.hangul2, let first) = rules.decideAtWordEnd(before, anchored: true, earlier: .none, previous: .hangul2),
+              let learned = rules.learnedKey(of: before)
+        else { return nil }
+        let token = LayoutToken(chunk.keys)
+        guard token.leading.isEmpty, !token.keys.isEmpty else { return nil }
+        let trailing = token.trailing.map(\.typed).joined()
+        let korean = token.keys.contains { $0.typed.first.map(HangulTwoSet.isJamo) ?? false }
+        let shown = (korean ? LayoutFixPlanner.render(token.keys, in: .hangul2) : token.keys.map(\.typed).joined()) + trailing
+        // How the word itself ends, and how it was typed.
+        let text: String, original: String
+        if let undo {
+            text = String(undo.shown.dropLast())
+            original = undo.original
+        } else {
+            text = shown
+            original = chunk.midWord == .changed ? LayoutFixPlanner.render(token.keys, in: .latin) + trailing : shown
+        }
+        let typedBefore = before.keys.map(\.typed).joined()
+        let plan = LayoutFixPlanner.beforeAndWordEnd(before: typedBefore, beforeText: first, space: space, token: token,
+                                                     shown: shown, text: text, delimiter: delimiter)
+        let record = LayoutFixUndo(app: frontApp, shown: first + space.typed + text + " ", original: typedBefore + space.typed + original,
+                                   delimiter: delimiter.stroke, learned: learned)
+        return (plan, record)
     }
 
     /// Rule 3.4 on a letter key, `chunk` including it, with the switch on:

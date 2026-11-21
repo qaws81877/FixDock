@@ -370,17 +370,29 @@ struct TypingState {
     /// character.
     private var previousWord: TypedSource?
 
+    /// Rule C10: the word right before, which N10 kept, and the Space that
+    /// ended it, until anything but the next word's keys comes between.
+    private var keptBefore: KeptWord?
+
+    struct KeptWord {
+        let token: LayoutToken
+        let space: TypedKey
+        let app: String?
+    }
+
     /// An app change or a click: whatever was half-typed is no longer where
     /// the backspaces would land, and the next word starts fresh.
     mutating func reset() {
         chunk = TypingChunk(anchored: true)
         undo = nil
         previousWord = nil
+        keptBefore = nil
     }
 
     /// The tap stopped looking: nothing typed from here on is known.
     mutating func interrupt() {
         previousWord = nil
+        keptBefore = nil
         chunk.forget()
         undo = nil
         dropClaim()
@@ -488,17 +500,21 @@ struct TypingState {
             // Command-A is an edit within the field, not a move away from
             // it: what is typed next replaces the selection (7.10).
             previousWord = nil
+            keptBefore = nil
             chunk.forget()
             chunk.loseStart()
         case .reset, .chord, .caretMove:
             previousWord = nil
             chunk.forget()
         case .delete:
+            // C9 keeps the word before past one Backspace (3.3); C10 does not.
+            keptBefore = nil
             chunk.removeLast()
         case .deleteMore:
             // More than one character went; how many is not known. The keys
             // typed next are.
             previousWord = nil
+            keptBefore = nil
             chunk.removeLast()
             chunk.loseStart()
         case .nonText:
@@ -510,8 +526,9 @@ struct TypingState {
             // tool acts on it: a snippet trigger that completed here, expanded
             // or not, keeps the layout fix away from the word (rule N11).
             var verdict = snippets?.consider(event, chunk: chunk) ?? .pass
+            var skip: LayoutFixSkip?
+            let judged = verdict == .pass && layoutFix != nil
             if verdict == .pass, let layoutFix {
-                var skip: LayoutFixSkip?
                 (verdict, claimedChange, skip) = layoutFix.consider(event, chunk: chunk, earlier: .none, frontApp: frontApp,
                                                                     previous: previousWord)
                 // A space after a space, a click or an edit ends no word:
@@ -531,8 +548,24 @@ struct TypingState {
                 // language it ended in is not known.
                 finished = nil
             }
+            // C10: a word that ends in Korean right after a Space-ended word N10 kept.
+            if judged, key.typed == " ", finished == .hangul2, let kept = keptBefore, kept.app == frontApp,
+               let layoutFix,
+               let found = layoutFix.considerBefore(kept.token, space: kept.space, chunk: chunk, undo: claimedChange,
+                                                    delimiter: key, frontApp: frontApp) {
+                verdict = .claim(found.plan)
+                claimedChange = found.undo
+            }
+            let kept: KeptWord?
+            if judged, verdict == .pass, skip == .rule(.n10), key.typed == " ", chunk.anchored {
+                let token = LayoutToken(chunk.keys)
+                kept = token.leading.isEmpty && token.trailing.isEmpty ? KeptWord(token: token, space: key, app: frontApp) : nil
+            } else {
+                kept = nil
+            }
             reset()
             previousWord = finished
+            keptBefore = kept
             if case .claim(let plan) = verdict { return TapResponse(plan: plan) }
             // A word changed while it was typed stays undoable past its Space
             // (5.7), as a word-end change does.
