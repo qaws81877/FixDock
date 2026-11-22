@@ -73,6 +73,9 @@ Gates, in order, before calling a change done:
   `build/verify/app.log`, and `NSLog` then writes there, not to `log show`
   or `log stream`. Read temporary `NSLog` lines from that file
   and remove them before committing.
+  A temporary log in the key tap records counts and flags (key count,
+  jamo or Latin, outcome), never the typed text, and is built in a
+  separate worktree that is not committed.
 
 Proof:
 
@@ -90,6 +93,12 @@ Proof:
   clean. Put each case a review finds into a harness and see it fail on the
   old build before fixing. The harnesses live only in the main checkout's
   `docs/`; for a worktree pass its `Sources/FixDock` as the root.
+  For a timing bug, a harness that reproduces the symptom does not prove
+  the cause: confirm it with a diagnostic build on the installed app before
+  fixing (a reproduced, gate-green fix in P5 was the wrong cause). Live
+  checks after a mid-word change type at two speeds, a one-call burst and
+  a fresh `CGEventSource` per key at about 73 ms; 50 ms and 115 ms a key
+  passed with the bug present.
 - Self-update has three harnesses, all on scratch data: the pure policy
   (`Core/UpdatePolicy.swift` alone); the verifier and transport on the real
   release zip, tampered zips and a local feed (`Tools/make-local-feed.sh`,
