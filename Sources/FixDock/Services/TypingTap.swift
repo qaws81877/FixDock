@@ -691,13 +691,11 @@ final class TypingTap {
             let landed = { [weak self] (outcome: InputSwitchHandOff.Outcome) in
                 guard let self else { return }
                 // Text right behind the backspaces of an open syllable is lost
-                // in Safari's fields (list A); with no pulse to wait for, it
-                // waits 40 ms as at a word end.
-                if !outcome.pulseSent {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.endMidWord(id, step, outcome: outcome, front: front) }
-                } else {
-                    self.endMidWord(id, step, outcome: outcome, front: front)
-                }
+                // in Safari's fields (list A), and keys sent right after the
+                // source changed lose one (owner, 2026-11-23: pushㅏ and
+                // 싸ㅣ버거 in 19 of 66 real tries, 2 of 31 after 20 ms, none
+                // of 33 after 40 ms). Both wait 40 ms, as at a word end.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.endMidWord(id, step, outcome: outcome, front: front) }
             }
             guard AppFeature.inputSwitch.isAvailable else { return landed(.unavailable) }
             InputSwitchService.shared.handOff(to: step.target == .latin ? .english : .korean,
