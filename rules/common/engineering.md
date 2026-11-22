@@ -94,6 +94,11 @@ Platform quirks:
   (confirmed live). `kCGSSessionSecureInputPID` names the app that was
   frontmost when it was enabled, not the enabler. For "works sometimes"
   reports, read the `keyTaps` log or the General › Feedback report first.
+- Right after FixDock changes the input source itself, macOS still stamps
+  the next key events with the old layout's characters for a moment (about
+  60-80 ms a key was enough to hit it; confirmed live with a diagnostic
+  build, PR #103). Read those keys by stroke in the landed source
+  (`TypingState`), never from `characters`.
 - A `CGImage` keeps its decoded pixels once drawn or scanned by Vision,
   even when read with `kCGImageSourceShouldCache: false`, and an ordered-out
   window keeps its window-server backing store (measured with `footprint`:
