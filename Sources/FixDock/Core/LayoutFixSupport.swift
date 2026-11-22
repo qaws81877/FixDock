@@ -529,6 +529,9 @@ struct LayoutFixRules {
     private static let neverInside: Set<Character> = ["@", ":", "/", "\\", "_", "~", "#", "=", "&", "%", ".", "-"]
     /// Capitals after which a late Shift is forgiven: the double consonants.
     private static let doubleConsonantKeys: Set<Character> = ["Q", "W", "E", "R", "T"]
+    /// Rule C12: the keys whose Shift gives Korean typing a jamo of its own and
+    /// that a chat repeats (ㅃㅃ, ㅉㅉ, ㅖㅖ).
+    private static let repeatedShiftKeys: Set<Character> = ["Q", "W", "E", "R", "T", "P"]
 
     // MARK: Readings
 
@@ -782,12 +785,27 @@ struct LayoutFixRules {
         return (keySpace.uppercased(), LearnedKey(keys: keySpace, source: .hangul2))
     }
 
+    /// Rule C12 (owner, 2026-11-23): typed in the Latin source, one key
+    /// repeated two to four times with Shift where Shift gives Korean typing
+    /// its own jamo, is that chat (QQ is ㅃㅃ, PP ㅖㅖ); no command or common
+    /// English word is spelled so (ee, at 13,273, is the only list word). nil otherwise.
+    private func repeatedShiftOnABC(_ token: LayoutToken) -> (text: String, learned: LearnedKey)? {
+        let keys = token.keys
+        guard (2...4).contains(keys.count), keys.allSatisfy({ $0.stroke.shift && !$0.stroke.option && !$0.isRepeat }),
+              let first = keys.first?.typed, first.count == 1, Self.repeatedShiftKeys.contains(first.first!),
+              keys.allSatisfy({ $0.typed == first })
+        else { return nil }
+        let typed = keys.map(\.typed).joined()
+        return (HangulTwoSet.hangul(fromKeySpace: typed), LearnedKey(keys: typed, source: .latin))
+    }
+
     /// The token exactly as typed, the key the learned set is kept by.
     func learnedKey(of token: LayoutToken) -> LearnedKey? {
         readings(of: token).readings?.learnedKey ?? splitReading(token)?.learned ?? capitalsOn2Set(token)?.learned
+            ?? repeatedShiftOnABC(token)?.learned
     }
 
-    /// Rules N1–N12 and C1–C11, at a whitespace key after `token`.
+    /// Rules N1–N12 and C1–C12, at a whitespace key after `token`.
     /// `previous`: the language the word before it in the same field ended in.
     func decideAtWordEnd(_ token: LayoutToken, anchored: Bool, earlier: EarlierClaim,
                          previous: TypedSource? = nil) -> LayoutFixDecision {
@@ -804,6 +822,10 @@ struct LayoutFixRules {
             if reason == .n4, earlier == .none, let capitals = capitalsOn2Set(token), !learned.contains(capitals.learned) {
                 return .change(to: .hangul2, text: capitals.text)
             }
+            // C12: Shift held for a double consonant in the Latin source (QQ is ㅃㅃ).
+            if reason == .n4, earlier == .none, let repeated = repeatedShiftOnABC(token), !learned.contains(repeated.learned) {
+                return .change(to: .hangul2, text: repeated.text)
+            }
             return .keep(reason ?? .n8)
         }
         let korean = hangulReading(readings.korean)
@@ -817,6 +839,16 @@ struct LayoutFixRules {
             // one (dl 이, rj 거) are Korean too. (zz is ㅋㅋ by C1, word before or not.)
             if previous == .hangul2, readings.typedIn == .latin, token.keys.count >= thresholds.minKeys, earlier == .none,
                !learned.contains(readings.learnedKey), let rank = korean.rank, rank <= thresholds.commonRank,
+               latin.rank(of: readings.english) == nil,
+               !Self.technicalWords.contains(String(decoding: readings.english, as: UTF8.self)) {
+                return .change(to: .hangul2, text: korean.text)
+            }
+            // C12 (owner, 2026-11-23): two keys typed in the Latin source, a
+            // double consonant's Shift and a vowel, one whole syllable (Tk is
+            // 싸) that no English word or command spells. Two keys reach here
+            // only as one syllable: two jamo are no shorter than minKeys.
+            if readings.typedIn == .latin, earlier == .none, !learned.contains(readings.learnedKey),
+               let first = readings.englishText.first, Self.doubleConsonantKeys.contains(first),
                latin.rank(of: readings.english) == nil,
                !Self.technicalWords.contains(String(decoding: readings.english, as: UTF8.self)) {
                 return .change(to: .hangul2, text: korean.text)
@@ -863,7 +895,15 @@ struct LayoutFixRules {
         }
         guard let otherRank = other else { return .keep(typed == nil ? .n8 : .typedIsAWord) }
         if let typedRank = typed {
-            if token.keys.count <= thresholds.shortTokenKeys { return .keep(.n6) }
+            if token.keys.count <= thresholds.shortTokenKeys {
+                // C12 (owner, 2026-11-23): consonant chat typed in the Latin
+                // source (de is ㅇㄷ) wins over a short English word. No command
+                // spells a chat word (rm cp cd db gh stay).
+                if readings.typedIn == .latin, Self.chatWords.contains(korean.text) {
+                    return .change(to: .hangul2, text: korean.text)
+                }
+                return .keep(.n6)
+            }
             // C2: both are words; only a rare one gives way to a common one.
             guard typedRank > thresholds.rareRank, otherRank < thresholds.commonRank else { return .keep(.n7) }
         }
