@@ -910,7 +910,7 @@ extension Strings {
         featureLayoutFixSummary: "자판을 잘못 두고 친 낱말을 다 치는 순간 맞는 글자로 다시 쳐 줍니다.",
         layoutFixEnable: "잘못된 자판으로 친 낱말 교정",
         layoutFixEnableCaption: "다른 자판으로 읽어야만 말이 되는 낱말 뒤에서 스페이스, Tab, Return을 누르면 그 낱말을 지우고 맞는 글자로 다시 칩니다. 키는 이 Mac의 메모리 안에서만 판단하며, 입력한 내용을 저장하거나 보내지 않습니다.",
-        layoutFixLimitsCaption: "그대로 두는 것: 숫자가 들어간 낱말, 주소, 전부 대문자인 낱말, 화살표 키로 들어가거나 단축키 뒤에 고친 낱말. 다만 영어 낱말(대문자, v2 같은 버전 이름 포함) 뒤에 조사나 어미를 붙여 친 낱말은 영어와 한글로 나눠 고칩니다: staging에, API에서, v2에. 빠른 한/영 전환이 설치되어 있으면 입력 소스도 고친 언어로 바뀝니다.",
+        layoutFixLimitsCaption: "그대로 두는 것: 숫자가 들어간 낱말, 주소, 영어 자판으로 친 전부 대문자인 낱말, 화살표 키로 들어가거나 단축키 뒤에 고친 낱말. 한글 자판에서 Shift를 누른 채 친 낱말(ㅖㄲ)은 약어(PR)로 고칩니다. 다만 영어 낱말(대문자, v2 같은 버전 이름 포함) 뒤에 조사나 어미를 붙여 친 낱말은 영어와 한글로 나눠 고칩니다: staging에, API에서, v2에. 빠른 한/영 전환이 설치되어 있으면 입력 소스도 고친 언어로 바뀝니다.",
         layoutFixActiveNow: "작동 중",
         layoutFixNeedsAccessibility: "입력을 보려면 손쉬운 사용 권한이 필요합니다.",
         layoutFixRestOtherFixerFormat: "%@ 실행 중에는 쉽니다.",

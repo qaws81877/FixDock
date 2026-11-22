@@ -390,7 +390,7 @@ struct LayoutFixRules {
     /// Jamo-only chat words, which no list of spaced words holds, and a few
     /// everyday one-syllable words the subtitle list happens to lack.
     private static let chatWords: Set<String> = ["ㅋㅋ", "ㅋㅋㅋ", "ㅋㅋㅋㅋ", "ㅎㅎ", "ㅎㅎㅎ", "ㅇㅇ", "ㄴㄴ", "ㄱㄱ", "ㅇㅋ",
-                                                 "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ",
+                                                 "ㅠㅠ", "ㅜㅜ", "ㄷㄷ", "ㅊㅋ", "ㄱㅅ", "ㅈㅅ", "ㅎㅇ", "ㅂㅂ", "ㅇㄷ",
                                                  "뭐", "봐", "줘", "꽤", "쭉", "푹"]
     private static let chatWordRank = 1_000
     /// Korean words the subtitle list lacks, chosen by FixDock (owner,
@@ -690,6 +690,8 @@ struct LayoutFixRules {
     /// `commonRank` or five letters long is a tail, though English words end
     /// with or hold its keys (`tailEndings`, `tailInside`). Not when the whole
     /// token reads as whole Hangul syllables: that is Korean typed on ABC (C5).
+    /// A word typed in the Korean source counts as Korean context too
+    /// (2026-11-22: push가 typed on 2-Set alone); callers pass `.hangul2` then.
     private func isSentenceTail(stem: String, tail: String, previous: TypedSource?) -> Bool {
         guard previous == .hangul2, stem.count >= 3, stem.allSatisfy(\.isLowercase), Self.sentenceTails.contains(tail),
               !Self.isHangulSyllables(HangulTwoSet.hangul(fromKeySpace: stem + tail)) else { return false }
@@ -739,7 +741,7 @@ struct LayoutFixRules {
             let stem = String(english[..<split])
             guard Self.tailSet.contains(tail), isEnglishStem(stem) else { continue }
             if stem.count < 5, tailKeys.count == 2, stem.allSatisfy(\.isLowercase),
-               !isSentenceTail(stem: stem, tail: String(tailKeys).lowercased(), previous: previous),
+               !isSentenceTail(stem: stem, tail: String(tailKeys).lowercased(), previous: typedIn == .hangul2 ? .hangul2 : previous),
                latin.count(holding: Array(String(tailKeys).lowercased().utf8), atEnd: true) > Self.tailEndings { continue }
             if typedIn == .hangul2 {
                 let shortStem = stem.count < 5 && !stem.allSatisfy(\.isUppercase) && !stem.contains(where: \.isNumber)
@@ -759,12 +761,33 @@ struct LayoutFixRules {
         return nil
     }
 
-    /// The token exactly as typed, the key the learned set is kept by.
-    func learnedKey(of token: LayoutToken) -> LearnedKey? {
-        readings(of: token).readings?.learnedKey ?? splitReading(token)?.learned
+    /// Rule C11 (2026-11-22): two to six keys typed in the Korean source, each
+    /// with Shift, are capitals (PR is ㅖㄲ, API ㅁㅖㅑ), unless the jamo read
+    /// as Korean: whole syllables (a late Shift, 싸), a list or chat word, one
+    /// key repeated (ㅖㅖ, ㅃㅃ), or chat shorthand in which each key's Shift gave it
+    /// its double consonant or ㅒ ㅖ or was released late after one (ㄲㅆ, ㅃㅇ typed
+    /// QD, as C3 forgives in ABC). nil otherwise.
+    private func capitalsOn2Set(_ token: LayoutToken) -> (text: String, learned: LearnedKey)? {
+        let keys = token.keys
+        guard (2...6).contains(keys.count), keys.allSatisfy({ $0.stroke.shift && !$0.stroke.option && !$0.isRepeat })
+        else { return nil }
+        let letters = keys.compactMap { $0.typed.count == 1 ? $0.typed.first.flatMap(HangulTwoSet.key(typing:)) : nil }
+        guard letters.count == keys.count, Set(letters).count > 1 else { return nil }
+        let keySpace = String(letters)
+        let korean = hangulReading(Array(keySpace.utf8))
+        guard korean.rank == nil, !Self.isHangulSyllables(korean.text),
+              !(letters.indices.allSatisfy({ letters[$0].isUppercase || ($0 > 0 && letters[$0 - 1].isUppercase) })
+                && Self.isChatShape(korean.text))
+        else { return nil }
+        return (keySpace.uppercased(), LearnedKey(keys: keySpace, source: .hangul2))
     }
 
-    /// Rules N1–N12 and C1–C9, at a whitespace key after `token`.
+    /// The token exactly as typed, the key the learned set is kept by.
+    func learnedKey(of token: LayoutToken) -> LearnedKey? {
+        readings(of: token).readings?.learnedKey ?? splitReading(token)?.learned ?? capitalsOn2Set(token)?.learned
+    }
+
+    /// Rules N1–N12 and C1–C11, at a whitespace key after `token`.
     /// `previous`: the language the word before it in the same field ended in.
     func decideAtWordEnd(_ token: LayoutToken, anchored: Bool, earlier: EarlierClaim,
                          previous: TypedSource? = nil) -> LayoutFixDecision {
@@ -775,6 +798,11 @@ struct LayoutFixRules {
             if reason == .n5 || reason == .n2, earlier == .none, let split = splitReading(token, previous: previous),
                !learned.contains(split.learned) {
                 return .change(to: .hangul2, text: split.text)
+            }
+            // C11: the source stays Korean, as for C8: Shift held on 2-Set
+            // is no switch to English (PR 올려줘).
+            if reason == .n4, earlier == .none, let capitals = capitalsOn2Set(token), !learned.contains(capitals.learned) {
+                return .change(to: .hangul2, text: capitals.text)
             }
             return .keep(reason ?? .n8)
         }
@@ -902,7 +930,8 @@ struct LayoutFixRules {
     /// words. A lowercase stem needs four letters (dea + dp of deadpan). Returns
     /// the stem's key count; the tail goes to Korean while it is still typed.
     /// `previous`: the language the word before ended in (C8a); `changed`:
-    /// M changed the word while it was typed.
+    /// M changed the word while it was typed, so it was typed in the Korean
+    /// source and counts as Korean context for C8a.
     func boundaryWhileTyping(_ token: LayoutToken, earlier: EarlierClaim, previous: TypedSource? = nil,
                              changed: Bool = false) -> Int? {
         let keys = token.keys
@@ -922,7 +951,7 @@ struct LayoutFixRules {
                   isEnglishStem(stem)
             else { continue }
             let sentenceTail = (changed ? Self.sentenceTails : Self.sentenceTailsAtAKey).contains(String(tail))
-                && isSentenceTail(stem: stem, tail: String(tail), previous: previous)
+                && isSentenceTail(stem: stem, tail: String(tail), previous: changed ? .hangul2 : previous)
             guard split >= 4 || !stem.allSatisfy(\.isLowercase) || sentenceTail || (changed && isShortStemOn2Set(stem)),
                   sentenceTail || latin.count(holding: Array(String(tail).lowercased().utf8), atEnd: false) <= Self.tailInside
             else { continue }
