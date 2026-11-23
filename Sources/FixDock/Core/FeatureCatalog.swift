@@ -116,6 +116,9 @@ enum AppFeature: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Shown with a Beta badge in the feature hub and its page title (owner, 2026-11-23).
+    var isBeta: Bool { self == .layoutFix }
+
     func title(_ strings: Strings) -> String {
         switch self {
         case .urlCleaner: return strings.featureURLCleanerName

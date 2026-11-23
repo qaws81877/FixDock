@@ -65,7 +65,8 @@ extension AppFeature {
     /// The sidebar and page title. The "Screen capture" page holds both
     /// capture tools, whichever of them owns it.
     func pageTitle(_ strings: Strings) -> String {
-        self == .screenshot || self == .screenRecorder ? strings.screenCapturePageTitle : title(strings)
+        if self == .screenshot || self == .screenRecorder { return strings.screenCapturePageTitle }
+        return isBeta ? String(format: strings.featureBetaTitleFormat, title(strings)) : title(strings)
     }
 
     /// Binds the page to `self` so an arm cannot attach a body to the wrong feature.

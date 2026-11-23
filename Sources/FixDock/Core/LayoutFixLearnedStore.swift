@@ -47,12 +47,17 @@ struct LayoutFixLearnedRecords: Equatable {
         words = kept
     }
 
-    mutating func countRevert(_ key: LearnedKey, now: Date) {
+    func contains(_ key: LearnedKey) -> Bool {
+        entries.contains { $0.keys == key.keys && $0.source == key.source }
+    }
+
+    /// `times` undos of `key`: added to its entry, or a new entry of that count.
+    mutating func countRevert(_ key: LearnedKey, now: Date, times: Int = 1) {
         if let index = entries.firstIndex(where: { $0.keys == key.keys && $0.source == key.source }) {
-            entries[index].reverts += 1
+            entries[index].reverts += times
             entries[index].updatedAt = now
         } else {
-            entries.append(Entry(keys: key.keys, source: key.source, reverts: 1, updatedAt: now))
+            entries.append(Entry(keys: key.keys, source: key.source, reverts: times, updatedAt: now))
         }
         while entries.count > Self.limit,
               let least = entries.indices.min(by: { (entries[$0].reverts, entries[$0].updatedAt) < (entries[$1].reverts, entries[$1].updatedAt) }) {
@@ -68,6 +73,12 @@ struct LayoutFixLearnedRecords: Equatable {
         entries = []
     }
 
+    /// Drops the entries undone fewer than `threshold` times, which builds
+    /// before 1.2.0 wrote from the first undo.
+    mutating func forgetBelow(_ threshold: Int) {
+        entries.removeAll { $0.reverts < threshold }
+    }
+
     /// The entries undone at least `threshold` times.
     func learned(threshold: Int) -> Set<LearnedKey> {
         Set(entries.filter { $0.reverts >= threshold }.map { LearnedKey(keys: $0.keys, source: $0.source) })
@@ -76,7 +87,9 @@ struct LayoutFixLearnedRecords: Equatable {
 
 /// `LayoutFix.json` in the app's container: words the person typed, so a
 /// file with owner-only permissions and not UserDefaults, which travels with
-/// settings exports. A settings export carries the added words only, through
+/// settings exports. Only learned words (undone `learnAfter` times) and
+/// added words reach it: undos below that are counted in memory and gone at
+/// quit (owner, 2026-11-23, so PRIVACY.md holds). A settings export carries the added words only, through
 /// `SettingsBackup` (owner, 2026-11-23); the undo counts stay on this Mac.
 /// Version 2 added the words: a build that knows only version 1 reads such
 /// a file as newer and never writes over it.
@@ -99,10 +112,43 @@ final class LayoutFixLearnedStore {
 
     private(set) var state: State
     private let fileURL: URL?
+    private let learnAfter: Int
+    /// Undos of words not learned yet. Never written.
+    private var pendingReverts: [LearnedKey: Int] = [:]
 
-    init(fileURL: URL?) {
+    /// Reads the file and, while `.ready`, drops entries below `learnAfter`
+    /// through `mutate`, so a file that is unavailable is never touched.
+    init(fileURL: URL?, learnAfter: Int = LayoutFixThresholds().learnAfterReverts) {
         self.fileURL = fileURL
+        self.learnAfter = learnAfter
         state = Self.read(fileURL: fileURL)
+        mutate { $0.forgetBelow(learnAfter) }
+    }
+
+    /// One undo of a fix. A learned word counts on in the file; any other
+    /// word is counted here and written once it reaches `learnAfter`.
+    func countRevert(_ key: LearnedKey, now: Date) {
+        if case .ready(let records) = state, records.contains(key) {
+            mutate { $0.countRevert(key, now: now) }
+            return
+        }
+        let count = (pendingReverts[key] ?? 0) + 1
+        guard count >= learnAfter else {
+            pendingReverts[key] = count
+            return
+        }
+        pendingReverts[key] = nil
+        mutate { $0.countRevert(key, now: now, times: count) }
+    }
+
+    func forget(_ key: LearnedKey) {
+        pendingReverts[key] = nil
+        mutate { $0.forget(key) }
+    }
+
+    func forgetAll() {
+        pendingReverts = [:]
+        mutate { $0.forgetAll() }
     }
 
     /// The guard. Runs `change` and writes only while `.ready`; returns
