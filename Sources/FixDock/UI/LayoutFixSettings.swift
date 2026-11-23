@@ -21,6 +21,12 @@ struct LayoutFixSettings: View {
     var body: some View {
         Form {
             Section {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    BetaBadge()
+                    Text(s.layoutFixBetaCaption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Toggle(s.layoutFixEnable, isOn: $enabled)
                     .onChange(of: enabled) { _, _ in
                         LayoutFixService.shared.syncWithPreferences()

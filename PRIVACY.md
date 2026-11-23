@@ -6,7 +6,7 @@ FixDock uses the network for two things: checking its own GitHub releases for a 
 
 ## What the typing tools read
 
-Text snippets and the Korean/English auto-fix watch the keys you type in other apps, which is what the Accessibility permission is for. They hold the word being typed in memory to decide whether it is a snippet trigger or a word typed on the wrong layout, and forget it at the next space, click or app switch. Nothing typed is written to disk or sent anywhere, and nothing is read while macOS has secure input on (password fields). The auto-fix judges with two word lists bundled in the app.
+Text snippets and the Korean/English auto-fix watch the keys you type in other apps, which is what the Accessibility permission is for. They hold the word being typed in memory to decide whether it is a snippet trigger or a word typed on the wrong layout, and forget it at the next space, click or app switch. Nothing typed is sent anywhere, and nothing is read while macOS has secure input on (password fields). The auto-fix judges with two word lists bundled in the app. The only typed words written to disk are the auto-fix's own two kinds, kept in `LayoutFix.json` in FixDock's container on this Mac with owner-only permissions: words you add to its word lists, and a word you undid with ⌘Z three times, which it then learns to leave alone. Fewer undos are counted in memory and forgotten when FixDock quits. Both can be removed on the auto-fix settings page, and a settings export carries the added words only.
 
 ## The update check
 

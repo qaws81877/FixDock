@@ -1002,6 +1002,9 @@ struct Strings {
     let settingsShowSidebar: String
     let settingsHideSidebar: String
     let featureLayoutFixName: String
+    let featureBetaBadge: String
+    let featureBetaTitleFormat: String
+    let layoutFixBetaCaption: String
     let featureLayoutFixSummary: String
     let layoutFixEnable: String
     let layoutFixEnableCaption: String
@@ -1953,9 +1956,12 @@ struct Strings {
         settingsShowSidebar: "Show Sidebar",
         settingsHideSidebar: "Hide Sidebar",
         featureLayoutFixName: "Korean/English auto-fix",
+        featureBetaBadge: "Beta",
+        featureBetaTitleFormat: "%@ (Beta)",
+        layoutFixBetaCaption: "An experimental feature: it is still being tuned and can change a word it should leave alone. ⌘Z puts the word back.",
         featureLayoutFixSummary: "A word typed on the wrong layout is retyped in the right one when you finish it.",
         layoutFixEnable: "Fix words typed on the wrong layout",
-        layoutFixEnableCaption: "When you press Space, Tab or Return after a word that only makes sense on the other layout, FixDock erases it and types it in that layout. Keys are judged in memory on this Mac; nothing you type is stored or sent.",
+        layoutFixEnableCaption: "When you press Space, Tab or Return after a word that only makes sense on the other layout, FixDock erases it and types it in that layout. Keys are judged in memory on this Mac. Nothing you type is stored or sent, except the words you add below and the words you undo three times, which stay in a file on this Mac only.",
         layoutFixLimitsCaption: "Left as typed: words with digits, addresses, all-capital words typed on the English layout, and a word you moved into with the arrow keys or edited after a shortcut. Capitals typed with Shift on the Korean layout (ㅖㄲ) become the abbreviation (PR). An English word (capitals and versions such as v2 too) with a Korean particle or ending typed onto it is split instead: staging에, API에서, v2에. With the fast Korean/English switch installed, the input source moves to the language of the fix.",
         layoutFixActiveNow: "Active",
         layoutFixNeedsAccessibility: "Accessibility permission is needed to see what you type.",

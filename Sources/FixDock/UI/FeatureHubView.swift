@@ -67,6 +67,20 @@ struct FeatureBulkButtons: View {
     }
 }
 
+/// The mark of a tool the owner ships as experimental (`AppFeature.isBeta`).
+struct BetaBadge: View {
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        Text(l10n.s.featureBetaBadge)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(Color.orange.opacity(0.18)))
+            .foregroundStyle(.orange)
+    }
+}
+
 struct FeatureRow: View {
     let feature: AppFeature
     var showsInstallButton: Bool
@@ -81,8 +95,11 @@ struct FeatureRow: View {
                 .frame(width: 24, height: 24)
                 .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text(feature.title(strings))
-                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text(feature.title(strings))
+                        .font(.system(size: 13, weight: .semibold))
+                    if feature.isBeta { BetaBadge() }
+                }
                 Text(feature.summary(strings))
                     .font(.caption)
                     .foregroundStyle(.secondary)

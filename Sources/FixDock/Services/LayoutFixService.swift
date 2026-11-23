@@ -55,7 +55,7 @@ final class LayoutFixService: ObservableObject {
         TypingTap.shared.layoutFixNotices = { [weak self] notices in
             guard let self else { return }
             for case .reverted(let key) in notices {
-                self.learnedStore.mutate { $0.countRevert(key, now: Date()) }
+                self.learnedStore.countRevert(key, now: Date())
             }
             self.syncWithPreferences()
         }
@@ -181,13 +181,13 @@ final class LayoutFixService: ObservableObject {
     /// The word is fixed again, and has to be undone as often again to be
     /// learned. Does nothing while the store is unavailable.
     func forget(_ key: LearnedKey) {
-        learnedStore.mutate { $0.forget(key) }
+        learnedStore.forget(key)
         syncWithPreferences()
     }
 
     /// Every count, learned or not. Does nothing while the store is unavailable.
     func forgetAll() {
-        learnedStore.mutate { $0.forgetAll() }
+        learnedStore.forgetAll()
         syncWithPreferences()
     }
 
