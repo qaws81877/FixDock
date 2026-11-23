@@ -20,6 +20,25 @@ struct ChangelogEntry {
 enum Changelog {
     static let entries: [ChangelogEntry] = [
         ChangelogEntry(
+            version: "1.2.0", date: "2026-11-23",
+            english: [
+                "**Korean/English auto-fix, a new tool (beta).** A word typed on the wrong layout is fixed when you press Space, Tab or Return: `dkssud` becomes 안녕, `ㅗ디ㅣㅐ` becomes hello. It judges on this Mac with word lists bundled in the app and sends nothing, rests in password fields and in apps you exclude, and ⌘Z puts a fixed word back. It is an experimental feature, still being tuned.",
+                "**Fix while typing:** switch it on and a word changes as you type it, before the Space. `deploygkfrpdy` on the English layout shows deploy할게요 on its way, and ⌘Z brings back the English letters.",
+                "**Your own word lists:** add words to always fix or to never change, and a fix you undo with ⌘Z three times is learned as a word to leave alone. Only these words are saved, on this Mac. ⌃⌥⌘K turns auto-fix on or off, and a short notice on screen shows which.",
+                "**English with a Korean ending:** `stagingdp` becomes staging에, and `pushrk` becomes push가. The English part stays English and the ending turns Korean, also for names and short codes like API에서 and mp3에.",
+                "**Developer names:** about 300 names such as terraform, vercel and ghostty count as English words. A name no list holds (herdr, supabase) is fixed too when its keys read clearly as English.",
+                "**Text snippets:** keys you type while a snippet expands or a multi-line paste is under way now arrive after it, in order, instead of landing in front of the paste.",
+            ],
+            korean: [
+                "**한/영 자동 교정, 새 도구(베타).** 한/영을 잘못 두고 친 낱말을 Space, Tab, Return을 누를 때 고칩니다. `dkssud`는 안녕, `ㅗ디ㅣㅐ`는 hello가 됩니다. 앱에 들어 있는 낱말 목록으로 이 Mac 안에서만 판단하고 아무것도 보내지 않으며, 비밀번호 입력란과 제외한 앱에서는 쉬고, ⌘Z로 고친 낱말을 되돌릴 수 있습니다. 아직 다듬는 중인 실험 기능입니다.",
+                "**치는 도중에도 교정:** 켜면 Space를 누르기 전에, 치는 중에 낱말이 바뀝니다. 영문 자판으로 친 `deploygkfrpdy`는 도중에 deploy할게요로 바뀌고, ⌘Z를 누르면 영문 글자로 돌아갑니다.",
+                "**나만의 낱말 목록:** 항상 고칠 낱말과 바꾸지 않을 낱말을 직접 추가할 수 있고, 고침을 ⌘Z로 세 번 되돌린 낱말은 바꾸지 않을 낱말로 익힙니다. 저장하는 것은 이 낱말들뿐이며 이 Mac에만 남습니다. ⌃⌥⌘K로 자동 교정을 켜고 끄며, 화면에 잠깐 알림이 뜹니다.",
+                "**영어에 한글 어미가 붙은 낱말:** `stagingdp`는 staging에, `pushrk`는 push가로 바뀝니다. 영어는 영어로 두고 조사와 어미만 한글로 바꾸며, API에서, mp3에 같은 이름과 짧은 코드에도 적용됩니다.",
+                "**개발자 이름:** terraform, vercel, ghostty 같은 약 300개의 이름을 영어 낱말로 봅니다. 어느 목록에도 없는 이름(herdr, supabase)도 글쇠 배열이 분명히 영어로 읽히면 고칩니다.",
+                "**텍스트 스니펫:** 스니펫이 펼쳐지거나 여러 줄을 붙여넣는 동안 친 글쇠가 그 뒤에 순서대로 들어갑니다. 전에는 붙여넣은 글보다 앞에 들어갈 수 있었습니다.",
+            ]
+        ),
+        ChangelogEntry(
             version: "1.1.1", date: "2026-11-12",
             english: [
                 "**Tools for people who use a Mac in Korean.** FixDock now describes itself that way in the welcome screen and the README.",
