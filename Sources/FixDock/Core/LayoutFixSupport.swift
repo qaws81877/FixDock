@@ -946,8 +946,8 @@ struct LayoutFixRules {
         else { return nil }
         switch readings.typedIn {
         case .latin:
-            if latin.hasWord(startingWith: readings.english)
-                || Self.technicalWords.contains(where: { $0.utf8.starts(with: readings.english) }) { return nil }
+            let command = Self.technicalWords.contains { $0.hasPrefix(typed.keys) }
+            if command || latin.hasWord(startingWith: readings.english) { return nil }
             return .change(to: .hangul2, text: HangulTwoSet.hangul(fromKeySpace: other.keys))
         case .hangul2:
             if hangul.hasWord(startingWith: readings.korean) || readsAsKoreanSlip(Array(typed.keys), prefix: true) { return nil }
