@@ -73,6 +73,9 @@ enum DefaultsKey {
     /// Argument domain only: lets a developer build run the layout fix
     /// beside the installed app, which would otherwise fix a word twice.
     static let layoutFixDeveloperClaim = "layoutFixDeveloperClaim"
+    /// The shortcut that turns the layout fix on or off, and its switch.
+    static let layoutFixToggleShortcut = "layoutFixToggleShortcut"
+    static let layoutFixToggleShortcutEnabled = "layoutFixToggleShortcutEnabled"
     static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
     static let clipboardHistoryShortcut = "clipboardHistoryShortcut"
     static let clipboardHistoryShortcutEnabled = "clipboardHistoryShortcutEnabled"
@@ -194,6 +197,7 @@ enum Defaults {
             DefaultsKey.clipboardHistoryRetentionDays: ClipboardHistoryRetention.default.rawValue,
             DefaultsKey.clipboardHistoryIgnoredApps: [String](),
             DefaultsKey.layoutFixIgnoredApps: [String](),
+            DefaultsKey.layoutFixToggleShortcutEnabled: true,
             DefaultsKey.clipboardHistoryImageBudgetMB: ClipboardHistoryImageBudget.default.rawValue,
             DefaultsKey.clipboardHistoryRecordsMedia: true,
             DefaultsKey.screenshotOverlayShortcutEnabled: true,

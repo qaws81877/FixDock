@@ -21,6 +21,11 @@ final class LayoutFixService: ObservableObject {
     /// Words undone often enough to be left as typed (5.8), in the order
     /// they were learned.
     @Published private(set) var learnedWords: [LearnedKey] = []
+    /// The words added on the settings page, in the order they were added.
+    @Published private(set) var words: [LayoutFixWord] = []
+    /// False while `LayoutFix.json` cannot be read whole: nothing can be
+    /// added or removed then, so nothing is written over it.
+    @Published private(set) var wordsEditable = true
 
     private let learnedStore = LayoutFixLearnedStore(
         fileURL: PrivateFileStore.containerURL?.appendingPathComponent(LayoutFixLearnedStore.fileName))
@@ -30,6 +35,10 @@ final class LayoutFixService: ObservableObject {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var permissionWatch: AnyCancellable?
     private var otherFixerWatch: AnyCancellable?
+    private let hud = QuitProtectionHUD()
+    private var hudGeneration = 0
+    /// Whether the toggle shortcut was last synced for an installed tool.
+    private var toggleInstalled: Bool?
     /// Chromium and Electron apps give their text to Accessibility only when
     /// asked to, and a field that does not answer is never erased in. While
     /// the tool is active, such an app in front is asked (owner decision,
@@ -119,12 +128,25 @@ final class LayoutFixService: ObservableObject {
         if newMode != mode { mode = newMode }
 
         var learned: [LearnedKey] = []
+        var added: [LayoutFixWord] = []
+        var editable = false
         if case .ready(let records) = learnedStore.state {
             let threshold = LayoutFixThresholds().learnAfterReverts
             learned = records.entries.filter { $0.reverts >= threshold }.sorted { $0.updatedAt < $1.updatedAt }
                 .map { LearnedKey(keys: $0.keys, source: $0.source) }
+            added = records.words
+            editable = true
         }
         if learned != learnedWords { learnedWords = learned }
+        if added != words { words = added }
+        if editable != wordsEditable { wordsEditable = editable }
+
+        let installed = AppFeature.layoutFix.isAvailable
+        if installed != toggleInstalled {
+            toggleInstalled = installed
+            HotkeyManager.shared.actions[.layoutFixToggle] = installed ? { [weak self] in self?.toggleFromShortcut() } : nil
+            HotkeyManager.shared.sync()
+        }
 
         if newMode == .active {
             if let front = NSWorkspace.shared.frontmostApplication { openTextAccess(front) }
@@ -135,6 +157,7 @@ final class LayoutFixService: ObservableObject {
         if newMode == .active, let lists {
             var rules = LayoutFixRules(latin: lists.latin, hangul: lists.hangul)
             rules.learned = Set(learned)
+            rules.use(added)
             // While typing only where the fast switch can hand the source over (D3).
             let whileTyping = defaults.bool(forKey: DefaultsKey.layoutFixWhileTyping) && AppFeature.inputSwitch.isAvailable
             TypingTap.shared.setLayoutFix(LayoutFixConsumer.Config(rules: rules, ignoredApps: Set(stored),
@@ -166,6 +189,55 @@ final class LayoutFixService: ObservableObject {
     func forgetAll() {
         learnedStore.mutate { $0.forgetAll() }
         syncWithPreferences()
+    }
+
+    /// Why `text` cannot go on the `kind` list; nil once it is added. The
+    /// field's text is normalized first.
+    func add(_ text: String, as kind: LayoutFixWord.Kind) -> LayoutFixWord.Problem? {
+        let text = LayoutFixWord.normalized(text)
+        if let problem = LayoutFixWord.problem(adding: text, as: kind, to: words, learned: learnedWords) { return problem }
+        learnedStore.mutate { $0.add(LayoutFixWord(text: text, kind: kind)) }
+        syncWithPreferences()
+        return nil
+    }
+
+    func remove(_ word: LayoutFixWord) {
+        learnedStore.mutate { $0.remove(word) }
+        syncWithPreferences()
+    }
+
+    /// The added words as the file holds them, for a settings export; none
+    /// while the store is unavailable.
+    func savedWords() -> [LayoutFixWord] {
+        guard case .ready(let records) = learnedStore.state else { return [] }
+        return records.words
+    }
+
+    /// A settings import's words in place of these. False while the store
+    /// is unavailable, which leaves the file as it is.
+    @discardableResult
+    func replaceWords(with imported: [LayoutFixWord]) -> Bool {
+        let done = learnedStore.mutate { $0.replaceWords(with: imported) }
+        syncWithPreferences()
+        return done
+    }
+
+    /// The toggle shortcut: the tool's own switch, flipped and kept, as the
+    /// settings page's switch would, with a moment of HUD to say which way.
+    private func toggleFromShortcut() {
+        let defaults = UserDefaults.standard
+        let enabled = !defaults.bool(forKey: DefaultsKey.layoutFixEnabled)
+        defaults.set(enabled, forKey: DefaultsKey.layoutFixEnabled)
+        syncWithPreferences()
+        let s = L10n.shared.s
+        hud.show(title: enabled ? s.layoutFixToggleOnHUD : s.layoutFixToggleOffHUD,
+                 detail: HotkeyRole.layoutFixToggle.saved.keyCaps.joined())
+        hudGeneration += 1
+        let generation = hudGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            guard let self, self.hudGeneration == generation else { return }
+            self.hud.hide()
+        }
     }
 
     /// Main thread. Asks a Chromium or Electron app for its text, once.

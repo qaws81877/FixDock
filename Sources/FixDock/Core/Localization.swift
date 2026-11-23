@@ -988,6 +988,7 @@ struct Strings {
     let backupImportConfirmMessageFormat: String
     let backupImportConfirm: String
     let backupSafetyFailed: String
+    let backupLayoutFixWordsSkipped: String
     let resetPermissionsCaption: String
     let resetPermissionsButton: String
     let resetPermissionsConfirmTitle: String
@@ -1017,13 +1018,31 @@ struct Strings {
     let layoutFixExcludedAdd: String
     let layoutFixExcludedRemove: String
     let layoutFixExcludedCaption: String
-    let layoutFixLearnedTitle: String
-    let layoutFixLearnedNone: String
-    let layoutFixLearnedCaption: String
     let layoutFixLearnedRemoveAll: String
     let layoutFixWhileTyping: String
     let layoutFixWhileTypingCaption: String
     let layoutFixWhileTypingNeedsSwitch: String
+    let layoutFixToggleShortcut: String
+    let layoutFixToggleShortcutCaption: String
+    let layoutFixToggleOnHUD: String
+    let layoutFixToggleOffHUD: String
+    let layoutFixAlwaysTitle: String
+    let layoutFixAlwaysCaption: String
+    let layoutFixNeverTitle: String
+    let layoutFixNeverCaption: String
+    let layoutFixWordsNone: String
+    let layoutFixWordPlaceholder: String
+    let layoutFixWordAdd: String
+    let layoutFixWordLearned: String
+    let layoutFixWordsUnavailable: String
+    let layoutFixWordTooShort: String
+    let layoutFixWordTooLongFormat: String
+    let layoutFixWordNotTypable: String
+    let layoutFixWordAlreadyAlways: String
+    let layoutFixWordAlreadyNever: String
+    let layoutFixWordLearnedAlready: String
+    let layoutFixWordConflict: String
+    let layoutFixWordFullFormat: String
     let versionFormat: String
 
     static func localized(_ language: AppLanguage) -> Strings {
@@ -1920,6 +1939,7 @@ struct Strings {
         backupImportConfirmMessageFormat: "The settings in the file overwrite the current ones, and FixDock relaunches. The current settings are saved first in %@.",
         backupImportConfirm: "Import and Relaunch",
         backupSafetyFailed: "The current settings could not be saved first, so nothing was imported.",
+        backupLayoutFixWordsSkipped: "The settings were imported, but the layout fix's word list file could not be read, so its words were left as they were.",
         resetPermissionsCaption: "Reset every permission macOS has given FixDock, for example after a grant stopped working. Each tool asks again when it needs one.",
         resetPermissionsButton: "Remove All Permissions…",
         resetPermissionsConfirmTitle: "Remove all of FixDock's permissions?",
@@ -1949,13 +1969,31 @@ struct Strings {
         layoutFixExcludedAdd: "Add app",
         layoutFixExcludedRemove: "Remove",
         layoutFixExcludedCaption: "Nothing is fixed while one of these apps is in front.",
-        layoutFixLearnedTitle: "Learned words",
-        layoutFixLearnedNone: "No word learned yet.",
-        layoutFixLearnedCaption: "Press ⌘Z right after a change to put the word back as you typed it. A word put back three times is left as typed from then on. Removing it here lets FixDock fix it again.",
-        layoutFixLearnedRemoveAll: "Remove All",
+        layoutFixLearnedRemoveAll: "Remove All Learned",
         layoutFixWhileTyping: "Fix while typing",
         layoutFixWhileTypingCaption: "Before you finish a word, as soon as no word on the current layout starts with what you typed and a common word on the other layout does, FixDock fixes it on the spot and switches the input source, so you type the rest on the right layout. Press ⌘Z right away to put back what you typed. Off by default.",
         layoutFixWhileTypingNeedsSwitch: "Needs the fast Korean/English switch installed. Until then words are fixed only when you finish them.",
+        layoutFixToggleShortcut: "Turn on or off with a shortcut",
+        layoutFixToggleShortcutCaption: "Works in every app, even while the fix is off. A moment at the bottom of the screen says which way it went, and the choice stays after a restart.",
+        layoutFixToggleOnHUD: "Korean/English fix on",
+        layoutFixToggleOffHUD: "Korean/English fix off",
+        layoutFixAlwaysTitle: "Always fix to these words",
+        layoutFixAlwaysCaption: "Write a word as it should read, in English or in Korean (fixdock, 주말). When its keys are typed on the other layout, it becomes this word when you finish it. With Fix while typing on, a word of four keys or more changes from its third key, unless those keys also start a word of the layout you are on.",
+        layoutFixNeverTitle: "Never change these words",
+        layoutFixNeverCaption: "Typed as written here, a word is left as you typed it, even when the list above has it. Press ⌘Z right after a change to put a word back; a word put back three times joins this list as Learned. Removing a word lets FixDock fix it again.",
+        layoutFixWordsNone: "No word yet.",
+        layoutFixWordPlaceholder: "Word",
+        layoutFixWordAdd: "Add",
+        layoutFixWordLearned: "Learned",
+        layoutFixWordsUnavailable: "The word list file could not be read, so it is left as it is and nothing can be added or removed.",
+        layoutFixWordTooShort: "A word needs two keys or more.",
+        layoutFixWordTooLongFormat: "A word can have at most %d characters.",
+        layoutFixWordNotTypable: "Use English letters only or Hangul only, with no space, digit or symbol.",
+        layoutFixWordAlreadyAlways: "Already on the always-fix list.",
+        layoutFixWordAlreadyNever: "Already on the never-change list.",
+        layoutFixWordLearnedAlready: "FixDock already learned to leave this word as typed.",
+        layoutFixWordConflict: "The other list has these keys, read on the other layout.",
+        layoutFixWordFullFormat: "A list holds at most %d words.",
         versionFormat: "Version %@"
     )
 }
