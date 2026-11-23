@@ -22,12 +22,16 @@ struct LayoutFixThresholds: Equatable {
     var commonRank = 5_000
     var minKeysWhileTyping = 4
     var whileTypingMaxRank = 20_000
-    /// Rule M8 (7.13): a word this many keys long typed in the Latin source,
-    /// shorter than `minKeysWhileTyping`, is judged too, under a stricter
-    /// rule. In the Korean source it is not (owner, 2026-11-15). nil: off.
+    /// Rule M8 (7.13): a word this many keys long, shorter than
+    /// `minKeysWhileTyping`, is judged too, under a stricter rule: M8 in the
+    /// Latin source, M8b and M8c in the Korean source. nil: off.
     var shortKeysWhileTyping: Int? = 3
     /// M8: the one syllable is a Korean list word this common.
     var shortWhileTypingKoreanRank = 5_000
+    /// Rule M8c (third key, owner 2026-11-23): at `shortKeysWhileTyping`
+    /// keys in the Korean source, an English word this common starts with
+    /// the keys. nil: off.
+    var shortWhileTypingEnglishRank: Int? = 1_000
     var learnAfterReverts = 3
     /// Rule C5: with this many whole syllables or more, a Korean reading
     /// counts without being a list word (owner, 2026-11-13). nil: off.
@@ -186,6 +190,11 @@ struct Lexicon {
 
     func hasWord(startingWith keys: [UInt8]) -> Bool {
         !range(startingWith: keys).isEmpty
+    }
+
+    /// The best rank of the words that start with `keys`.
+    func bestRank(startingWith keys: [UInt8]) -> Int? {
+        ranks[range(startingWith: keys)].min().map(Int.init)
     }
 
     /// How many words end with `keys` (`atEnd`) or hold them anywhere. A scan:
@@ -922,12 +931,31 @@ struct LayoutFixRules {
         if short, token.keys.count != thresholds.shortKeysWhileTyping { return .keep(.m1) }
         if short, readings.typedIn == .hangul2 {
             // M8b: three keys on 2-Set that are a whole command and read as no Korean (sdk, not app: 메ㅔ).
-            // Other three-key words wait for the fourth key (owner, 2026-11-15: you, ㅎㄷㄷ).
             let english = String(decoding: readings.english, as: UTF8.self)
-            guard Self.technicalWords.contains(english), !hangul.hasWord(startingWith: readings.korean),
-                  !Self.isHangulSyllables(HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))),
-                  !readsAsKoreanSlip(Array(String(decoding: readings.korean, as: UTF8.self)), prefix: true)
-            else { return .keep(.m1) }
+            let typed = HangulTwoSet.hangul(fromKeySpace: String(decoding: readings.korean, as: UTF8.self))
+            let command = Self.technicalWords.contains(english) && !hangul.hasWord(startingWith: readings.korean)
+                && !Self.isHangulSyllables(typed)
+                && !readsAsKoreanSlip(Array(String(decoding: readings.korean, as: UTF8.self)), prefix: true)
+            // M8c: a common English word starts with the keys, and the Korean
+            // reading opens with a jamo on its own (ㄴㅅㅁ sta, ㅛㅐㅕ you, ㅎㄷㅅ get),
+            // which no Korean word typed on purpose does, unless it is chat:
+            // consonants that open or close with a chat word
+            // (ㅇㄷㅁ, ㅎㄷㄷ) or end as they start (ㅇㅁㅇ), or a face (ㅠㅁㅅ);
+            // and unless the keys are one slip from the start of a Korean word
+            // (ㅈㅁㅅ is 점심 with ㅓ dropped, ㅗ디 되 with two keys swapped).
+            // A word that opens with a syllable (새ㅐㅐ, 늠) waits for the fourth key.
+            let word = thresholds.shortWhileTypingEnglishRank.map { limit in
+                guard typed.first.map(HangulTwoSet.isJamo) ?? false,
+                      latin.bestRank(startingWith: readings.english).map({ $0 <= limit }) ?? false else { return false }
+                if typed.unicodeScalars.allSatisfy({ (0x3131...0x314E).contains($0.value) }) {
+                    guard typed.first != typed.last, !Self.chatWords.contains(String(typed.prefix(2))),
+                          !Self.chatWords.contains(String(typed.suffix(2))) else { return false }
+                } else if Self.isChatShape(typed) {
+                    return false
+                }
+                return !readsAsKoreanSlip(Array(String(decoding: readings.korean, as: UTF8.self)), prefix: true)
+            } ?? false
+            guard command || word else { return .keep(.m1) }
         }
         if earlier != .none { return .keep(.n11) }
         let typedKeys = readings.learnedKey.keys
