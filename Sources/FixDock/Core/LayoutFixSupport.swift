@@ -33,6 +33,10 @@ struct LayoutFixThresholds: Equatable {
     /// the keys. nil: off.
     var shortWhileTypingEnglishRank: Int? = 1_000
     var learnAfterReverts = 3
+    /// The person's always-fix words (owner 2026-11-23): one longer than
+    /// this many keys changes while typing from this many keys on; a shorter
+    /// one only at the word end.
+    var ownWordKeysWhileTyping = 3
     /// Rule C5: with this many whole syllables or more, a Korean reading
     /// counts without being a list word (owner, 2026-11-13). nil: off.
     var wholeSyllables: Int? = 2
@@ -223,6 +227,66 @@ struct LearnedKey: Hashable, Codable {
     let source: TypedSource
 }
 
+/// A word the person put on the settings page (owner, 2026-11-23): the text
+/// they want, always fixed to when its keys are typed on the other layout,
+/// or never changed when typed as it is. The rules read it by its key.
+struct LayoutFixWord: Codable, Hashable {
+    enum Kind: String, Codable { case alwaysFix, neverChange }
+
+    let text: String
+    let kind: Kind
+
+    /// Each list holds at most this many.
+    static let limit = 200
+    static let maxLength = 30
+
+    /// Why a word cannot be added; nil when it can.
+    enum Problem: Equatable {
+        case empty, tooShort, tooLong
+        /// Letters of both layouts, digits, spaces or symbols, or Hangul that
+        /// 2-Set does not compose back the same.
+        case notTypable
+        case already(Kind)
+        /// Put back with ⌘Z often enough to be left as typed already.
+        case learned
+        /// The same keys are in the other list, read on the other layout.
+        case conflict
+        case full
+    }
+
+    /// The keys that type `text` and the layout it is written in: lowercase
+    /// letters for English, key space for Hangul. nil for text one layout
+    /// alone cannot type.
+    static func key(of text: String) -> LearnedKey? {
+        guard !text.isEmpty else { return nil }
+        if text.allSatisfy({ $0.isASCII && $0.isLetter }) { return LearnedKey(keys: text.lowercased(), source: .latin) }
+        guard let keys = HangulTwoSet.keySpace(ofHangul: text), HangulTwoSet.hangul(fromKeySpace: keys) == text else { return nil }
+        return LearnedKey(keys: keys, source: .hangul2)
+    }
+
+    /// What a field gave, as the list keeps it.
+    static func normalized(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
+    }
+
+    /// `text` already normalized, against the lists and the learned words.
+    static func problem(adding text: String, as kind: Kind, to words: [LayoutFixWord], learned: [LearnedKey]) -> Problem? {
+        guard !text.isEmpty else { return .empty }
+        guard text.count <= maxLength else { return .tooLong }
+        guard let key = key(of: text) else { return .notTypable }
+        guard key.keys.count >= 2 else { return .tooShort }
+        if let same = words.first(where: { Self.key(of: $0.text) == key }) { return .already(same.kind) }
+        let folded = { (key: LearnedKey) in key.source == .latin ? key.keys.lowercased() : key.keys }
+        if kind == .neverChange, learned.contains(where: { $0.source == key.source && folded($0) == key.keys }) { return .learned }
+        if words.contains(where: { word in
+            guard word.kind != kind, let other = Self.key(of: word.text) else { return false }
+            return other.source != key.source && other.keys.lowercased() == key.keys.lowercased()
+        }) { return .conflict }
+        guard words.filter({ $0.kind == kind }).count < limit else { return .full }
+        return nil
+    }
+}
+
 /// A change that ⌘Z can still take back (5.7). It is made with the claim and
 /// becomes live once the change is on screen.
 struct LayoutFixUndo: Equatable {
@@ -367,6 +431,8 @@ struct LayoutToken: Equatable {
 
 enum KeepReason: Equatable {
     case n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, m1, m2, m3, m5, m6, m7, m8
+    /// An always-fix word of the person's, typed in its own layout.
+    case ownWord
     /// The usual case: what was typed is a word and the other reading is not.
     case typedIsAWord
 }
@@ -393,6 +459,23 @@ struct LayoutFixRules {
     let hangul: Lexicon
     var thresholds = LayoutFixThresholds()
     var learned: Set<LearnedKey> = []
+    /// The person's own words (`LayoutFixWord`) by key: the never-change
+    /// ones, and the always-fix ones with their text. Never change, learned
+    /// words included, beats always fix, which beats every built-in rule.
+    var neverChange: Set<LearnedKey> = []
+    var alwaysFix: [LearnedKey: String] = [:]
+
+    mutating func use(_ words: [LayoutFixWord]) {
+        neverChange = []
+        alwaysFix = [:]
+        for word in words {
+            guard let key = LayoutFixWord.key(of: word.text) else { continue }
+            switch word.kind {
+            case .neverChange: neverChange.insert(key)
+            case .alwaysFix: alwaysFix[key] = word.text
+            }
+        }
+    }
 
     // MARK: The lists FixDock wrote itself
 
@@ -814,6 +897,64 @@ struct LayoutFixRules {
             ?? repeatedShiftOnABC(token)?.learned
     }
 
+    // MARK: The person's own words
+
+    private func isNeverChange(_ key: LearnedKey) -> Bool {
+        neverChange.contains(key.source == .latin ? LearnedKey(keys: key.keys.lowercased(), source: .latin) : key)
+    }
+
+    /// The token's keys as an own word's key, in the layout it was typed in
+    /// and in the other.
+    private func ownKeys(_ readings: Readings) -> (typed: LearnedKey, other: LearnedKey) {
+        let english = LearnedKey(keys: String(decoding: readings.english, as: UTF8.self), source: .latin)
+        let korean = LearnedKey(keys: String(decoding: readings.korean, as: UTF8.self), source: .hangul2)
+        return readings.typedIn == .latin ? (english, korean) : (korean, english)
+    }
+
+    /// At a word end: a never-change word stays; an always-fix word typed on
+    /// the other layout becomes its text, whatever the lists say (the
+    /// person asked for it), unless ⌘Z taught otherwise; one typed on its
+    /// own layout stays. nil: the built-in rules decide.
+    private func ownWordAtWordEnd(_ readings: Readings) -> LayoutFixDecision? {
+        if isNeverChange(readings.learnedKey) { return .keep(.n9) }
+        let (typed, other) = ownKeys(readings)
+        if let text = alwaysFix[other], !learned.contains(readings.learnedKey) { return .change(to: other.source, text: text) }
+        if alwaysFix[typed] != nil { return .keep(.ownWord) }
+        return nil
+    }
+
+    /// While a word is typed: keys that start a never-change word in the
+    /// layout they are typed in stay, and so do keys that start an always-fix
+    /// word on its own layout. Keys that start an always-fix word longer than
+    /// `ownWordKeysWhileTyping` on the other layout change from that many
+    /// keys on, unless they start a learned word or also a word of the layout
+    /// they are typed in (ㅁㅜㅇ of `android` is 뭉): then the word end
+    /// decides. Shorter words, and English ones written with capitals (the
+    /// keys go out again as typed), change only at the word end. nil: the
+    /// built-in rules decide.
+    private func ownWordWhileTyping(_ readings: Readings, keys: [TypedKey]) -> LayoutFixDecision? {
+        let (typed, other) = ownKeys(readings)
+        let starts = { (word: LearnedKey, keys: LearnedKey) in word.source == keys.source && word.keys.hasPrefix(keys.keys) }
+        if neverChange.contains(where: { starts($0, typed) }) { return .keep(.n9) }
+        if alwaysFix.keys.contains(where: { starts($0, typed) }) { return .keep(.ownWord) }
+        let minimum = thresholds.ownWordKeysWhileTyping
+        guard keys.count >= minimum, !(keys.last?.stroke.shift ?? false),
+              !learned.contains(where: { starts($0, readings.learnedKey) }),
+              alwaysFix.contains(where: { word, text in
+                  word.keys.count > minimum && starts(word, other) && (word.source == .hangul2 || text == word.keys)
+              })
+        else { return nil }
+        switch readings.typedIn {
+        case .latin:
+            let command = Self.technicalWords.contains { $0.hasPrefix(typed.keys) }
+            if command || latin.hasWord(startingWith: readings.english) { return nil }
+            return .change(to: .hangul2, text: HangulTwoSet.hangul(fromKeySpace: other.keys))
+        case .hangul2:
+            if hangul.hasWord(startingWith: readings.korean) || readsAsKoreanSlip(Array(typed.keys), prefix: true) { return nil }
+            return .change(to: .latin, text: readings.englishText)
+        }
+    }
+
     /// Rules N1–N12 and C1–C12, at a whitespace key after `token`.
     /// `previous`: the language the word before it in the same field ended in.
     func decideAtWordEnd(_ token: LayoutToken, anchored: Bool, earlier: EarlierClaim,
@@ -823,20 +964,23 @@ struct LayoutFixRules {
         guard let readings = found else {
             // C8 where the readings refuse the stem: capitals (API에, Github에) or a digit (v2에).
             if reason == .n5 || reason == .n2, earlier == .none, let split = splitReading(token, previous: previous),
-               !learned.contains(split.learned) {
+               !learned.contains(split.learned), !isNeverChange(split.learned) {
                 return .change(to: .hangul2, text: split.text)
             }
             // C11: the source stays Korean, as for C8: Shift held on 2-Set
             // is no switch to English (PR 올려줘).
-            if reason == .n4, earlier == .none, let capitals = capitalsOn2Set(token), !learned.contains(capitals.learned) {
+            if reason == .n4, earlier == .none, let capitals = capitalsOn2Set(token), !learned.contains(capitals.learned),
+               !isNeverChange(capitals.learned) {
                 return .change(to: .hangul2, text: capitals.text)
             }
             // C12: Shift held for a double consonant in the Latin source (QQ is ㅃㅃ).
-            if reason == .n4, earlier == .none, let repeated = repeatedShiftOnABC(token), !learned.contains(repeated.learned) {
+            if reason == .n4, earlier == .none, let repeated = repeatedShiftOnABC(token), !learned.contains(repeated.learned),
+               !isNeverChange(repeated.learned) {
                 return .change(to: .hangul2, text: repeated.text)
             }
             return .keep(reason ?? .n8)
         }
+        if earlier == .none, let own = ownWordAtWordEnd(readings) { return own }
         let korean = hangulReading(readings.korean)
         var minKeys = thresholds.minKeys
         if readings.typedIn == .latin, !korean.text.allSatisfy(HangulTwoSet.isJamo) {
@@ -927,6 +1071,7 @@ struct LayoutFixRules {
         guard anchored else { return .keep(.n1) }
         let (found, reason) = readings(of: token)
         guard let readings = found else { return .keep(reason ?? .n8) }
+        if earlier == .none, let own = ownWordWhileTyping(readings, keys: token.keys) { return own }
         let short = token.keys.count < thresholds.minKeysWhileTyping
         if short, token.keys.count != thresholds.shortKeysWhileTyping { return .keep(.m1) }
         if short, readings.typedIn == .hangul2 {
@@ -1010,6 +1155,9 @@ struct LayoutFixRules {
         let text = String(characters)
         if learned.contains(where: { $0.source == .latin && $0.keys.hasPrefix(text) }) { return nil }
         let lower = text.lowercased()
+        // The person's own words decide at their own pace.
+        if neverChange.contains(where: { $0.source == .latin && $0.keys.hasPrefix(lower) })
+            || alwaysFix.keys.contains(where: { $0.keys.hasPrefix($0.source == .latin ? lower : text) }) { return nil }
         if latin.hasWord(startingWith: Array(lower.utf8)) || Self.technicalWords.contains(where: { $0.hasPrefix(lower) }) { return nil }
         for split in stride(from: keys.count - 2, through: 2, by: -1) {
             let tail = characters[split...]

@@ -6,9 +6,10 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings page for the Korean/English layout fix: the switch, why the tool
-/// is resting when it is, the apps it is turned off for, and the words it
-/// learned to leave alone.
+/// Settings page for the Korean/English layout fix: the switch and its
+/// shortcut, why the tool is resting when it is, the apps it is turned off
+/// for, and the person's two word lists, the learned words among the
+/// never-change ones.
 struct LayoutFixSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var permissions = Permissions.shared
@@ -41,6 +42,11 @@ struct LayoutFixSettings: View {
                         .foregroundStyle(service.mode == .active ? Color.green : Color.orange)
                 }
                 KeyTapStatusView(client: .layoutFix)
+                ShortcutRecorderRow(role: .layoutFixToggle, title: s.layoutFixToggleShortcut,
+                                    enabledKey: DefaultsKey.layoutFixToggleShortcutEnabled)
+                Text(s.layoutFixToggleShortcutCaption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -93,34 +99,8 @@ struct LayoutFixSettings: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section(s.layoutFixLearnedTitle) {
-                if service.learnedWords.isEmpty {
-                    Text(s.layoutFixLearnedNone)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(service.learnedWords, id: \.self) { key in
-                    HStack(spacing: 8) {
-                        // As the field showed it when it was typed.
-                        Text(key.source == .latin ? key.keys : HangulTwoSet.hangul(fromKeySpace: key.keys))
-                        Spacer()
-                        Button {
-                            service.forget(key)
-                        } label: {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(s.layoutFixExcludedRemove)
-                    }
-                }
-                if !service.learnedWords.isEmpty {
-                    Button(s.layoutFixLearnedRemoveAll) { service.forgetAll() }
-                }
-                Text(s.layoutFixLearnedCaption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            LayoutFixWordSection(kind: .alwaysFix)
+            LayoutFixWordSection(kind: .neverChange)
         }
         .formStyle(.grouped)
         .onAppear {
@@ -141,6 +121,103 @@ struct LayoutFixSettings: View {
               let bundleID = Bundle(url: url)?.bundleIdentifier
         else { return }
         service.ignore(bundleID)
+    }
+}
+
+/// One of the person's word lists: its words, a field to add one, and why a
+/// word was refused. The never-change list shows the learned words too.
+private struct LayoutFixWordSection: View {
+    let kind: LayoutFixWord.Kind
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var service = LayoutFixService.shared
+    @State private var text = ""
+    @State private var problem: LayoutFixWord.Problem?
+    private var s: Strings { l10n.s }
+
+    var body: some View {
+        let words = service.words.filter { $0.kind == kind }
+        let learned = kind == .neverChange ? service.learnedWords : []
+        Section(kind == .alwaysFix ? s.layoutFixAlwaysTitle : s.layoutFixNeverTitle) {
+            if words.isEmpty, learned.isEmpty {
+                Text(s.layoutFixWordsNone)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(words, id: \.self) { word in
+                row(word.text, learned: false) { service.remove(word) }
+            }
+            ForEach(learned, id: \.self) { key in
+                // As the field showed it when it was typed.
+                row(key.source == .latin ? key.keys : HangulTwoSet.hangul(fromKeySpace: key.keys), learned: true) {
+                    service.forget(key)
+                }
+            }
+            if !learned.isEmpty {
+                Button(s.layoutFixLearnedRemoveAll) { service.forgetAll() }
+            }
+            HStack(spacing: 8) {
+                TextField(s.layoutFixWordPlaceholder, text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(add)
+                    .onChange(of: text) { _, _ in problem = nil }
+                Button(s.layoutFixWordAdd, action: add)
+                    .disabled(LayoutFixWord.normalized(text).isEmpty)
+            }
+            .disabled(!service.wordsEditable)
+            if !service.wordsEditable {
+                Label(s.layoutFixWordsUnavailable, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else if let problem {
+                Text(message(problem))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            Text(kind == .alwaysFix ? s.layoutFixAlwaysCaption : s.layoutFixNeverCaption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func row(_ text: String, learned: Bool, remove: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+            if learned {
+                Text(s.layoutFixWordLearned)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(action: remove) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(!service.wordsEditable)
+            .accessibilityLabel(s.layoutFixExcludedRemove)
+        }
+    }
+
+    private func add() {
+        guard !LayoutFixWord.normalized(text).isEmpty else { return }
+        problem = service.add(text, as: kind)
+        if problem == nil { text = "" }
+    }
+
+    private func message(_ problem: LayoutFixWord.Problem) -> String {
+        switch problem {
+        case .empty, .notTypable: return s.layoutFixWordNotTypable
+        case .tooShort: return s.layoutFixWordTooShort
+        case .tooLong: return String(format: s.layoutFixWordTooLongFormat, LayoutFixWord.maxLength)
+        case .already(.alwaysFix): return s.layoutFixWordAlreadyAlways
+        case .already(.neverChange): return s.layoutFixWordAlreadyNever
+        case .learned: return s.layoutFixWordLearnedAlready
+        case .conflict: return s.layoutFixWordConflict
+        case .full: return String(format: s.layoutFixWordFullFormat, LayoutFixWord.limit)
+        }
     }
 }
 

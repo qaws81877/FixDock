@@ -5,8 +5,8 @@
 import Foundation
 
 /// The words the layout fix was told to leave alone, by undoing a change to
-/// them. Only values of this type reach the file, and only
-/// `LayoutFixLearnedStore` can make one.
+/// them, and the words the person added on the settings page. Only values of
+/// this type reach the file, and only `LayoutFixLearnedStore` can make one.
 struct LayoutFixLearnedRecords: Equatable {
     struct Entry: Codable, Equatable {
         var keys: String
@@ -19,9 +19,32 @@ struct LayoutFixLearnedRecords: Equatable {
     static let limit = 500
 
     private(set) var entries: [Entry]
+    /// In the order they were added.
+    private(set) var words: [LayoutFixWord]
 
-    fileprivate init(entries: [Entry] = []) {
+    fileprivate init(entries: [Entry] = [], words: [LayoutFixWord] = []) {
         self.entries = entries
+        self.words = words
+    }
+
+    /// Adds a word the caller checked with `LayoutFixWord.problem`.
+    mutating func add(_ word: LayoutFixWord) {
+        guard !words.contains(word) else { return }
+        words.append(word)
+    }
+
+    mutating func remove(_ word: LayoutFixWord) {
+        words.removeAll { $0 == word }
+    }
+
+    /// A settings import: the backup's words in place of these. Words this
+    /// build cannot use, past a list's limit or twice, are left out.
+    mutating func replaceWords(with imported: [LayoutFixWord]) {
+        var kept: [LayoutFixWord] = []
+        for word in imported where LayoutFixWord.problem(adding: word.text, as: word.kind, to: kept, learned: []) == nil {
+            kept.append(word)
+        }
+        words = kept
     }
 
     mutating func countRevert(_ key: LearnedKey, now: Date) {
@@ -53,7 +76,10 @@ struct LayoutFixLearnedRecords: Equatable {
 
 /// `LayoutFix.json` in the app's container: words the person typed, so a
 /// file with owner-only permissions and not UserDefaults, which travels with
-/// settings exports.
+/// settings exports. A settings export carries the added words only, through
+/// `SettingsBackup` (owner, 2026-11-23); the undo counts stay on this Mac.
+/// Version 2 added the words: a build that knows only version 1 reads such
+/// a file as newer and never writes over it.
 ///
 /// The guard is `State`. `.ready` exists only after the file was absent or
 /// decoded whole as a version this build knows. A file that is unreadable,
@@ -68,7 +94,7 @@ final class LayoutFixLearnedStore {
     }
 
     static let fileName = "LayoutFix.json"
-    private static let formatVersion = 1
+    private static let formatVersion = 2
     private static let maxEncodedBytes = 1 << 20
 
     private(set) var state: State
@@ -88,7 +114,8 @@ final class LayoutFixLearnedStore {
         change(&records)
         guard records != before else { return true }
         state = .ready(records)
-        guard let data = try? JSONEncoder().encode(File(version: Self.formatVersion, entries: records.entries)) else { return true }
+        guard let data = try? JSONEncoder().encode(File(version: Self.formatVersion, entries: records.entries,
+                                                        words: records.words)) else { return true }
         PrivateFileStore.createDirectory(at: fileURL.deletingLastPathComponent())
         PrivateFileStore.write(data, to: fileURL)
         return true
@@ -112,12 +139,14 @@ final class LayoutFixLearnedStore {
         }
         guard header.version <= formatVersion else { return .unavailable("written by a newer FixDock") }
         guard let file = try? JSONDecoder().decode(File.self, from: data) else { return .unavailable("undecodable") }
-        return .ready(LayoutFixLearnedRecords(entries: file.entries))
+        return .ready(LayoutFixLearnedRecords(entries: file.entries, words: file.words ?? []))
     }
 
     private struct Header: Decodable { let version: Int }
     private struct File: Codable {
         let version: Int
         let entries: [LayoutFixLearnedRecords.Entry]
+        /// Absent in version 1.
+        let words: [LayoutFixWord]?
     }
 }

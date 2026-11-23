@@ -139,12 +139,16 @@ private enum SettingsBackupFlow {
         FeatureRuntime.shared.setAvailable(features.filter { $0.1 }.map(\.0), true, requestingPermissions: false)
         FeatureRuntime.shared.setAvailable(features.filter { !$0.1 }.map(\.0), false)
         CFPreferencesAppSynchronize(bundleID as CFString)
+        if let words = contents.layoutFixWords, !LayoutFixService.shared.replaceWords(with: words) {
+            showError(strings.backupLayoutFixWordsSkipped, detail: LayoutFixLearnedStore.fileName)
+        }
         appDelegate()?.relaunch()
     }
 
     private static func currentBackup(bundleID: String, at date: Date) throws -> Data {
         let domain = UserDefaults.standard.persistentDomain(forName: bundleID) ?? [:]
         return try SettingsBackup.exportData(settings: SettingsBackup.portableSettings(domain),
+                                             layoutFixWords: LayoutFixService.shared.savedWords(),
                                              appVersion: AppInfo.version, exportedAt: date)
     }
 

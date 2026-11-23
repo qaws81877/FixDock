@@ -17,6 +17,9 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
     case captureFullScreen = 3
     /// Command-Shift-V opens the clipboard history.
     case clipboardHistory = 4
+    /// Control-Option-Command-K turns the Korean/English layout fix on or off
+    /// (owner, 2026-11-23).
+    case layoutFixToggle = 5
 
     var id: UInt32 { rawValue }
 
@@ -26,6 +29,7 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
         case .captureOverlay: return DefaultsKey.screenshotOverlayShortcut
         case .captureFullScreen: return DefaultsKey.screenshotFullScreenShortcut
         case .clipboardHistory: return DefaultsKey.clipboardHistoryShortcut
+        case .layoutFixToggle: return DefaultsKey.layoutFixToggleShortcut
         }
     }
 
@@ -35,6 +39,7 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
         case .captureOverlay: return .captureOverlayDefault
         case .captureFullScreen: return .captureFullScreenDefault
         case .clipboardHistory: return .clipboardHistoryDefault
+        case .layoutFixToggle: return .layoutFixToggleDefault
         }
     }
 
@@ -57,6 +62,10 @@ enum HotkeyRole: UInt32, CaseIterable, Identifiable {
             return AppFeature.clipboardHistory.isAvailable
                 && defaults.bool(forKey: DefaultsKey.clipboardHistoryEnabled)
                 && defaults.bool(forKey: DefaultsKey.clipboardHistoryShortcutEnabled)
+        case .layoutFixToggle:
+            // Not tied to the tool's own switch, which it turns back on.
+            return AppFeature.layoutFix.isAvailable
+                && defaults.bool(forKey: DefaultsKey.layoutFixToggleShortcutEnabled)
         }
     }
 }
@@ -138,7 +147,7 @@ final class HotkeyManager: ObservableObject {
     private func fire(_ role: HotkeyRole) {
         switch role {
         case .panel: onActivate?()
-        case .captureOverlay, .captureFullScreen, .clipboardHistory: actions[role]?()
+        case .captureOverlay, .captureFullScreen, .clipboardHistory, .layoutFixToggle: actions[role]?()
         }
     }
 

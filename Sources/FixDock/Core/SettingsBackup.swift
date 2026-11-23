@@ -10,6 +10,9 @@ import Foundation
 ///
 /// The file is an XML property list because the domain holds Data
 /// (`textSnippets`), dates and reals, which JSON cannot carry as they are.
+/// Beside the settings it carries the layout fix's added words, which live
+/// in `LayoutFix.json`, not in the domain (owner, 2026-11-23: added words
+/// only, not the undo counts).
 enum SettingsBackup {
     static let format = "fixdock-settings"
     static let formatVersion = 1
@@ -52,13 +55,15 @@ enum SettingsBackup {
         domain.filter { isPortable($0.key) }
     }
 
-    static func exportData(settings: [String: Any], appVersion: String, exportedAt: Date) throws -> Data {
+    static func exportData(settings: [String: Any], layoutFixWords: [LayoutFixWord], appVersion: String,
+                           exportedAt: Date) throws -> Data {
         let document: [String: Any] = [
             "format": format,
             "formatVersion": formatVersion,
             "appVersion": appVersion,
             "exportedAt": exportedAt,
             "settings": settings,
+            layoutFixWordsKey: layoutFixWords.map { ["text": $0.text, "kind": $0.kind.rawValue] },
         ]
         return try PropertyListSerialization.data(fromPropertyList: document, format: .xml, options: 0)
     }
@@ -88,7 +93,11 @@ enum SettingsBackup {
         let plain: [String: Any]
         /// `AppFeature` raw value to installed.
         let availability: [String: Bool]
+        /// nil for a file from before the word lists: the words stay as they are.
+        let layoutFixWords: [LayoutFixWord]?
     }
+
+    private static let layoutFixWordsKey = "layoutFixWords"
 
     enum ParseError: Error, Equatable {
         case notPropertyList
@@ -117,6 +126,13 @@ enum SettingsBackup {
                 plain[key] = value
             }
         }
-        return .success(Contents(plain: plain, availability: availability))
+        let words = (document[layoutFixWordsKey] as? [[String: Any]]).map { entries in
+            entries.compactMap { entry -> LayoutFixWord? in
+                guard let text = entry["text"] as? String,
+                      let kind = (entry["kind"] as? String).flatMap(LayoutFixWord.Kind.init(rawValue:)) else { return nil }
+                return LayoutFixWord(text: text, kind: kind)
+            }
+        }
+        return .success(Contents(plain: plain, availability: availability, layoutFixWords: words))
     }
 }
