@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - Korean/English auto-fix is marked Beta, an experimental feature: a badge in the feature hub, "(Beta)" in its Settings page title, and one line on that page. The README says so too.
 - Korean/English auto-fix: an undo with ⌘Z is now counted in memory, and only a word undone three times, and so learned, is written to `LayoutFix.json`. Before, every undone word was written from the first undo, and entries undone once or twice never showed on the Settings page. On its first launch this version removes those entries; a file it cannot read whole is left untouched. PRIVACY.md, the README and the page's caption now say what is stored: the words you add and the learned words, on this Mac only.
@@ -19,6 +19,7 @@
 - Korean/English auto-fix: short Korean typed on the English layout by mistake is fixed too. Consonant shorthand such as `de` becomes ㅇㄷ (de is in the English list but loses to chat), one double-consonant key repeated with Shift becomes that jamo (`QQ` ㅃㅃ, `TT` ㅆㅆ, `PP` ㅖㅖ), and Shift on a double consonant with a vowel becomes the syllable (`Tk` 싸, `Qk` 빠) unless an English word or command spells it (To stays). The layout moves to Korean. Commands such as rm, cd, db and gh stay; `de facto` typed on the English layout now starts with ㅇㄷ.
 - Korean/English auto-fix, with "fix while typing" on: an English word typed on the Korean layout can now change at its third key instead of its fourth (ㄴㅅㅁ becomes `sta` on the way to stay, ㅛㅐㅕ `you`, ㅎㄷㅅ `get`), when a common English word starts with those keys and their Korean reading opens with a jamo on its own, which Korean typed on purpose does not. Chat shorthand and faces (ㅎㄷㄷ, ㅇㅁㅇ, ㅠㅁㅇ), readings that open with a syllable (쇓 for `the`, 새ㅐㅐ) and keys one slip away from a Korean word (ㅈㅁㅅ for 점심, ㅗ디 for 되) still wait for the fourth key or the Space.
 - Text snippets now run on a typing tap shared with the auto-fix. Keys typed while an expansion or a multi-line paste is under way are held and arrive after it, in order; before, they could land in front of a paste.
+- Korean/English auto-fix: two word lists of your own on its Settings page, "always fix" and "never change", up to 200 words. A word typed on the other layout that is in "always fix" becomes its text at the word end (from its third key with "fix while typing" on, for words of four keys or more); a word in "never change" is left as typed. A fix undone with ⌘Z is learned into "never change", marked as learned and removable. The lists are stored in `LayoutFix.json` (version 2; version 1 is upgraded) and a settings export carries the added words. A shortcut, Control-Option-Command-K by default and recordable, turns the auto-fix on and off while the tool is installed and shows a short notice. (#109)
 
 ## 1.1.1
 
