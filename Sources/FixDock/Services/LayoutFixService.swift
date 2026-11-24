@@ -87,7 +87,6 @@ final class LayoutFixService: ObservableObject {
         let token = distributed.addObserver(
             forName: InputSwitchCapsLock.sourceChangedNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            TypingTap.shared.inputSourceChanged()
             self?.syncWithPreferences()
         }
         observers.append((distributed, token))

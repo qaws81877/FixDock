@@ -38,6 +38,7 @@ final class TypingTap {
     private var shouldStopTapThread = false
     private var pendingTapRestart = false
     private var activationObserver: NSObjectProtocol?
+    private var sourceObserver: NSObjectProtocol?
     /// Guards `gate`, `kept` and `kickWaiters`, and every key event this
     /// file posts is posted while it is held, so the order of posts is the
     /// order of lock acquisitions. Nothing slow happens under it.
@@ -174,6 +175,10 @@ final class TypingTap {
             NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
             self.activationObserver = nil
         }
+        if let sourceObserver {
+            DistributedNotificationCenter.default().removeObserver(sourceObserver)
+            self.sourceObserver = nil
+        }
         releaseHold()
     }
 
@@ -286,12 +291,17 @@ final class TypingTap {
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self?.appChanged(to: app?.bundleIdentifier)
         }
+        sourceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: InputSwitchCapsLock.sourceChangedNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.inputSourceChanged() }
+        inputSourceChanged()
     }
 
-    /// Main thread: macOS says the input source changed. The keys that
-    /// usually do it are caught as they arrive; this covers every other way
-    /// (the menu, a shortcut the tap passes, another tool).
-    func inputSourceChanged() {
+    /// Main thread: macOS says the input source changed, or the tap just
+    /// started. The keys that usually do it are caught as they arrive; this
+    /// covers every other way (the menu, a shortcut the tap passes, another
+    /// tool) and tells the gate which source letter keys type in.
+    private func inputSourceChanged() {
         let live = LayoutFixPolicy.source(ofID: InputSwitchCapsLock.currentSourceID())
         stateLock.withLock { gate.sourceDidChange(to: live) }
     }
@@ -567,9 +577,71 @@ final class TypingTap {
         }
 
         // Typed injection instead of pasting: the clipboard stays untouched.
-        var events = Self.deletes(insert.deleteCount, typed: insert.typedTrigger) + Self.typed(text)
+        let erase = Self.deletes(insert.deleteCount, typed: insert.typedTrigger)
+        var events = Self.typed(text)
         if let trailing = insert.trailing { events.append(.key(trailing)) }
-        submit(id, events, last: true)
+        guard !erase.isEmpty else {
+            submit(id, events, last: true)
+            return
+        }
+        // A trigger erased by its composed count (typed in Korean): in
+        // Spotlight's panel the backspace that should take the composing ㅋ
+        // of "ㅋ1" only ends the composition once ㅋ has shown for a moment
+        // (owner, 2026-11-24, 50-600 ms between the keys). Its caret is read
+        // before and watched after; a caret that never moved gets one more
+        // backspace. Unreadable means nothing more.
+        let panel = insert.typedTrigger.isEmpty ? Self.spotlightPanel() : nil
+        let caret = panel.flatMap { SelectedTextReader.caretLocation(processID: $0, timeout: 0.15) }
+        submit(id, erase, last: false) { [weak self] posted in
+            guard let self, posted else { return }
+            // The text follows 40 ms later, or Safari's and Spotlight's
+            // fields lose or keep part of it (list A; owner, 2026-11-24);
+            // keys typed meanwhile stay held.
+            let finish = {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.submit(id, events, last: true) }
+            }
+            guard let panel, let caret else { return finish() }
+            Self.watchCaret(in: panel, from: caret) { stuck in
+                guard stuck else { return finish() }
+                // Alone too: right behind it the text kept the ㅋ again.
+                self.submit(id, [.key(KeyStroke(keyCode: UInt16(kVK_Delete), rawFlags: 0))], last: false) { posted in
+                    if posted { finish() }
+                }
+            }
+        }
+    }
+
+    /// Spotlight's search panel while it is on screen: it takes the keys and
+    /// leaves the app in front as it was (macOS 27: the Siri AI app).
+    private static let launcherBundleIDs: Set<String> = ["com.apple.campo", "com.apple.Spotlight"]
+
+    private static func spotlightPanel() -> pid_t? {
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        for window in windows where (window[kCGWindowLayer as String] as? Int ?? 0) > 0 {
+            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
+                  launcherBundleIDs.contains(bundleID) else { continue }
+            return pid
+        }
+        return nil
+    }
+
+    /// Main thread. `then(true)` when the caret was last read still at
+    /// `caret` some 500 ms after the backspaces (Spotlight moved it 100-180
+    /// ms after a real erase), `then(false)` as soon as it is read anywhere
+    /// else, or when it was never read. A read that fails waits for the next.
+    /// An erase always takes a whole character, so a caret that stays means
+    /// the backspace only ended the composition.
+    private static func watchCaret(in panel: pid_t, from caret: Int, tries: Int = 20, seen: Bool = false,
+                                   _ then: @escaping (Bool) -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
+            let now = SelectedTextReader.caretLocation(processID: panel, timeout: 0.05)
+            if let now, now != caret { return then(false) }
+            let seen = seen || now != nil
+            guard tries > 1 else { return then(seen) }
+            watchCaret(in: panel, from: caret, tries: tries - 1, seen: seen, then)
+        }
     }
 
     /// Main thread. A plan of plain steps (the layout fix). It needs the
