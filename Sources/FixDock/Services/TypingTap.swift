@@ -632,9 +632,10 @@ final class TypingTap {
     }
 
     /// The characters a plain plan's backspaces erase, from the text its
-    /// first step had the field show: each step that counts a composed word
-    /// (no completion check), counted back from the end. Nil when a step is
-    /// one per key, or no count fits: the backspaces go out then.
+    /// first step had the field show, counted back from the end: one per
+    /// key where the step checks the keys as typed, else as many as the
+    /// composed count takes. Nil when no count fits: the backspaces go out
+    /// then.
     private static func selectBackLength(_ steps: [PlanStep]) -> Int? {
         var shown: String
         switch steps.first {
@@ -643,7 +644,10 @@ final class TypingTap {
         }
         var total = 0
         for case .backspaces(let count, let completionCheck) in steps {
-            guard completionCheck == nil, let erased = HangulTwoSet.charactersErased(by: count, from: shown) else { return nil }
+            let erased = completionCheck == nil
+                ? HangulTwoSet.charactersErased(by: count, from: shown)
+                : (count <= shown.count ? count : nil)
+            guard let erased else { return nil }
             total += erased
             shown = String(shown.dropLast(erased))
         }
@@ -705,8 +709,10 @@ final class TypingTap {
             }
         }
         // In Spotlight's panel a backspace only ends a composing jamo at a
-        // word's start ("ㅗhello", owner 2026-11-25): there the characters the
-        // backspaces would take are selected back instead and typed over.
+        // word's start ("ㅗhello", owner 2026-11-25), and at a person's pace
+        // one of a Latin word's went missing ("hello d안녕"): there the
+        // characters the backspaces would take are selected back instead and
+        // typed over.
         let selection = Self.spotlightPanel == nil ? nil : Self.selectBackLength(steps)
         var events: [OutputEvent] = selection.map {
             Array(repeating: .key(KeyStroke(keyCode: UInt16(kVK_LeftArrow), rawFlags: CGEventFlags.maskShift.rawValue)), count: $0)
