@@ -578,7 +578,7 @@ final class TypingTap {
 
         // Typed injection instead of pasting: the clipboard stays untouched.
         let erase: [OutputEvent]
-        if insert.typedTrigger.isEmpty, Self.spotlightIsUp {
+        if insert.typedTrigger.isEmpty, Self.spotlightPanel != nil {
             // A trigger typed in Korean, in Spotlight's panel: a backspace
             // there only ends a composing jamo once it has shown, so "ㅋ1"
             // kept its ㅋ at a person's pace (owner, 2026-11-24). Selecting
@@ -610,16 +610,25 @@ final class TypingTap {
     /// leaves the app in front as it was (macOS 27: the Siri AI app).
     private static let launcherBundleIDs: Set<String> = ["com.apple.campo", "com.apple.Spotlight"]
 
-    private static var spotlightIsUp: Bool {
+    /// The process of Spotlight's panel, while it is on screen.
+    private static var spotlightPanel: pid_t? {
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
             as? [[String: Any]] ?? []
-        return windows.contains { window in
-            guard (window[kCGWindowLayer as String] as? Int ?? 0) > 0,
-                  let pid = window[kCGWindowOwnerPID as String] as? pid_t,
-                  let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
-            else { return false }
-            return launcherBundleIDs.contains(bundleID)
+        for window in windows where (window[kCGWindowLayer as String] as? Int ?? 0) > 0 {
+            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
+                  launcherBundleIDs.contains(bundleID) else { continue }
+            return pid
         }
+        return nil
+    }
+
+    /// The process whose field the keys go to: Spotlight's panel while it is
+    /// up, else the app in front. Its field is the one the plans read and
+    /// erase in (owner, 2026-11-25: the layout fix read the app behind
+    /// Spotlight and left every word there as typed).
+    private static var keyTaker: pid_t? {
+        spotlightPanel ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
     }
 
     /// Main thread. A plan of plain steps (the layout fix). It needs the
@@ -649,7 +658,7 @@ final class TypingTap {
         // keeps its text (owner's Discord, 2026-11-13: correct Korean was
         // erased because the keys had been read as Latin letters).
         if case .expect(let shown)? = steps.first {
-            let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            let front = Self.keyTaker
             let read = front.flatMap {
                 SelectedTextReader.textBeforeCaret(processID: $0, length: shown.utf16.count, timeout: 0.15)
             }
@@ -662,7 +671,7 @@ final class TypingTap {
         // A word typed since an edit: the field also says where it starts
         // (7.10). Anything else in front of it keeps the text as it is.
         if case .expectWordStart(let word)? = steps.first {
-            let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            let front = Self.keyTaker
             let read = front.flatMap {
                 SelectedTextReader.wordBeforeCaret(processID: $0, length: word.utf16.count, timeout: 0.15)
             }
@@ -735,7 +744,7 @@ final class TypingTap {
     /// meanwhile held behind them. If another app is in front by then,
     /// nothing more goes out (D16).
     private func runMidWord(_ id: PlanID, _ erase: [OutputEvent], _ step: MidWordStep) {
-        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let front = Self.keyTaker
         submit(id, erase, last: false) { [weak self] posted in
             guard let self, posted, self.stateLock.withLock({ self.gate.handingOff(id) }) else { return }
             let landed = { [weak self] (outcome: InputSwitchHandOff.Outcome) in
@@ -756,7 +765,7 @@ final class TypingTap {
     /// Main thread. The last batch of a mid-word plan, by where the source
     /// landed; nothing if another app is in front now (D16).
     private func endMidWord(_ id: PlanID, _ step: MidWordStep, outcome: InputSwitchHandOff.Outcome, front: pid_t?) {
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == front else {
+        guard Self.keyTaker == front else {
             submit(id, [], last: true, unjudged: true, midWord: .dropped)
             return
         }
@@ -853,9 +862,9 @@ final class TypingTap {
         guard deleteCount > 0 else { return [] }
         // Without the text as typed there is nothing to check a selection
         // against, so the field is not asked.
-        let app = ownWindowIsKey || typed.isEmpty ? nil : NSWorkspace.shared.frontmostApplication
+        let app = ownWindowIsKey || typed.isEmpty ? nil : keyTaker
         let selection = app.flatMap {
-            SelectedTextReader.focusedTextSelection(processID: $0.processIdentifier, timeout: 0.15)
+            SelectedTextReader.focusedTextSelection(processID: $0, timeout: 0.15)
         }
         let count = TextSnippetSupport.triggerDeleteCount(
             deleteCount, typed: typed,
