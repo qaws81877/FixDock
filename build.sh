@@ -207,7 +207,21 @@ if (( INSTALL )); then
             sleep 0.1
         done
     fi
-    rm -rf "/Applications/$APP_NAME.app"
+    # The copy being replaced is moved aside, never deleted, and taken out of
+    # LaunchServices: a launch by bundle id (login item, Spotlight) could
+    # otherwise land on it (2026-11-16).
+    ASIDE=""
+    if [[ -e "/Applications/$APP_NAME.app" ]]; then
+        OLD_REV="$(/usr/libexec/PlistBuddy -c 'Print :FixDockSourceRevision' \
+            "/Applications/$APP_NAME.app/Contents/Info.plist" 2>/dev/null || echo unknown)"
+        ASIDE_DIR="$HOME/Library/Application Support/$APP_BUNDLE_ID/PreviousApps"
+        ASIDE="$ASIDE_DIR/$APP_NAME-$OLD_REV-$(date +%Y%m%d-%H%M%S).app"
+        mkdir -p "$ASIDE_DIR"
+        mv "/Applications/$APP_NAME.app" "$ASIDE"
+        /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+            -u "$ASIDE" 2>/dev/null || true
+        echo "▸ Previous copy moved to $ASIDE"
+    fi
     ditto --noextattr --noqtn "$STAGE" "/Applications/$APP_NAME.app"
     xattr -cr "/Applications/$APP_NAME.app" 2>/dev/null || true
     if [[ -n "${FIXDOCK_CODESIGN_IDENTITY:-}" ]]; then
@@ -220,4 +234,15 @@ if (( INSTALL )); then
     fi
     /usr/bin/codesign --verify --deep --strict "/Applications/$APP_NAME.app"
     echo "✓ Installed: /Applications/$APP_NAME.app"
+    # Every swap gets its line in the main checkout's local docs/PROGRESS.md,
+    # also when installed from a worktree (two went unrecorded, 2026-11-15).
+    PROGRESS="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    PROGRESS="${PROGRESS%/.git}/docs/PROGRESS.md"
+    if [[ -f "$PROGRESS" ]]; then
+        NEW_REV="$(/usr/libexec/PlistBuddy -c 'Print :FixDockSourceRevision' \
+            "/Applications/$APP_NAME.app/Contents/Info.plist" 2>/dev/null || echo unknown)"
+        printf '\n- %s /Applications/%s.app replaced by build.sh --install from %s: revision %s; previous copy %s.\n' \
+            "$(date '+%Y-%m-%d %H:%M')" "$APP_NAME" "$PWD" "$NEW_REV" "${ASIDE:-none}" >> "$PROGRESS"
+        echo "▸ Recorded in $PROGRESS"
+    fi
 fi

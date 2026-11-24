@@ -24,12 +24,12 @@ Gates, in order, before calling a change done:
   A `./build.sh --install` copy is self-built and never updates itself;
   after a release, install the notarized zip there instead (move the old
   app aside, do not delete it).
-  Every replacement of `/Applications/FixDock.app`, self-built or not,
-  moves the old copy to `~/Library/Application Support/<bundle id>/PreviousApps/`
-  and adds a `docs/PROGRESS.md` line with that path and the new
-  `FixDockSourceRevision`. Before saying what the owner runs, read that key
-  from the installed `Info.plist`; two installs on 2026-11-15 went
-  unrecorded and PROGRESS named an older build.
+  `./build.sh --install` moves the old copy to
+  `~/Library/Application Support/<bundle id>/PreviousApps/`, runs
+  `lsregister -u` on it and adds the `docs/PROGRESS.md` line itself. Replace
+  `/Applications/FixDock.app` only through it; the notarized zip is the one
+  exception and needs those three steps by hand. Before saying what the
+  owner runs, read `FixDockSourceRevision` from the installed `Info.plist`.
   After merging, `git fetch`: if other PRs reached `main` since your build,
   reinstall from the merged `main` so the owner's app is not missing them.
 - If another session is working in the main tree, ask the owner before
@@ -96,9 +96,10 @@ Proof:
   For a timing bug, a harness that reproduces the symptom does not prove
   the cause: confirm it with a diagnostic build on the installed app before
   fixing (a reproduced, gate-green fix in P5 was the wrong cause). Live
-  checks after a mid-word change type at two speeds, a one-call burst and
-  a fresh `CGEventSource` per key at about 73 ms; 50 ms and 115 ms a key
-  passed with the bug present.
+  key checks go through `hid.sh check <pid> <expected> <keys>` (verify-fixdock),
+  which types the keys as a burst, at 73 ms and at 300 ms a key, each from a
+  cleared field, and fails if any pace differs: P5 hid at 50 and 115 ms a
+  key, Spotlight `ㅋ1` (2026-11-24) hid as a burst.
 - Self-update has three harnesses, all on scratch data: the pure policy
   (`Core/UpdatePolicy.swift` alone); the verifier and transport on the real
   release zip, tampered zips and a local feed (`Tools/make-local-feed.sh`,
