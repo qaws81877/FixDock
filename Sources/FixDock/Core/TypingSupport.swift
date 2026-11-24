@@ -239,6 +239,9 @@ struct SnippetInsert: Equatable {
     let trailingText: String
     /// The swallowed key, sent on if the paste path fails.
     let failure: KeyStroke?
+    /// The characters the trigger shows in the field, the swallowed key left
+    /// out: what a selection back over it covers.
+    let shownLength: Int
 }
 
 enum PlanStep: Equatable {

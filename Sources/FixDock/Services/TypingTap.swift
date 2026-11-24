@@ -577,36 +577,31 @@ final class TypingTap {
         }
 
         // Typed injection instead of pasting: the clipboard stays untouched.
-        let erase = Self.deletes(insert.deleteCount, typed: insert.typedTrigger)
+        let erase: [OutputEvent]
+        if insert.typedTrigger.isEmpty, Self.spotlightIsUp {
+            // A trigger typed in Korean, in Spotlight's panel: a backspace
+            // there only ends a composing jamo once it has shown, so "ㅋ1"
+            // kept its ㅋ at a person's pace (owner, 2026-11-24). Selecting
+            // back over what the trigger shows and typing over it takes the
+            // whole trigger at any pace (2026-11-25).
+            let selectBack = KeyStroke(keyCode: UInt16(kVK_LeftArrow), rawFlags: CGEventFlags.maskShift.rawValue)
+            erase = Array(repeating: .key(selectBack), count: insert.shownLength)
+        } else {
+            erase = Self.deletes(insert.deleteCount, typed: insert.typedTrigger)
+        }
         var events = Self.typed(text)
         if let trailing = insert.trailing { events.append(.key(trailing)) }
         guard !erase.isEmpty else {
             submit(id, events, last: true)
             return
         }
-        // A trigger erased by its composed count (typed in Korean): in
-        // Spotlight's panel the backspace that should take the composing ㅋ
-        // of "ㅋ1" only ends the composition once ㅋ has shown for a moment
-        // (owner, 2026-11-24, 50-600 ms between the keys). Its caret is read
-        // before and watched after; a caret that never moved gets one more
-        // backspace. Unreadable means nothing more.
-        let panel = insert.typedTrigger.isEmpty ? Self.spotlightPanel() : nil
-        let caret = panel.flatMap { SelectedTextReader.caretLocation(processID: $0, timeout: 0.15) }
+        // The text follows 40 ms later, or Safari's and Spotlight's fields
+        // lose or keep part of it (list A; owner, 2026-11-24); keys typed
+        // meanwhile stay held.
         submit(id, erase, last: false) { [weak self] posted in
-            guard let self, posted else { return }
-            // The text follows 40 ms later, or Safari's and Spotlight's
-            // fields lose or keep part of it (list A; owner, 2026-11-24);
-            // keys typed meanwhile stay held.
-            let finish = {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { self.submit(id, events, last: true) }
-            }
-            guard let panel, let caret else { return finish() }
-            Self.watchCaret(in: panel, from: caret) { stuck in
-                guard stuck else { return finish() }
-                // Alone too: right behind it the text kept the ㅋ again.
-                self.submit(id, [.key(KeyStroke(keyCode: UInt16(kVK_Delete), rawFlags: 0))], last: false) { posted in
-                    if posted { finish() }
-                }
+            guard posted else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                self?.submit(id, events, last: true)
             }
         }
     }
@@ -615,32 +610,15 @@ final class TypingTap {
     /// leaves the app in front as it was (macOS 27: the Siri AI app).
     private static let launcherBundleIDs: Set<String> = ["com.apple.campo", "com.apple.Spotlight"]
 
-    private static func spotlightPanel() -> pid_t? {
+    private static var spotlightIsUp: Bool {
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
             as? [[String: Any]] ?? []
-        for window in windows where (window[kCGWindowLayer as String] as? Int ?? 0) > 0 {
-            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t,
-                  let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
-                  launcherBundleIDs.contains(bundleID) else { continue }
-            return pid
-        }
-        return nil
-    }
-
-    /// Main thread. `then(true)` when the caret was last read still at
-    /// `caret` some 500 ms after the backspaces (Spotlight moved it 100-180
-    /// ms after a real erase), `then(false)` as soon as it is read anywhere
-    /// else, or when it was never read. A read that fails waits for the next.
-    /// An erase always takes a whole character, so a caret that stays means
-    /// the backspace only ended the composition.
-    private static func watchCaret(in panel: pid_t, from caret: Int, tries: Int = 20, seen: Bool = false,
-                                   _ then: @escaping (Bool) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
-            let now = SelectedTextReader.caretLocation(processID: panel, timeout: 0.05)
-            if let now, now != caret { return then(false) }
-            let seen = seen || now != nil
-            guard tries > 1 else { return then(seen) }
-            watchCaret(in: panel, from: caret, tries: tries - 1, seen: seen, then)
+        return windows.contains { window in
+            guard (window[kCGWindowLayer as String] as? Int ?? 0) > 0,
+                  let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+            else { return false }
+            return launcherBundleIDs.contains(bundleID)
         }
     }
 
