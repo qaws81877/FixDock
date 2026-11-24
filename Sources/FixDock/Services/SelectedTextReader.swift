@@ -121,6 +121,25 @@ enum SelectedTextReader {
         return (text, front == 0)
     }
 
+    /// Where the caret (the selection's start) is in the focused text of the
+    /// app `processID`, in UTF-16 units. Nil when it does not say within
+    /// `timeout`. Asks the selection only, never a role.
+    static func caretLocation(processID: pid_t, timeout: TimeInterval) -> Int? {
+        guard AXIsProcessTrusted(), processID != ProcessInfo.processInfo.processIdentifier else { return nil }
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
+        let app = AXUIElementCreateApplication(processID)
+        var range = CFRange()
+        guard limit(app, to: deadline),
+              let focused = copyElement(app, kAXFocusedUIElementAttribute),
+              !CFEqual(focused, app),
+              limit(focused, to: deadline),
+              let rawRange = copyValue(focused, kAXSelectedTextRangeAttribute),
+              CFGetTypeID(rawRange) == AXValueGetTypeID(),
+              AXValueGetValue(rawRange as! AXValue, .cfRange, &range)
+        else { return nil }
+        return range.location
+    }
+
     /// Gives `element` what is left until `deadline` to answer, set on each
     /// element asked since a timeout bounds only the element it is set on.
     /// False once nothing is left: a zero timeout means the system default,

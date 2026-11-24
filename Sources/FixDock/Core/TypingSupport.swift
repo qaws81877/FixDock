@@ -21,6 +21,7 @@ struct KeyStroke: Hashable {
     private static let controlFlag: UInt64 = 1 << 18
     private static let optionFlag: UInt64 = 1 << 19
     private static let commandFlag: UInt64 = 1 << 20
+    private static let capsLockFlag: UInt64 = 1 << 16
     private static let deleteKey: UInt16 = 0x33
     private static let zKey: UInt16 = 0x06
     private static let aKey: UInt16 = 0x00
@@ -30,6 +31,7 @@ struct KeyStroke: Hashable {
     var shift: Bool { rawFlags & Self.shiftFlag != 0 }
     var option: Bool { rawFlags & Self.optionFlag != 0 }
     var commandOrControl: Bool { rawFlags & (Self.commandFlag | Self.controlFlag) != 0 }
+    var capsLock: Bool { rawFlags & Self.capsLockFlag != 0 }
     var isDelete: Bool { keyCode == Self.deleteKey }
     var movesCaret: Bool { Self.caretKeys.contains(keyCode) }
     /// ⌘Z with no other modifier.
@@ -455,23 +457,34 @@ struct TypingState {
     /// macOS may still stamp keys with the old layout's characters.
     private var stampedLate: TypedSource?
 
-    /// A physical key as `stampedLate` types it (a key macOS already stamps
-    /// in that source reads the same).
+    /// The source macOS's last notice named; nil while it is neither of the
+    /// two, or from the person's own switch until its notice. After a Command
+    /// chord some fields (Spotlight, owner 2026-11-24) get letter keys stamped
+    /// with Latin characters while 2-Set types jamo from the same key.
+    private var liveSource: TypedSource?
+
+    /// A physical key as the input method types it: in `stampedLate`, else in
+    /// `liveSource` (a key macOS already stamps in that source reads the
+    /// same). With Caps Lock on, 2-Set types Latin capitals: the stamp stays.
     func readingStamped(_ raw: RawKey) -> RawKey {
-        guard let landed = stampedLate else { return raw }
-        return raw.reading(in: landed)
+        if let landed = stampedLate { return raw.reading(in: landed) }
+        guard let live = liveSource, !raw.stroke.capsLock else { return raw }
+        return raw.reading(in: live)
     }
 
-    /// The person switched the source: nothing a plan handed off is owed or stamped late.
+    /// The person switched the source: nothing a plan handed off is owed or
+    /// stamped late, and the source is not known until its notice.
     mutating func sourceSwitchedByPerson() {
         handedOff = nil
         stampedLate = nil
+        liveSource = nil
     }
 
     /// macOS's notice that the input source changed; `source` is the one it
     /// has now (nil: neither of the two). A notice a mid-word plan's hand-off
     /// still owes is that plan's own; any other is a change.
     mutating func sourceChanged(noticed source: TypedSource?) {
+        liveSource = source
         if source != stampedLate { stampedLate = nil }
         if let owed = handedOff {
             handedOff = nil
