@@ -232,6 +232,12 @@ enum HangulTwoSet {
         return composed(text.map { jamoForLetter[$0] ?? $0 })
     }
 
+    /// How many characters `typed` (one key's character each) shows once
+    /// 2-Set has joined its jamo.
+    static func composedLength(_ typed: Substring) -> Int {
+        composed(Array(typed)).count
+    }
+
     /// Jamo joined into syllables by the 2-Set rules `Composer` counts with.
     private static func composed(_ characters: [Character]) -> String {
         var result = ""
@@ -689,7 +695,8 @@ struct SnippetConsumer {
                 template: match.snippet.replacement,
                 trailing: key.stroke,
                 trailingText: key.typed,
-                failure: KeyStroke(keyCode: key.stroke.keyCode, rawFlags: 0)))]))
+                failure: KeyStroke(keyCode: key.stroke.keyCode, rawFlags: 0),
+                shownLength: HangulTwoSet.composedLength(chunk.typedText.suffix(match.snippet.trigger.count))))]))
         case .text(let key):
             let result = TextSnippetSupport.keyedMatch(buffer: chunk.keyedText,
                                                        screen: chunk.typedText,
@@ -705,7 +712,9 @@ struct SnippetConsumer {
                 template: match.snippet.replacement,
                 trailing: nil,
                 trailingText: "",
-                failure: key.stroke))]))
+                failure: key.stroke,
+                shownLength: HangulTwoSet.composedLength(
+                    chunk.typedText.suffix(match.snippet.trigger.count).dropLast(key.typed.count))))]))
         case .delete, .deleteMore, .caretMove, .chord, .nonText, .pointer, .reset:
             return .pass
         }
