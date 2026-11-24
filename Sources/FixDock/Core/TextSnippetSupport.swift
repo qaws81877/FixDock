@@ -92,6 +92,16 @@ enum HangulTwoSet {
         return composer.committed + composer.composing
     }
 
+    /// How many characters at the end of `shown` (text as the field shows
+    /// it, composed) `count` backspaces erase, counted as `backspaces`
+    /// counts from a committed boundary; nil when no end of it takes exactly
+    /// that many. Where backspaces cannot be trusted (Spotlight's panel),
+    /// those characters are selected instead.
+    static func charactersErased(by count: Int, from shown: String) -> Int? {
+        guard count > 0, !shown.isEmpty else { return nil }
+        return (1...shown.count).first { backspaces(erasing: typedJamo(String(shown.suffix($0)))) == count }
+    }
+
     /// Whether `next`, typed after `context`, joins the syllable the input
     /// method is still composing from `context` (or takes its last
     /// consonant), rather than starting a new character.

@@ -631,6 +631,25 @@ final class TypingTap {
         spotlightPanel ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
     }
 
+    /// The characters a plain plan's backspaces erase, from the text its
+    /// first step had the field show: each step that counts a composed word
+    /// (no completion check), counted back from the end. Nil when a step is
+    /// one per key, or no count fits: the backspaces go out then.
+    private static func selectBackLength(_ steps: [PlanStep]) -> Int? {
+        var shown: String
+        switch steps.first {
+        case .expect(let text)?, .expectWordStart(let text)?: shown = text
+        default: return nil
+        }
+        var total = 0
+        for case .backspaces(let count, let completionCheck) in steps {
+            guard completionCheck == nil, let erased = HangulTwoSet.charactersErased(by: count, from: shown) else { return nil }
+            total += erased
+            shown = String(shown.dropLast(erased))
+        }
+        return total > 0 ? total : nil
+    }
+
     /// Main thread. A plan of plain steps (the layout fix). It needs the
     /// field in front to be another app's: with a FixDock window key, the
     /// backspaces would not land where the word is.
@@ -685,11 +704,17 @@ final class TypingTap {
                 return
             }
         }
-        var events: [OutputEvent] = []
+        // In Spotlight's panel a backspace only ends a composing jamo at a
+        // word's start ("ㅗhello", owner 2026-11-25): there the characters the
+        // backspaces would take are selected back instead and typed over.
+        let selection = Self.spotlightPanel == nil ? nil : Self.selectBackLength(steps)
+        var events: [OutputEvent] = selection.map {
+            Array(repeating: .key(KeyStroke(keyCode: UInt16(kVK_LeftArrow), rawFlags: CGEventFlags.maskShift.rawValue)), count: $0)
+        } ?? []
         for step in steps {
             switch step {
             case .backspaces(let count, let completionCheck):
-                events += Self.deletes(count, typed: completionCheck ?? "")
+                if selection == nil { events += Self.deletes(count, typed: completionCheck ?? "") }
             case .text(let text):
                 events += Self.typed(text)
             case .key(let stroke):
